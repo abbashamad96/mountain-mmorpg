@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -19,14 +20,18 @@ interface GatheringModalProps {
   visible: boolean;
   material: Material | null;
   totalAttempts: number;
+  xpToNext: number;
   onComplete: (gathered: Material[]) => void;
+  onAttemptXp: (xp: number) => void;
 }
 
 export function GatheringModal({
   visible,
   material,
   totalAttempts,
+  xpToNext,
   onComplete,
+  onAttemptXp,
 }: GatheringModalProps) {
   const [gatheredCount, setGatheredCount] = useState(0);
   const [cooldown, setCooldown] = useState(false);
@@ -58,6 +63,10 @@ export function GatheringModal({
       Animated.timing(shakeAnim, { toValue: 6, duration: 40, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: true }),
     ]).start();
+
+    // Grant 2%–3.5% of current xpToNext per attempt
+    const xpGained = Math.max(1, Math.floor(xpToNext * (0.02 + Math.random() * 0.015)));
+    onAttemptXp(xpGained);
 
     gatheredRef.current.push({ ...material });
     attemptsRef.current--;
@@ -103,6 +112,7 @@ export function GatheringModal({
                 rarity={material.rarity}
                 version={material.version}
                 size={160}
+                animateParticles={Platform.OS === "web"}
               />
             </Animated.View>
           </View>

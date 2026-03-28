@@ -257,7 +257,9 @@ export default function GameScreen() {
         visible={showGather}
         material={gatherMaterial}
         totalAttempts={gatherAttempts}
+        xpToNext={char.xpToNext}
         onComplete={handleGatherComplete}
+        onAttemptXp={(xp) => applyGoldXp(0, xp)}
       />
       <BattleModal
         visible={showBattle}

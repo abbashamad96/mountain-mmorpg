@@ -33,7 +33,7 @@ interface BattleModalProps {
   onComplete: (victory: boolean, goldReward: number, xpReward: number) => void;
 }
 
-type BattlePhase = "intro" | "fighting" | "victory" | "defeat";
+type BattlePhase = "intro" | "fighting" | "victory" | "defeat" | "fled";
 
 interface LogLine {
   id: number;
@@ -59,7 +59,6 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
-  const flashAnim = useRef(new Animated.Value(0)).current;
   const npcShakeAnim = useRef(new Animated.Value(0)).current;
   const playerShakeAnim = useRef(new Animated.Value(0)).current;
   const attackPulse = useRef(new Animated.Value(1)).current;
@@ -74,11 +73,6 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
       Animated.timing(anim, { toValue: 5, duration: 40, useNativeDriver: true }),
       Animated.timing(anim, { toValue: 0, duration: 40, useNativeDriver: true }),
     ]).start();
-  }
-
-  function runFlash() {
-    flashAnim.setValue(0.4);
-    Animated.timing(flashAnim, { toValue: 0, duration: 350, useNativeDriver: false }).start();
   }
 
   function addLine(text: string, color: string) {
@@ -155,7 +149,6 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     playerHpRef.current = newHp;
     setPlayerHp(newHp);
     runShake(playerShakeAnim);
-    runFlash();
     const name = npcRef.current?.name ?? "Enemy";
     addLine(`${name} hits you for ${dmg} damage!`, Colors.game.red);
 
@@ -188,7 +181,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
       setPhase("victory");
       const g = npcRef.current.goldReward;
       const x = npcRef.current.xpReward;
-      addLine(`${npcRef.current.name} defeated! +${g}g +${x}xp`, Colors.game.green);
+      addLine(`${npcRef.current.name} defeated! +${g}g  ✦+${x} XP`, Colors.game.green);
       setTimeout(() => closeModal(true), 1400);
       setCooldown(false);
       return;
@@ -200,6 +193,15 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
       setCooldown(false);
     }, 650);
   }, [cooldown, playerTurn]);
+
+  const handleFlee = useCallback(() => {
+    if (phaseRef.current !== "fighting") return;
+    stopPulse();
+    phaseRef.current = "fled";
+    setPhase("fled");
+    addLine("You flee from the battle!", Colors.game.textMuted);
+    setTimeout(() => closeModal(false), 800);
+  }, []);
 
   function closeModal(victory: boolean) {
     Animated.parallel([
@@ -216,14 +218,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   const pHpPct = Math.max(0, (playerHp / playerStats.health) * 100);
   const nHpPct = Math.max(0, (npcHp / npc.maxHp) * 100);
   const rarityColor = RARITY_COLORS[npc.rarity];
-  const flashColor = flashAnim.interpolate({ inputRange: [0, 0.4], outputRange: ["rgba(0,0,0,0)", "#EF4444"] });
 
   return (
     <Modal transparent visible={visible} animationType="none">
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { backgroundColor: flashColor, zIndex: 1 }]}
-        pointerEvents="none"
-      />
       <View style={styles.overlay}>
         <Animated.View
           style={[styles.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
@@ -293,29 +290,50 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             ))}
           </ScrollView>
 
-          {/* Action button */}
+          {/* Action buttons */}
           {phase === "fighting" && playerTurn && !cooldown && (
-            <Animated.View style={{ transform: [{ scale: attackPulse }] }}>
-              <Pressable style={styles.atkBtn} onPress={handleAttack}>
-                <Text style={styles.atkBtnText}>⚔  ATTACK</Text>
+            <View style={styles.actionRow}>
+              <Pressable style={styles.fleeBtn} onPress={handleFlee}>
+                <Text style={styles.fleeBtnText}>FLEE</Text>
               </Pressable>
-            </Animated.View>
+              <Animated.View style={[{ flex: 2 }, { transform: [{ scale: attackPulse }] }]}>
+                <Pressable style={styles.atkBtn} onPress={handleAttack}>
+                  <Text style={styles.atkBtnText}>⚔  ATTACK</Text>
+                </Pressable>
+              </Animated.View>
+            </View>
           )}
           {phase === "fighting" && (!playerTurn || cooldown) && (
-            <View style={styles.waitBtn}>
-              <Text style={styles.waitText}>• • •</Text>
+            <View style={styles.actionRow}>
+              <View style={[styles.fleeBtn, styles.fleeBtnDisabled]}>
+                <Text style={[styles.fleeBtnText, { opacity: 0.3 }]}>FLEE</Text>
+              </View>
+              <View style={[styles.waitBtn, { flex: 2 }]}>
+                <Text style={styles.waitText}>• • •</Text>
+              </View>
             </View>
           )}
           {phase === "victory" && (
             <View style={styles.resultRow}>
               <Text style={styles.victoryText}>VICTORY!</Text>
-              <Text style={styles.rewardText}>+{npc.goldReward} Gold  +{npc.xpReward} XP</Text>
+              <View style={styles.rewardChips}>
+                <View style={styles.goldChip}>
+                  <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
+                  <Text style={styles.rewardGoldTxt}>+{npc.goldReward}</Text>
+                </View>
+                <View style={styles.xpChip}>
+                  <View style={styles.xpGem}><Text style={styles.xpGemTxt}>✦</Text></View>
+                  <Text style={styles.rewardXpTxt}>+{npc.xpReward} XP</Text>
+                </View>
+              </View>
             </View>
           )}
-          {phase === "defeat" && (
+          {(phase === "defeat" || phase === "fled") && (
             <View style={styles.resultRow}>
-              <Text style={styles.defeatText}>DEFEATED</Text>
-              <Text style={styles.rewardText}>You retreat safely.</Text>
+              <Text style={styles.defeatText}>{phase === "fled" ? "FLED" : "DEFEATED"}</Text>
+              <Text style={styles.rewardText}>
+                {phase === "fled" ? "You escaped safely." : "You retreat safely."}
+              </Text>
             </View>
           )}
         </Animated.View>
@@ -424,7 +442,13 @@ const styles = StyleSheet.create({
     color: Colors.game.textMuted, fontStyle: "italic", textAlign: "center",
   },
   logLine: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 2, lineHeight: 18 },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "stretch",
+  },
   atkBtn: {
+    flex: 1,
     backgroundColor: Colors.game.red,
     borderRadius: 14, paddingVertical: 14,
     alignItems: "center",
@@ -432,6 +456,21 @@ const styles = StyleSheet.create({
   atkBtnText: {
     fontSize: 17, fontFamily: "Inter_700Bold",
     color: "#fff", letterSpacing: 2,
+  },
+  fleeBtn: {
+    flex: 1,
+    borderRadius: 14, paddingVertical: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+  },
+  fleeBtnDisabled: {
+    opacity: 0.5,
+  },
+  fleeBtnText: {
+    fontSize: 14, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 2,
   },
   waitBtn: {
     backgroundColor: Colors.game.surface,
@@ -442,7 +481,7 @@ const styles = StyleSheet.create({
     fontSize: 17, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 4,
   },
-  resultRow: { alignItems: "center", gap: 4 },
+  resultRow: { alignItems: "center", gap: 8 },
   victoryText: {
     fontSize: 24, fontFamily: "Inter_700Bold",
     color: Colors.game.gold, letterSpacing: 4,
@@ -452,4 +491,27 @@ const styles = StyleSheet.create({
     color: Colors.game.red, letterSpacing: 4,
   },
   rewardText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
+  rewardChips: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "center",
+  },
+  goldChip: { flexDirection: "row", alignItems: "center", gap: 5 },
+  goldCoin: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: Colors.game.gold,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#a07820",
+  },
+  goldCoinTxt: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#3d2e00" },
+  rewardGoldTxt: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  xpChip: { flexDirection: "row", alignItems: "center", gap: 5 },
+  xpGem: {
+    width: 18, height: 18, borderRadius: 4,
+    backgroundColor: Colors.game.purple,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#6b21a8",
+  },
+  xpGemTxt: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#e9d5ff" },
+  rewardXpTxt: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.purpleLight },
 });

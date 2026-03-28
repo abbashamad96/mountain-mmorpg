@@ -77,7 +77,9 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
 
           {/* XP Bar */}
           <View style={styles.xpRow}>
-            <Text style={styles.xpLabel}>XP</Text>
+            <View style={styles.xpGem}>
+              <Text style={styles.xpGemText}>✦</Text>
+            </View>
             <View style={styles.xpTrack}>
               <View style={[styles.xpFill, { width: `${xpPct}%` as any }]} />
             </View>
@@ -302,10 +304,13 @@ const styles = StyleSheet.create({
   xpRow: {
     flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10,
   },
-  xpLabel: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 1, width: 18,
+  xpGem: {
+    width: 18, height: 18, borderRadius: 4,
+    backgroundColor: Colors.game.purple,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#6b21a8",
   },
+  xpGemText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#e9d5ff" },
   xpTrack: {
     flex: 1, height: 5,
     backgroundColor: Colors.game.border, borderRadius: 3, overflow: "hidden",

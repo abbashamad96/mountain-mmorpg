@@ -76,7 +76,12 @@ export function EventNotification({ roll }: EventNotificationProps) {
             </View>
           )}
           {roll.xpGained > 0 && (
-            <Text style={styles.xpText}>+{roll.xpGained} XP</Text>
+            <View style={styles.xpRow}>
+              <View style={styles.xpGem}>
+                <Text style={styles.xpGemText}>✦</Text>
+              </View>
+              <Text style={styles.xpText}>+{roll.xpGained} XP</Text>
+            </View>
           )}
         </View>
       )}
@@ -166,7 +171,19 @@ const styles = StyleSheet.create({
     color: "#3d2e00",
   },
   goldText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.gold },
-  xpText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.purple },
+  xpRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  xpGem: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: Colors.game.purple,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#6b21a8",
+  },
+  xpGemText: { fontSize: 7, fontFamily: "Inter_700Bold", color: "#e9d5ff" },
+  xpText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.purpleLight },
   dimText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
   typeText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
   particleAnchor: { position: "relative", alignItems: "center", justifyContent: "center" },
