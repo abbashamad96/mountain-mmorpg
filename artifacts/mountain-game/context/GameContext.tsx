@@ -8,7 +8,9 @@ export type RarityName =
   | "Common" | "Uncommon" | "Rare" | "Epic"
   | "Elite" | "Legendary" | "Superior" | "Cosmic";
 export type VersionNum = 0 | 1 | 2 | 3;
-export type SceneType = "default" | "storm" | "treasure" | "combat" | "ruins";
+export type SceneType =
+  | "default" | "storm" | "treasure" | "combat"
+  | "ruins" | "forest" | "snow" | "dungeon" | "volcanic" | "night";
 
 export const RARITIES: RarityName[] = [
   "Common", "Uncommon", "Rare", "Epic",
@@ -23,7 +25,7 @@ export const RARITY_COLORS: Record<RarityName, string> = {
   Elite: "#EF4444",
   Legendary: "#F59E0B",
   Superior: "#06B6D4",
-  Cosmic: "#06B6D4", // handled with animation externally
+  Cosmic: "#06B6D4",
 };
 
 export const VERSION_PARTICLE_COLORS: Record<VersionNum, string> = {
@@ -52,23 +54,48 @@ export interface MaterialEntry {
   count: number;
 }
 
-export interface NpcResult {
+export interface NpcBattleStats {
   rarity: RarityName;
   version: VersionNum;
-  goldDrop: number;
-  xpDrop: number;
+  name: string;
+  hp: number;
+  maxHp: number;
+  atk: number;
+  def: number;
+  spd: number;
+  goldReward: number;
+  xpReward: number;
 }
 
-export interface EventOutcome {
+export type EventType = "gold_xp" | "gather" | "battle";
+
+export interface EventRoll {
   id: string;
+  type: EventType;
   timestamp: number;
+  sceneType: SceneType;
+  // gold_xp fields
   goldGained: number;
   xpGained: number;
-  gathered: Material | null;
-  npc: NpcResult | null;
   levelsBefore: number;
   levelsAfter: number;
   statPointsGained: number;
+  // gather fields
+  material: Material | null;
+  gatherAttempts: number;
+  // battle fields
+  npc: NpcBattleStats | null;
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: number;
+  type: EventType;
+  summary: string;
+  goldGained: number;
+  xpGained: number;
+  material: Material | null;
+  victory?: boolean;
 }
 
 export interface Character {
@@ -84,7 +111,7 @@ export interface Character {
 export interface GameState {
   character: Character;
   currentScene: SceneType;
-  eventLog: EventOutcome[];
+  eventLog: LogEntry[];
   totalEvents: number;
 }
 
@@ -116,30 +143,51 @@ export function rollVersion(): VersionNum {
   return 0;
 }
 
-// ─── NPC Drop Tables ─────────────────────────────────────────────────────────
+// ─── NPC Data ────────────────────────────────────────────────────────────────
 
+const NPC_NAMES: Record<RarityName, string[]> = {
+  Common: ["Mountain Rat", "Stray Wolf", "Cave Bat"],
+  Uncommon: ["Stone Golem", "Forest Imp", "Bog Troll"],
+  Rare: ["Ice Serpent", "Dark Archer", "Iron Bandit"],
+  Epic: ["Shadow Knight", "Ancient Drake", "Plague Wraith"],
+  Elite: ["Void Walker", "Bone Titan", "Storm Colossus"],
+  Legendary: ["Chaos Leviathan", "Death Oracle", "Abyssal Warlord"],
+  Superior: ["Abyss Sovereign", "Celestial Demon", "World Eater"],
+  Cosmic: ["Primordial God", "Infinite Lich", "Void Emperor"],
+};
+
+const NPC_BASE_HP = [25, 65, 130, 270, 500, 900, 1600, 3000];
+const NPC_BASE_ATK = [3, 7, 14, 26, 45, 70, 110, 180];
+const NPC_BASE_DEF = [0, 1, 3, 7, 14, 24, 40, 68];
+const NPC_BASE_SPD = [3, 6, 10, 16, 23, 32, 45, 65];
 const NPC_GOLD_BASE = [3, 12, 35, 90, 220, 520, 1100, 2800];
 const NPC_GOLD_RANGE = [7, 18, 45, 110, 280, 680, 1400, 3200];
 const NPC_XP_PCT = [1.2, 2.8, 5, 8, 13, 20, 30, 45];
 
-function buildNpc(xpToNextVal: number): NpcResult {
+export function buildNpcBattle(xpToNextVal: number): NpcBattleStats {
   const rarity = rollRarity();
   const version = rollVersion();
   const idx = RARITIES.indexOf(rarity);
   const vm = version === 3 ? 2 : version === 2 ? 1.5 : version === 1 ? 1.2 : 1;
-  const goldDrop = Math.floor((NPC_GOLD_BASE[idx] + Math.random() * NPC_GOLD_RANGE[idx]) * vm);
+  const names = NPC_NAMES[rarity];
+  const name = names[Math.floor(Math.random() * names.length)];
+  const maxHp = Math.floor((NPC_BASE_HP[idx] + Math.random() * NPC_BASE_HP[idx] * 0.5) * vm);
+  const atk = Math.floor(NPC_BASE_ATK[idx] * (0.85 + Math.random() * 0.3) * vm);
+  const def = Math.floor(NPC_BASE_DEF[idx] * vm);
+  const spd = Math.floor(NPC_BASE_SPD[idx] * (0.9 + Math.random() * 0.2) * vm);
+  const goldReward = Math.floor((NPC_GOLD_BASE[idx] + Math.random() * NPC_GOLD_RANGE[idx]) * vm);
   const xpPct = NPC_XP_PCT[idx] * (0.8 + Math.random() * 0.4) * vm;
-  const xpDrop = Math.max(1, Math.floor((xpToNextVal * xpPct) / 100));
-  return { rarity, version, goldDrop, xpDrop };
+  const xpReward = Math.max(1, Math.floor((xpToNextVal * xpPct) / 100));
+  return { rarity, version, name, hp: maxHp, maxHp, atk, def, spd, goldReward, xpReward };
 }
 
-// ─── Material Inventory ───────────────────────────────────────────────────────
+// ─── Material Helpers ────────────────────────────────────────────────────────
 
 function materialKey(m: Material): string {
   return `${m.type}|${m.rarity}|${m.version}`;
 }
 
-function addMaterial(materials: MaterialEntry[], mat: Material): MaterialEntry[] {
+export function addMaterialToList(materials: MaterialEntry[], mat: Material): MaterialEntry[] {
   const key = materialKey(mat);
   const idx = materials.findIndex((e) => e.key === key);
   if (idx >= 0) {
@@ -150,57 +198,25 @@ function addMaterial(materials: MaterialEntry[], mat: Material): MaterialEntry[]
   return [...materials, { key, material: mat, count: 1 }];
 }
 
-// ─── Event Logic ─────────────────────────────────────────────────────────────
+// ─── XP / Level Apply ────────────────────────────────────────────────────────
 
-function runEvent(
-  character: Character
-): { updatedChar: Character; outcome: EventOutcome } {
-  const levelsBefore = character.level;
-  const xpNeeded = character.xpToNext;
+interface ApplyResult {
+  updatedChar: Character;
+  levelsGained: number;
+  statPointsGained: number;
+}
 
-  let goldGained = 0;
-  let xpGained = 0;
-  let gathered: Material | null = null;
-  let npc: NpcResult | null = null;
-
-  // 65% → EXP / GOLD event
-  if (Math.random() < 0.65) {
-    if (Math.random() < 0.6) {
-      const minG = Math.floor(Math.random() * 100);
-      const lvlG = Math.floor(
-        character.level * 0.25 + Math.random() * Math.max(0, character.level * 0.25)
-      );
-      goldGained += Math.max(minG, lvlG);
-    }
-    if (Math.random() < 0.6) {
-      const pct = 3.5 + Math.random() * 2.5;
-      xpGained += Math.max(1, Math.floor((xpNeeded * pct) / 100));
-    }
-  }
-
-  // 25% → Gather material
-  if (Math.random() < 0.25) {
-    const types: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
-    gathered = {
-      type: types[Math.floor(Math.random() * 4)],
-      rarity: rollRarity(),
-      version: rollVersion(),
-    };
-  }
-
-  // 15% → NPC enemy
-  if (Math.random() < 0.15) {
-    npc = buildNpc(xpNeeded);
-    goldGained += npc.goldDrop;
-    xpGained += npc.xpDrop;
-  }
-
-  // Apply to character
-  let newXp = character.xp + xpGained;
-  let newLevel = character.level;
-  let newXpToNext = character.xpToNext;
-  const newStats = { ...character.stats };
-  let newPending = character.pendingStatPoints;
+export function applyXpGold(
+  char: Character,
+  xp: number,
+  gold: number
+): ApplyResult {
+  let newXp = char.xp + xp;
+  let newLevel = char.level;
+  let newXpToNext = char.xpToNext;
+  const newStats = { ...char.stats };
+  let newPending = char.pendingStatPoints;
+  const levelsBefore = char.level;
 
   while (newXp >= newXpToNext) {
     newXp -= newXpToNext;
@@ -210,35 +226,85 @@ function runEvent(
     newStats.health += 1;
   }
 
-  const statPointsGained = newPending - character.pendingStatPoints;
-
-  const newMaterials = gathered
-    ? addMaterial(character.materials, gathered)
-    : character.materials;
-
-  const updatedChar: Character = {
-    level: newLevel,
-    xp: newXp,
-    xpToNext: newXpToNext,
-    stats: newStats,
-    gold: character.gold + goldGained,
-    pendingStatPoints: newPending,
-    materials: newMaterials,
+  return {
+    updatedChar: {
+      ...char,
+      level: newLevel,
+      xp: newXp,
+      xpToNext: newXpToNext,
+      stats: newStats,
+      gold: char.gold + gold,
+      pendingStatPoints: newPending,
+    },
+    levelsGained: newLevel - levelsBefore,
+    statPointsGained: newPending - char.pendingStatPoints,
   };
+}
 
-  const outcome: EventOutcome = {
-    id: `ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    timestamp: Date.now(),
-    goldGained,
-    xpGained,
-    gathered,
-    npc,
-    levelsBefore,
-    levelsAfter: newLevel,
-    statPointsGained,
+// ─── Event Roll ───────────────────────────────────────────────────────────────
+
+const GOLD_XP_SCENES: SceneType[] = ["default", "treasure", "ruins", "night"];
+const GATHER_SCENES: SceneType[] = ["forest", "snow", "default"];
+const BATTLE_SCENES: SceneType[] = ["combat", "dungeon", "volcanic"];
+const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
+
+export function rollEvent(char: Character): EventRoll {
+  // Single exclusive event roll: 65% gold_xp, 25% gather, 15% battle (norm'd to 105)
+  const r = Math.random() * 105;
+  let type: EventType;
+  if (r < 65) type = "gold_xp";
+  else if (r < 90) type = "gather";
+  else type = "battle";
+
+  const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+  const ts = Date.now();
+  const levelsBefore = char.level;
+
+  if (type === "gold_xp") {
+    let gold = 0, xp = 0;
+    if (Math.random() < 0.6) {
+      const minG = Math.floor(Math.random() * 100);
+      const lvlG = Math.floor(char.level * 0.25 + Math.random() * Math.max(0, char.level * 0.25));
+      gold = Math.max(minG, lvlG);
+    }
+    if (Math.random() < 0.6) {
+      const pct = 3.5 + Math.random() * 2.5;
+      xp = Math.max(1, Math.floor((char.xpToNext * pct) / 100));
+    }
+    const scene = GOLD_XP_SCENES[Math.floor(Math.random() * GOLD_XP_SCENES.length)];
+    return {
+      id, type, timestamp: ts, sceneType: scene,
+      goldGained: gold, xpGained: xp,
+      levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
+      material: null, gatherAttempts: 0, npc: null,
+    };
+  }
+
+  if (type === "gather") {
+    const mat: Material = {
+      type: MATERIAL_TYPES[Math.floor(Math.random() * 4)],
+      rarity: rollRarity(),
+      version: rollVersion(),
+    };
+    const attempts = 1 + Math.floor(Math.random() * 3);
+    const scene = GATHER_SCENES[Math.floor(Math.random() * GATHER_SCENES.length)];
+    return {
+      id, type, timestamp: ts, sceneType: scene,
+      goldGained: 0, xpGained: 0,
+      levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
+      material: mat, gatherAttempts: attempts, npc: null,
+    };
+  }
+
+  // battle
+  const npc = buildNpcBattle(char.xpToNext);
+  const scene = BATTLE_SCENES[Math.floor(Math.random() * BATTLE_SCENES.length)];
+  return {
+    id, type, timestamp: ts, sceneType: scene,
+    goldGained: 0, xpGained: 0,
+    levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
+    material: null, gatherAttempts: 0, npc,
   };
-
-  return { updatedChar, outcome };
 }
 
 // ─── Default State ────────────────────────────────────────────────────────────
@@ -266,18 +332,18 @@ const STORAGE_KEY = "@mountain_game_v3";
 
 interface GameContextType {
   gameState: GameState;
-  triggerEvent: () => EventOutcome;
+  setScene: (scene: SceneType) => void;
+  applyGoldXp: (gold: number, xp: number) => ApplyResult;
+  addMaterials: (mats: Material[]) => void;
   allocateStat: (stat: keyof CharacterStats) => void;
-  lastOutcome: EventOutcome | null;
+  addLogEntry: (entry: LogEntry) => void;
+  incrementEvents: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
 
-const SCENES: SceneType[] = ["default", "storm", "treasure", "combat", "ruins"];
-
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [gameState, setGameState] = useState<GameState>(defaultGameState);
-  const [lastOutcome, setLastOutcome] = useState<EventOutcome | null>(null);
   const stateRef = useRef(gameState);
 
   useEffect(() => {
@@ -304,27 +370,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
   }, [gameState]);
 
-  const triggerEvent = useCallback((): EventOutcome => {
-    const { updatedChar, outcome } = runEvent(stateRef.current.character);
-    const nextScene =
-      Math.random() < 0.3
-        ? SCENES[Math.floor(Math.random() * SCENES.length)]
-        : stateRef.current.currentScene;
+  const setScene = useCallback((scene: SceneType) => {
+    setGameState((prev) => ({ ...prev, currentScene: scene }));
+  }, []);
 
+  const applyGoldXp = useCallback((gold: number, xp: number): ApplyResult => {
+    const result = applyXpGold(stateRef.current.character, xp, gold);
     setGameState((prev) => {
-      const next = {
-        ...prev,
-        character: updatedChar,
-        currentScene: nextScene,
-        eventLog: [outcome, ...prev.eventLog].slice(0, 40),
-        totalEvents: prev.totalEvents + 1,
-      };
+      const next = { ...prev, character: result.updatedChar };
       stateRef.current = next;
       return next;
     });
+    return result;
+  }, []);
 
-    setLastOutcome(outcome);
-    return outcome;
+  const addMaterials = useCallback((mats: Material[]) => {
+    setGameState((prev) => {
+      let materials = prev.character.materials;
+      for (const m of mats) materials = addMaterialToList(materials, m);
+      return { ...prev, character: { ...prev.character, materials } };
+    });
   }, []);
 
   const allocateStat = useCallback((stat: keyof CharacterStats) => {
@@ -334,17 +399,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       newStats[stat] += stat === "health" ? 5 : 1;
       return {
         ...prev,
-        character: {
-          ...prev.character,
-          stats: newStats,
-          pendingStatPoints: prev.character.pendingStatPoints - 1,
-        },
+        character: { ...prev.character, stats: newStats, pendingStatPoints: prev.character.pendingStatPoints - 1 },
       };
     });
   }, []);
 
+  const addLogEntry = useCallback((entry: LogEntry) => {
+    setGameState((prev) => ({
+      ...prev,
+      eventLog: [entry, ...prev.eventLog].slice(0, 40),
+    }));
+  }, []);
+
+  const incrementEvents = useCallback(() => {
+    setGameState((prev) => ({ ...prev, totalEvents: prev.totalEvents + 1 }));
+  }, []);
+
   return (
-    <GameContext.Provider value={{ gameState, triggerEvent, allocateStat, lastOutcome }}>
+    <GameContext.Provider
+      value={{ gameState, setScene, applyGoldXp, addMaterials, allocateStat, addLogEntry, incrementEvents }}
+    >
       {children}
     </GameContext.Provider>
   );

@@ -1,114 +1,118 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Colors from "@/constants/colors";
-import { EventOutcome, VERSION_PARTICLE_COLORS } from "@/context/GameContext";
+import { EventRoll, VERSION_PARTICLE_COLORS, RARITY_COLORS } from "@/context/GameContext";
 import { ParticleEffect } from "./ParticleEffect";
 import { RarityText } from "./RarityText";
 
 interface EventNotificationProps {
-  outcome: EventOutcome | null;
+  roll: EventRoll | null;
 }
 
-export function EventNotification({ outcome }: EventNotificationProps) {
+export function EventNotification({ roll }: EventNotificationProps) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(16)).current;
-  const particleTrigger = useRef(0);
-  const [trigger, setTrigger] = React.useState(0);
+  const translateY = useRef(new Animated.Value(12)).current;
+  const [particleTrigger, setParticleTrigger] = useState(0);
   const currentId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!outcome || outcome.id === currentId.current) return;
-    currentId.current = outcome.id;
+    if (!roll || roll.id === currentId.current) return;
+    currentId.current = roll.id;
     opacity.setValue(0);
-    translateY.setValue(16);
+    translateY.setValue(12);
 
-    if (outcome.gathered && outcome.gathered.version > 0) {
-      particleTrigger.current += 1;
-      setTrigger(particleTrigger.current);
+    if (roll.type === "gather" && roll.material && roll.material.version > 0) {
+      setParticleTrigger((p) => p + 1);
     }
 
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]),
-      Animated.delay(3200),
+      Animated.delay(3000),
       Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true }),
     ]).start();
-  }, [outcome]);
+  }, [roll]);
 
-  if (!outcome) return null;
+  if (!roll) return null;
 
-  const hasGold = outcome.goldGained > 0;
-  const hasXp = outcome.xpGained > 0;
-  const leveled = outcome.levelsAfter > outcome.levelsBefore;
-  const hasGather = !!outcome.gathered;
-  const hasNpc = !!outcome.npc;
-  const hasAny = hasGold || hasXp || hasGather || hasNpc || leveled;
+  const hasContent =
+    roll.goldGained > 0 ||
+    roll.xpGained > 0 ||
+    roll.material ||
+    roll.npc ||
+    roll.levelsAfter > roll.levelsBefore;
 
-  if (!hasAny) return null;
+  if (!hasContent) return null;
 
   return (
     <Animated.View
       style={[styles.card, { opacity, transform: [{ translateY }] }]}
     >
-      {leveled && (
+      {/* Level up */}
+      {roll.levelsAfter > roll.levelsBefore && (
         <View style={styles.row}>
           <Text style={styles.levelUpText}>
-            ★ LEVEL UP → Level {outcome.levelsAfter}
-            {outcome.statPointsGained > 0 && (
-              <Text style={styles.statPointText}>
-                {" "}(+{outcome.statPointsGained} stat point{outcome.statPointsGained > 1 ? "s" : ""}!)
+            ★ LEVEL UP → Level {roll.levelsAfter}
+            {roll.statPointsGained > 0 && (
+              <Text style={styles.statPtText}>
+                {" "}+{roll.statPointsGained} stat pt!
               </Text>
             )}
           </Text>
         </View>
       )}
 
-      {(hasGold || hasXp) && (
+      {/* Gold / XP */}
+      {(roll.goldGained > 0 || roll.xpGained > 0) && (
         <View style={styles.row}>
-          <Text style={styles.sectionIcon}>⚡</Text>
-          <View style={styles.lootChips}>
-            {hasGold && (
-              <Text style={styles.goldChip}>+{outcome.goldGained} Gold</Text>
-            )}
-            {hasXp && (
-              <Text style={styles.xpChip}>+{outcome.xpGained} XP</Text>
-            )}
-          </View>
+          <Text style={styles.icon}>⚡</Text>
+          {roll.goldGained > 0 && (
+            <Text style={styles.goldText}>+{roll.goldGained} Gold</Text>
+          )}
+          {roll.xpGained > 0 && (
+            <Text style={styles.xpText}>+{roll.xpGained} XP</Text>
+          )}
         </View>
       )}
 
-      {hasGather && outcome.gathered && (
+      {/* Gathered material */}
+      {roll.type === "gather" && roll.material && (
         <View style={styles.row}>
-          <Text style={styles.sectionIcon}>📦</Text>
-          <Text style={styles.gatherLabel}>Gathered: </Text>
-          <Text style={styles.gatherType}>{outcome.gathered.type} </Text>
+          <Text style={styles.icon}>📦</Text>
+          <Text style={styles.dimText}>Gathering: </Text>
+          <Text style={styles.typeText}>{roll.material.type} </Text>
           <View style={styles.particleAnchor}>
             <RarityText
-              rarity={outcome.gathered.rarity}
-              version={outcome.gathered.version}
+              rarity={roll.material.rarity}
+              version={roll.material.version}
               style={styles.rarityText}
             />
-            {outcome.gathered.version > 0 && (
+            {roll.material.version > 0 && (
               <ParticleEffect
-                color={VERSION_PARTICLE_COLORS[outcome.gathered.version]}
-                trigger={trigger}
-                count={6}
+                color={
+                  VERSION_PARTICLE_COLORS[roll.material.version] !== "transparent"
+                    ? VERSION_PARTICLE_COLORS[roll.material.version]
+                    : RARITY_COLORS[roll.material.rarity]
+                }
+                trigger={particleTrigger}
+                count={8}
               />
             )}
           </View>
         </View>
       )}
 
-      {hasNpc && outcome.npc && (
+      {/* Battle encounter */}
+      {roll.type === "battle" && roll.npc && (
         <View style={styles.row}>
-          <Text style={styles.sectionIcon}>⚔</Text>
-          <Text style={styles.gatherLabel}>Defeated </Text>
+          <Text style={styles.icon}>⚔</Text>
+          <Text style={styles.dimText}>Encounter: </Text>
           <RarityText
-            rarity={outcome.npc.rarity}
-            version={outcome.npc.version}
-            label={`${outcome.npc.rarity} Enemy`}
+            rarity={roll.npc.rarity}
+            version={roll.npc.version}
+            label={roll.npc.name}
             style={styles.rarityText}
           />
         </View>
@@ -122,7 +126,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.game.surfaceAlt,
     borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderWidth: 1,
     borderColor: Colors.game.border,
     gap: 6,
@@ -131,54 +135,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: 4,
+    gap: 5,
   },
-  sectionIcon: {
-    fontSize: 13,
-    marginRight: 2,
-  },
+  icon: { fontSize: 13 },
   levelUpText: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.gold,
-    letterSpacing: 0.5,
+    fontSize: 14, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 0.5,
   },
-  statPointText: {
-    color: Colors.game.purpleLight,
-    fontFamily: "Inter_600SemiBold",
+  statPtText: {
+    color: Colors.game.purpleLight, fontFamily: "Inter_600SemiBold",
   },
-  lootChips: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  goldChip: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.game.gold,
-  },
-  xpChip: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.game.purple,
-  },
-  gatherLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: Colors.game.textDim,
-  },
-  gatherType: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.game.text,
-  },
-  particleAnchor: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rarityText: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
+  goldText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.gold },
+  xpText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.purple },
+  dimText: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  typeText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
+  particleAnchor: { position: "relative", alignItems: "center", justifyContent: "center" },
+  rarityText: { fontSize: 13, fontFamily: "Inter_700Bold" },
 });
