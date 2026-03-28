@@ -11,10 +11,8 @@ import Colors from "@/constants/colors";
 import {
   Material,
   RARITY_COLORS,
-  VERSION_PARTICLE_COLORS,
 } from "@/context/GameContext";
 import { MaterialImage } from "./MaterialImage";
-import { ParticleEffect } from "./ParticleEffect";
 import { RarityText } from "./RarityText";
 
 interface GatheringModalProps {
@@ -33,15 +31,12 @@ export function GatheringModal({
   const [gatheredCount, setGatheredCount] = useState(0);
   const [cooldown, setCooldown] = useState(false);
   const [done, setDone] = useState(false);
-  const [particleTrigger, setParticleTrigger] = useState(0);
 
   const gatheredRef = useRef<Material[]>([]);
   const attemptsRef = useRef(0);
   const doneRef = useRef(false);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
     if (visible && material) {
@@ -51,21 +46,12 @@ export function GatheringModal({
       setGatheredCount(0);
       setCooldown(false);
       setDone(false);
-      setParticleTrigger(0);
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.85);
-
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 90, friction: 8 }),
-      ]).start();
     }
   }, [visible]);
 
   const handleGather = () => {
     if (!material || cooldown || doneRef.current || attemptsRef.current <= 0) return;
 
-    // Shake the material image on each gather
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 10, duration: 40, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: -10, duration: 40, useNativeDriver: true }),
@@ -77,40 +63,30 @@ export function GatheringModal({
     attemptsRef.current--;
     const count = gatheredRef.current.length;
     setGatheredCount(count);
-    setParticleTrigger((p) => p + 1);
 
     if (attemptsRef.current <= 0) {
       doneRef.current = true;
       setDone(true);
       const snapshot = [...gatheredRef.current];
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(fadeAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
-          Animated.timing(scaleAnim, { toValue: 0.85, duration: 280, useNativeDriver: true }),
-        ]).start(() => onComplete(snapshot));
-      }, 900);
+      setTimeout(() => onComplete(snapshot), 900);
     } else {
       setCooldown(true);
       setTimeout(() => setCooldown(false), 750);
     }
   };
 
+  const handleLeave = () => {
+    if (doneRef.current) return;
+    const snapshot = [...gatheredRef.current];
+    onComplete(snapshot);
+  };
+
   if (!material) return null;
 
-  const vColor =
-    VERSION_PARTICLE_COLORS[material.version] !== "transparent"
-      ? VERSION_PARTICLE_COLORS[material.version]
-      : RARITY_COLORS[material.rarity];
-
   return (
-    <Modal transparent visible={visible} animationType="none">
+    <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
-        <Animated.View
-          style={[
-            styles.card,
-            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-          ]}
-        >
+        <View style={styles.card}>
           <Text style={styles.title}>GATHERING</Text>
 
           <RarityText
@@ -120,7 +96,6 @@ export function GatheringModal({
             style={styles.rarityLabel}
           />
 
-          {/* Material visual — static, no animation */}
           <View style={styles.imageWrap}>
             <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
               <MaterialImage
@@ -130,15 +105,6 @@ export function GatheringModal({
                 size={160}
               />
             </Animated.View>
-            {/* Particle burst on each gather press */}
-            <View style={styles.particleAnchor} pointerEvents="none">
-              <ParticleEffect
-                color={vColor}
-                trigger={particleTrigger}
-                version={material.version > 0 ? material.version : undefined}
-                count={10}
-              />
-            </View>
           </View>
 
           {/* Attempt dots */}
@@ -162,28 +128,36 @@ export function GatheringModal({
               : `${attemptsRef.current} attempt${attemptsRef.current !== 1 ? "s" : ""} remaining`}
           </Text>
 
-          {/* Gather button — plain, no pulse */}
           {!done && (
-            <Pressable
-              style={[
-                styles.gatherBtn,
-                { borderColor: cooldown ? Colors.game.border : RARITY_COLORS[material.rarity] },
-                cooldown && styles.gatherBtnDisabled,
-              ]}
-              onPress={handleGather}
-              disabled={cooldown}
-            >
-              <Text
-                style={[
-                  styles.gatherBtnText,
-                  { color: cooldown ? Colors.game.textMuted : RARITY_COLORS[material.rarity] },
-                ]}
+            <View style={styles.btnRow}>
+              <Pressable
+                style={[styles.leaveBtn]}
+                onPress={handleLeave}
               >
-                {cooldown ? "• • •" : "GATHER"}
-              </Text>
-            </Pressable>
+                <Text style={styles.leaveBtnText}>LEAVE</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.gatherBtn,
+                  { borderColor: cooldown ? Colors.game.border : RARITY_COLORS[material.rarity] },
+                  cooldown && styles.gatherBtnDisabled,
+                ]}
+                onPress={handleGather}
+                disabled={cooldown}
+              >
+                <Text
+                  style={[
+                    styles.gatherBtnText,
+                    { color: cooldown ? Colors.game.textMuted : RARITY_COLORS[material.rarity] },
+                  ]}
+                >
+                  {cooldown ? "• • •" : "GATHER"}
+                </Text>
+              </Pressable>
+            </View>
           )}
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );
@@ -222,15 +196,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginVertical: 4,
   },
-  particleAnchor: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    width: 0,
-    height: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   dotsRow: {
     flexDirection: "row",
     gap: 10,
@@ -245,14 +210,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     color: Colors.game.textDim,
   },
-  gatherBtn: {
+  btnRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  leaveBtn: {
+    flex: 1,
     borderWidth: 2,
     borderRadius: 16,
-    paddingHorizontal: 48,
+    paddingVertical: 14,
+    borderColor: Colors.game.border,
+    backgroundColor: "transparent",
+    alignItems: "center",
+  },
+  leaveBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+    letterSpacing: 2,
+  },
+  gatherBtn: {
+    flex: 2,
+    borderWidth: 2,
+    borderRadius: 16,
     paddingVertical: 14,
     backgroundColor: "rgba(255,255,255,0.04)",
     alignItems: "center",
-    minWidth: 180,
   },
   gatherBtnDisabled: {
     backgroundColor: "transparent",

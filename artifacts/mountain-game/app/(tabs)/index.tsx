@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
 import {
   Platform,
@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BattleModal } from "@/components/BattleModal";
-import { EventLog } from "@/components/EventLog";
 import { EventNotification } from "@/components/EventNotification";
 import { GatheringModal } from "@/components/GatheringModal";
 import { SceneView } from "@/components/SceneView";
@@ -29,17 +28,15 @@ import {
 
 export default function GameScreen() {
   const { gameState, setScene, applyGoldXp, addMaterials, addLogEntry, incrementEvents } = useGame();
+  const router = useRouter();
 
-  // Cooldown state
   const [isInteracting, setIsInteracting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [cooldownDuration, setCooldownDuration] = useState(2500);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Event notification
   const [lastRoll, setLastRoll] = useState<EventRoll | null>(null);
 
-  // Modal states
   const [showStats, setShowStats] = useState(false);
   const [gatherMaterial, setGatherMaterial] = useState<Material | null>(null);
   const [gatherAttempts, setGatherAttempts] = useState(1);
@@ -60,7 +57,6 @@ export default function GameScreen() {
     setCooldownDuration(duration);
     setIsInteracting(true);
     setIsAnimating(true);
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const roll = rollEvent(char);
     setScene(roll.sceneType);
@@ -68,7 +64,6 @@ export default function GameScreen() {
     setTimeout(() => setIsAnimating(false), 500);
 
     if (roll.type === "gold_xp") {
-      // Apply immediately
       const result = applyGoldXp(roll.goldGained, roll.xpGained);
       const finalRoll: EventRoll = {
         ...roll,
@@ -91,16 +86,13 @@ export default function GameScreen() {
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => {
         setIsInteracting(false);
-        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }, duration);
     } else if (roll.type === "gather" && roll.material) {
-      // Show gathering modal immediately (pauses main cooldown)
       setLastRoll(roll);
       setGatherMaterial(roll.material);
       setGatherAttempts(roll.gatherAttempts);
       setShowGather(true);
     } else if (roll.type === "battle" && roll.npc) {
-      // Show battle modal immediately
       setLastRoll(roll);
       setBattleNpc(roll.npc);
       setShowBattle(true);
@@ -110,9 +102,9 @@ export default function GameScreen() {
   const handleGatherComplete = useCallback(
     (gathered: Material[]) => {
       setShowGather(false);
-      addMaterials(gathered);
-      const mat = gathered[0];
-      if (mat) {
+      if (gathered.length > 0) {
+        addMaterials(gathered);
+        const mat = gathered[0];
         const entry: LogEntry = {
           id: `g-${Date.now()}`,
           timestamp: Date.now(),
@@ -124,11 +116,9 @@ export default function GameScreen() {
         };
         addLogEntry(entry);
       }
-      const duration = cooldownDuration;
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => {
         setIsInteracting(false);
-        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }, 500);
     },
     [addMaterials, addLogEntry, cooldownDuration]
@@ -158,7 +148,6 @@ export default function GameScreen() {
       }
       cooldownTimer.current = setTimeout(() => {
         setIsInteracting(false);
-        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }, 500);
     },
     [battleNpc, applyGoldXp, addLogEntry]
@@ -180,20 +169,30 @@ export default function GameScreen() {
             <Text style={styles.mapLabel}>MAP 01</Text>
             <Text style={styles.mapTitle}>Mountain of Supremacy</Text>
           </View>
-          <Pressable style={styles.statsBtn} onPress={() => setShowStats(true)}>
-            <Feather name="user" size={18} color={Colors.game.gold} />
-            {char.pendingStatPoints > 0 && (
-              <View style={styles.statsBadge}>
-                <Text style={styles.statsBadgeText}>{char.pendingStatPoints}</Text>
-              </View>
-            )}
-          </Pressable>
+          <View style={styles.headerBtns}>
+            <Pressable
+              style={styles.headerBtn}
+              onPress={() => router.navigate("/(tabs)/multiplayer")}
+            >
+              <Feather name="message-circle" size={18} color={Colors.game.blue} />
+            </Pressable>
+            <Pressable style={styles.headerBtn} onPress={() => setShowStats(true)}>
+              <Feather name="user" size={18} color={Colors.game.gold} />
+              {char.pendingStatPoints > 0 && (
+                <View style={styles.statsBadge}>
+                  <Text style={styles.statsBadgeText}>{char.pendingStatPoints}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* Quick gold + level strip */}
         <View style={styles.quickStrip}>
           <View style={styles.stripItem}>
-            <Text style={styles.stripIcon}>🪙</Text>
+            <View style={styles.goldCoin}>
+              <Text style={styles.goldCoinText}>G</Text>
+            </View>
             <Text style={styles.stripValue}>{char.gold.toLocaleString()}</Text>
           </View>
           <View style={styles.stripDivider} />
@@ -229,9 +228,6 @@ export default function GameScreen() {
         {/* Event notification */}
         {lastRoll && <EventNotification roll={lastRoll} />}
 
-        {/* Event log */}
-        <EventLog events={gameState.eventLog} />
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             {gameState.totalEvents} EVENTS ENCOUNTERED
@@ -251,6 +247,7 @@ export default function GameScreen() {
         visible={showBattle}
         npc={battleNpc}
         playerStats={char.stats}
+        playerLevel={char.level}
         onComplete={handleBattleComplete}
       />
     </View>
@@ -275,7 +272,12 @@ const styles = StyleSheet.create({
     fontSize: 20, fontFamily: "Inter_700Bold",
     color: Colors.game.gold, letterSpacing: 0.5,
   },
-  statsBtn: {
+  headerBtns: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  headerBtn: {
     padding: 10,
     backgroundColor: Colors.game.surface,
     borderRadius: 12,
@@ -303,9 +305,23 @@ const styles = StyleSheet.create({
     borderColor: Colors.game.border,
     gap: 10,
   },
-  stripItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  stripItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   stripItemXp: { flex: 1, gap: 3 },
-  stripIcon: { fontSize: 14 },
+  goldCoin: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.game.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#a07820",
+  },
+  goldCoinText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "#3d2e00",
+  },
   stripLabel: {
     fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 1,

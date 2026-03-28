@@ -156,26 +156,28 @@ const NPC_NAMES: Record<RarityName, string[]> = {
   Cosmic: ["Primordial God", "Infinite Lich", "Void Emperor"],
 };
 
-const NPC_BASE_HP = [25, 65, 130, 270, 500, 900, 1600, 3000];
-const NPC_BASE_ATK = [3, 7, 14, 26, 45, 70, 110, 180];
-const NPC_BASE_DEF = [0, 1, 3, 7, 14, 24, 40, 68];
-const NPC_BASE_SPD = [3, 6, 10, 16, 23, 32, 45, 65];
-const NPC_GOLD_BASE = [3, 12, 35, 90, 220, 520, 1100, 2800];
-const NPC_GOLD_RANGE = [7, 18, 45, 110, 280, 680, 1400, 3200];
+// HP scales with player level: starts at 3, grows per rarity multiplier per level
+const NPC_HP_MULT = [2, 4, 8, 16, 28, 45, 70, 120];
+const NPC_BASE_ATK = [1, 2, 4, 8, 14, 22, 35, 55];
+const NPC_BASE_DEF = [0, 0, 1, 2, 4, 7, 12, 20];
+const NPC_BASE_SPD = [2, 4, 7, 11, 16, 22, 30, 45];
+const NPC_GOLD_BASE = [3, 8, 20, 50, 120, 300, 650, 1500];
+const NPC_GOLD_RANGE = [5, 12, 30, 70, 180, 420, 950, 2000];
 const NPC_XP_PCT = [1.2, 2.8, 5, 8, 13, 20, 30, 45];
 
-export function buildNpcBattle(xpToNextVal: number): NpcBattleStats {
+export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): NpcBattleStats {
   const rarity = rollRarity();
   const version = rollVersion();
   const idx = RARITIES.indexOf(rarity);
   const vm = version === 3 ? 2 : version === 2 ? 1.5 : version === 1 ? 1.2 : 1;
+  const level = Math.max(1, playerLevel);
   const names = NPC_NAMES[rarity];
   const name = names[Math.floor(Math.random() * names.length)];
-  const maxHp = Math.floor((NPC_BASE_HP[idx] + Math.random() * NPC_BASE_HP[idx] * 0.5) * vm);
-  const atk = Math.floor(NPC_BASE_ATK[idx] * (0.85 + Math.random() * 0.3) * vm);
-  const def = Math.floor(NPC_BASE_DEF[idx] * vm);
-  const spd = Math.floor(NPC_BASE_SPD[idx] * (0.9 + Math.random() * 0.2) * vm);
-  const goldReward = Math.floor((NPC_GOLD_BASE[idx] + Math.random() * NPC_GOLD_RANGE[idx]) * vm);
+  const maxHp = Math.max(3, Math.floor((3 + level * NPC_HP_MULT[idx]) * (0.85 + Math.random() * 0.3) * vm));
+  const atk = Math.max(1, Math.floor((NPC_BASE_ATK[idx] + level * 0.5 * (idx + 1)) * (0.85 + Math.random() * 0.3) * vm));
+  const def = Math.floor((NPC_BASE_DEF[idx] + level * 0.15 * idx) * vm);
+  const spd = Math.max(1, Math.floor((NPC_BASE_SPD[idx] + level * 0.3) * (0.9 + Math.random() * 0.2) * vm));
+  const goldReward = Math.floor((NPC_GOLD_BASE[idx] + Math.random() * NPC_GOLD_RANGE[idx]) * vm * Math.max(1, level * 0.1));
   const xpPct = NPC_XP_PCT[idx] * (0.8 + Math.random() * 0.4) * vm;
   const xpReward = Math.max(1, Math.floor((xpToNextVal * xpPct) / 100));
   return { rarity, version, name, hp: maxHp, maxHp, atk, def, spd, goldReward, xpReward };
@@ -297,7 +299,7 @@ export function rollEvent(char: Character): EventRoll {
   }
 
   // battle
-  const npc = buildNpcBattle(char.xpToNext);
+  const npc = buildNpcBattle(char.xpToNext, char.level);
   const scene = BATTLE_SCENES[Math.floor(Math.random() * BATTLE_SCENES.length)];
   return {
     id, type, timestamp: ts, sceneType: scene,

@@ -67,9 +67,13 @@ export function EventNotification({ roll }: EventNotificationProps) {
       {/* Gold / XP */}
       {(roll.goldGained > 0 || roll.xpGained > 0) && (
         <View style={styles.row}>
-          <Text style={styles.icon}>⚡</Text>
           {roll.goldGained > 0 && (
-            <Text style={styles.goldText}>+{roll.goldGained} Gold</Text>
+            <View style={styles.goldRow}>
+              <View style={styles.goldCoin}>
+                <Text style={styles.goldCoinText}>G</Text>
+              </View>
+              <Text style={styles.goldText}>+{roll.goldGained} Gold</Text>
+            </View>
           )}
           {roll.xpGained > 0 && (
             <Text style={styles.xpText}>+{roll.xpGained} XP</Text>
@@ -144,6 +148,22 @@ const styles = StyleSheet.create({
   },
   statPtText: {
     color: Colors.game.purpleLight, fontFamily: "Inter_600SemiBold",
+  },
+  goldRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  goldCoin: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.game.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#a07820",
+  },
+  goldCoinText: {
+    fontSize: 8,
+    fontFamily: "Inter_700Bold",
+    color: "#3d2e00",
   },
   goldText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.gold },
   xpText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: Colors.game.purple },

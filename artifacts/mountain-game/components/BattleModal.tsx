@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Image,
+  ImageSourcePropType,
   Modal,
   Pressable,
   ScrollView,
@@ -9,13 +11,25 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { CharacterStats, NpcBattleStats, RARITY_COLORS } from "@/context/GameContext";
+import { CharacterStats, NpcBattleStats, RARITY_COLORS, RarityName } from "@/context/GameContext";
 import { RarityText } from "./RarityText";
+
+const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
+  Common:    require("@/assets/images/npcs/npc_common.png"),
+  Uncommon:  require("@/assets/images/npcs/npc_uncommon.png"),
+  Rare:      require("@/assets/images/npcs/npc_rare.png"),
+  Epic:      require("@/assets/images/npcs/npc_epic.png"),
+  Elite:     require("@/assets/images/npcs/npc_elite.png"),
+  Legendary: require("@/assets/images/npcs/npc_legendary.png"),
+  Superior:  require("@/assets/images/npcs/npc_superior.png"),
+  Cosmic:    require("@/assets/images/npcs/npc_cosmic.png"),
+};
 
 interface BattleModalProps {
   visible: boolean;
   npc: NpcBattleStats | null;
   playerStats: CharacterStats;
+  playerLevel: number;
   onComplete: (victory: boolean, goldReward: number, xpReward: number) => void;
 }
 
@@ -29,7 +43,7 @@ interface LogLine {
 
 let lineId = 0;
 
-export function BattleModal({ visible, npc, playerStats, onComplete }: BattleModalProps) {
+export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete }: BattleModalProps) {
   const [phase, setPhase] = useState<BattlePhase>("intro");
   const [playerHp, setPlayerHp] = useState(0);
   const [npcHp, setNpcHp] = useState(0);
@@ -62,7 +76,7 @@ export function BattleModal({ visible, npc, playerStats, onComplete }: BattleMod
     ]).start();
   }
 
-  function runFlash(color: "gold" | "red") {
+  function runFlash() {
     flashAnim.setValue(0.4);
     Animated.timing(flashAnim, { toValue: 0, duration: 350, useNativeDriver: false }).start();
   }
@@ -141,7 +155,7 @@ export function BattleModal({ visible, npc, playerStats, onComplete }: BattleMod
     playerHpRef.current = newHp;
     setPlayerHp(newHp);
     runShake(playerShakeAnim);
-    runFlash("red");
+    runFlash();
     const name = npcRef.current?.name ?? "Enemy";
     addLine(`${name} hits you for ${dmg} damage!`, Colors.game.red);
 
@@ -167,7 +181,6 @@ export function BattleModal({ visible, npc, playerStats, onComplete }: BattleMod
     npcHpRef.current = newNpcHp;
     setNpcHp(newNpcHp);
     runShake(npcShakeAnim);
-    runFlash("gold");
     addLine(`You strike for ${dmg} damage!`, Colors.game.gold);
 
     if (newNpcHp <= 0) {
@@ -207,7 +220,6 @@ export function BattleModal({ visible, npc, playerStats, onComplete }: BattleMod
 
   return (
     <Modal transparent visible={visible} animationType="none">
-      {/* Screen flash */}
       <Animated.View
         style={[StyleSheet.absoluteFill, { backgroundColor: flashColor, zIndex: 1 }]}
         pointerEvents="none"
@@ -222,33 +234,39 @@ export function BattleModal({ visible, npc, playerStats, onComplete }: BattleMod
             <RarityText rarity={npc.rarity} version={npc.version} label={npc.name} style={styles.npcName} />
           </View>
 
-          {/* HP Bars */}
-          <View style={styles.hpBlock}>
-            <Animated.View style={[styles.hpRow, { transform: [{ translateX: playerShakeAnim }] }]}>
-              <Text style={styles.hpLabelP}>YOU</Text>
-              <View style={styles.hpTrack}>
-                <View
-                  style={[
-                    styles.hpFill,
-                    {
-                      width: `${pHpPct}%` as any,
-                      backgroundColor:
-                        pHpPct > 50 ? Colors.game.green : pHpPct > 25 ? Colors.game.gold : Colors.game.red,
-                    },
-                  ]}
-                />
+          {/* NPC splash art */}
+          <Animated.View style={[styles.npcImageWrap, { transform: [{ translateX: npcShakeAnim }] }]}>
+            <Image
+              source={NPC_SPLASH[npc.rarity]}
+              style={styles.npcImage}
+              resizeMode="cover"
+            />
+            <View style={[styles.npcImageBorder, { borderColor: rarityColor }]} />
+            <View style={styles.npcHpOverlay}>
+              <View style={styles.npcHpTrack}>
+                <View style={[styles.npcHpFill, { width: `${nHpPct}%` as any, backgroundColor: rarityColor }]} />
               </View>
-              <Text style={styles.hpNum}>{playerHp}/{playerStats.health}</Text>
-            </Animated.View>
+              <Text style={[styles.npcHpNum, { color: rarityColor }]}>{npcHp}/{npc.maxHp}</Text>
+            </View>
+          </Animated.View>
 
-            <Animated.View style={[styles.hpRow, { transform: [{ translateX: npcShakeAnim }] }]}>
-              <Text style={[styles.hpLabelN, { color: rarityColor }]}>FOE</Text>
-              <View style={styles.hpTrack}>
-                <View style={[styles.hpFill, { width: `${nHpPct}%` as any, backgroundColor: rarityColor }]} />
-              </View>
-              <Text style={[styles.hpNum, { color: rarityColor }]}>{npcHp}/{npc.maxHp}</Text>
-            </Animated.View>
-          </View>
+          {/* Player HP */}
+          <Animated.View style={[styles.playerHpRow, { transform: [{ translateX: playerShakeAnim }] }]}>
+            <Text style={styles.hpLabelP}>YOU</Text>
+            <View style={styles.hpTrack}>
+              <View
+                style={[
+                  styles.hpFill,
+                  {
+                    width: `${pHpPct}%` as any,
+                    backgroundColor:
+                      pHpPct > 50 ? Colors.game.green : pHpPct > 25 ? Colors.game.gold : Colors.game.red,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.hpNum}>{playerHp}/{playerStats.health}</Text>
+          </Animated.View>
 
           {/* Speed indicator */}
           <View style={styles.speedRow}>
@@ -331,15 +349,56 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
   },
   npcName: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  hpBlock: { gap: 8 },
-  hpRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  npcImageWrap: {
+    width: "100%",
+    height: 160,
+    borderRadius: 14,
+    overflow: "hidden",
+    position: "relative",
+  },
+  npcImage: {
+    width: "100%",
+    height: "100%",
+  },
+  npcImageBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  npcHpOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  npcHpTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  npcHpFill: { height: "100%", borderRadius: 3 },
+  npcHpNum: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    minWidth: 50,
+    textAlign: "right",
+  },
+  playerHpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   hpLabelP: {
     fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.green, letterSpacing: 1, width: 28,
-  },
-  hpLabelN: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    letterSpacing: 1, width: 28,
   },
   hpTrack: {
     flex: 1, height: 8,
@@ -357,7 +416,7 @@ const styles = StyleSheet.create({
     color: Colors.game.textDim,
   },
   log: {
-    maxHeight: 100, backgroundColor: Colors.game.surface,
+    maxHeight: 90, backgroundColor: Colors.game.surface,
     borderRadius: 10, padding: 10,
   },
   logEmpty: {

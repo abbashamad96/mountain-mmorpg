@@ -13,12 +13,12 @@ interface AmbientConfig {
 const HALO_MARGIN = 18;
 
 const AMBIENT_CONFIG: Record<1 | 2 | 3, AmbientConfig> = {
-  1: { count: 6,  orbitRadius: 0.55, particleSize: 4, orbitDuration: 3400, glowRadius: 3 },
-  2: { count: 10, orbitRadius: 0.56, particleSize: 5, orbitDuration: 2700, glowRadius: 4 },
-  3: { count: 14, orbitRadius: 0.58, particleSize: 6, orbitDuration: 2100, glowRadius: 6 },
+  1: { count: 18, orbitRadius: 0.55, particleSize: 4, orbitDuration: 3400, glowRadius: 3 },
+  2: { count: 30, orbitRadius: 0.56, particleSize: 5, orbitDuration: 2700, glowRadius: 4 },
+  3: { count: 42, orbitRadius: 0.58, particleSize: 6, orbitDuration: 2100, glowRadius: 6 },
 };
 
-const MAX_PARTICLES = 14;
+const MAX_PARTICLES = 42;
 
 interface AmbientParticlesProps {
   color: string;

@@ -16,13 +16,13 @@ const SCENE_IMAGES: Record<SceneType, ImageSourcePropType> = {
   default: require("@/assets/images/road_default.png"),
   storm: require("@/assets/images/road_storm.png"),
   treasure: require("@/assets/images/road_treasure.png"),
-  combat: require("@/assets/images/road_storm.png"),
-  ruins: require("@/assets/images/road_treasure.png"),
-  forest: require("@/assets/images/road_treasure.png"),
-  snow: require("@/assets/images/road_default.png"),
-  dungeon: require("@/assets/images/road_default.png"),
-  volcanic: require("@/assets/images/road_storm.png"),
-  night: require("@/assets/images/road_default.png"),
+  combat: require("@/assets/images/road_combat.png"),
+  ruins: require("@/assets/images/road_ruins.png"),
+  forest: require("@/assets/images/road_forest.png"),
+  snow: require("@/assets/images/road_snow.png"),
+  dungeon: require("@/assets/images/road_dungeon.png"),
+  volcanic: require("@/assets/images/road_volcanic.png"),
+  night: require("@/assets/images/road_night.png"),
 };
 
 const SCENE_TINT: Record<SceneType, string> = {
