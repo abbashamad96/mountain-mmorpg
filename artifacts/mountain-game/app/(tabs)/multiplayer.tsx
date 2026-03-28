@@ -1,328 +1,217 @@
-import * as Haptics from "expo-haptics";
+import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
+  FlatList,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BattleModal } from "@/components/BattleModal";
-import { ChallengeModal } from "@/components/ChallengeModal";
-import { SceneView } from "@/components/SceneView";
 import Colors from "@/constants/colors";
-import { EventResult, useGame } from "@/context/GameContext";
-import { useMultiplayer } from "@/context/MultiplayerContext";
+import { ChatMessage, useMultiplayer } from "@/context/MultiplayerContext";
 
-export default function MultiplayerScreen() {
-  const { gameState, triggerEvent } = useGame();
-  const {
-    status,
-    roomCode,
-    yourId,
-    players,
-    playerName,
-    setPlayerName,
-    joinRoom,
-    leaveRoom,
-    broadcastCoOpEvent,
-    challengePlayer,
-    acceptBattle,
-    declineBattle,
-    syncStats,
-    incomingChallenge,
-    clearIncomingChallenge,
-    lastBattleResult,
-    clearBattleResult,
-    lastCoOpEvent,
-    clearCoOpEvent,
-    coOpLog,
-  } = useMultiplayer();
-
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
-
-  const [nameInput, setNameInput] = useState(playerName);
-  const [codeInput, setCodeInput] = useState("");
-  const [isInteracting, setIsInteracting] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [challengedId, setChallengedId] = useState<string | null>(null);
-  const cooldownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isConnected = status === "connected" && !!roomCode;
-
-  const handleJoin = useCallback(() => {
-    const trimCode = codeInput.trim().toUpperCase() || null;
-    setPlayerName(nameInput.trim() || "Wanderer");
-    joinRoom(trimCode, gameState.character.level, gameState.character.stats);
-  }, [codeInput, nameInput, gameState, joinRoom, setPlayerName]);
-
-  const handleScenePress = useCallback(() => {
-    if (isInteracting) return;
-    setIsInteracting(true);
-    setIsAnimating(true);
-
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-
-    const event = triggerEvent();
-    broadcastCoOpEvent(event);
-    syncStats(gameState.character.level, gameState.character.stats);
-
-    setTimeout(() => setIsAnimating(false), 500);
-
-    const cd = 2500 + Math.random() * 1500;
-    cooldownRef.current = setTimeout(() => {
-      setIsInteracting(false);
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-    }, cd);
-  }, [isInteracting, triggerEvent, broadcastCoOpEvent, syncStats, gameState]);
-
-  const handleChallenge = useCallback(
-    (targetId: string) => {
-      setChallengedId(targetId);
-      challengePlayer(targetId);
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }
-    },
-    [challengePlayer]
-  );
-
-  if (!isConnected) {
+function MessageBubble({
+  msg,
+  isOwn,
+}: {
+  msg: ChatMessage;
+  isOwn: boolean;
+}) {
+  if (msg.type === "system") {
     return (
-      <View
-        style={[
-          styles.root,
-          { paddingTop: topPad + 12, paddingBottom: bottomPad + 90 },
-        ]}
-      >
-        <ScrollView
-          contentContainerStyle={styles.lobbyContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.titleBlock}>
-            <Text style={styles.mapLabel}>MULTIPLAYER</Text>
-            <Text style={styles.mapTitle}>Co-op & PvP</Text>
-            <Text style={styles.mapSubtitle}>
-              Join a room to explore together or battle other wanderers
-            </Text>
-          </View>
-
-          <View style={styles.formCard}>
-            <Text style={styles.formLabel}>YOUR NAME</Text>
-            <TextInput
-              style={styles.input}
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder="Enter name..."
-              placeholderTextColor={Colors.game.textMuted}
-              maxLength={16}
-              autoCapitalize="words"
-            />
-
-            <Text style={[styles.formLabel, { marginTop: 16 }]}>
-              ROOM CODE (leave blank to create)
-            </Text>
-            <TextInput
-              style={[styles.input, styles.codeInput]}
-              value={codeInput}
-              onChangeText={(t) => setCodeInput(t.toUpperCase())}
-              placeholder="e.g. ABCD"
-              placeholderTextColor={Colors.game.textMuted}
-              maxLength={4}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-
-            <Pressable
-              style={[
-                styles.joinBtn,
-                status === "connecting" && styles.joinBtnDisabled,
-              ]}
-              onPress={handleJoin}
-              disabled={status === "connecting"}
-            >
-              <Text style={styles.joinBtnText}>
-                {status === "connecting"
-                  ? "CONNECTING..."
-                  : codeInput.trim().length === 4
-                    ? "JOIN ROOM"
-                    : "CREATE ROOM"}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>How it works</Text>
-            <Text style={styles.infoLine}>
-              🗺 Co-op: everyone explores together — events are shared
-            </Text>
-            <Text style={styles.infoLine}>
-              ⚔ PvP: challenge players in your room to a stat battle
-            </Text>
-            <Text style={styles.infoLine}>
-              🔗 Share your room code with friends to play together
-            </Text>
-          </View>
-        </ScrollView>
-
-        <ChallengeModal
-          challenge={incomingChallenge}
-          onAccept={() => {
-            if (incomingChallenge) acceptBattle(incomingChallenge.fromId);
-          }}
-          onDecline={() => {
-            if (incomingChallenge) declineBattle(incomingChallenge.fromId);
-          }}
-        />
-        <BattleModal result={lastBattleResult} onClose={clearBattleResult} />
+      <View style={styles.systemRow}>
+        <Text style={styles.systemText}>{msg.text}</Text>
       </View>
     );
   }
 
+  const time = new Date(msg.ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
-    <View style={styles.root}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.roomContent,
-          { paddingTop: topPad + 12, paddingBottom: bottomPad + 90 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.roomHeader}>
-          <View>
-            <Text style={styles.mapLabel}>ROOM CODE</Text>
-            <Text style={styles.roomCode}>{roomCode}</Text>
-          </View>
-          <View style={styles.roomHeaderRight}>
-            <Text style={styles.playerCountText}>
-              {players.length + 1} player{players.length !== 0 ? "s" : ""}
-            </Text>
-            <Pressable style={styles.leaveBtn} onPress={leaveRoom}>
-              <Text style={styles.leaveBtnText}>Leave</Text>
+    <View style={[styles.bubbleRow, isOwn && styles.bubbleRowOwn]}>
+      {!isOwn && (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>
+            {msg.senderName.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
+        {!isOwn && (
+          <Text style={styles.senderName}>{msg.senderName}</Text>
+        )}
+        <Text style={[styles.bubbleText, isOwn && styles.bubbleTextOwn]}>
+          {msg.text}
+        </Text>
+        <Text style={[styles.timeText, isOwn && styles.timeTextOwn]}>
+          {time}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+export default function ChatScreen() {
+  const { status, yourId, playerName, setPlayerName, messages, sendChat } =
+    useMultiplayer();
+  const insets = useSafeAreaInsets();
+  const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const [draft, setDraft] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(playerName);
+  const inputRef = useRef<TextInput>(null);
+
+  const handleSend = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    sendChat(text);
+    setDraft("");
+  }, [draft, sendChat]);
+
+  const handleSaveName = useCallback(() => {
+    const n = nameInput.trim();
+    if (n) setPlayerName(n);
+    setEditingName(false);
+  }, [nameInput, setPlayerName]);
+
+  const statusColor =
+    status === "connected"
+      ? Colors.game.green
+      : status === "connecting"
+        ? Colors.game.gold
+        : Colors.game.red;
+
+  const statusLabel =
+    status === "connected"
+      ? "Online"
+      : status === "connecting"
+        ? "Connecting..."
+        : "Offline";
+
+  return (
+    <View style={[styles.root, { paddingTop: topPad }]}>
+      <View style={styles.header}>
+        {editingName ? (
+          <View style={styles.nameEditRow}>
+            <TextInput
+              style={styles.nameInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              autoFocus
+              maxLength={20}
+              returnKeyType="done"
+              onSubmitEditing={handleSaveName}
+              placeholderTextColor={Colors.game.textMuted}
+            />
+            <Pressable style={styles.nameSaveBtn} onPress={handleSaveName}>
+              <Feather name="check" size={18} color={Colors.game.background} />
             </Pressable>
           </View>
+        ) : (
+          <Pressable
+            style={styles.nameRow}
+            onPress={() => {
+              setNameInput(playerName);
+              setEditingName(true);
+            }}
+          >
+            <Text style={styles.playerNameText}>{playerName}</Text>
+            <Feather name="edit-2" size={13} color={Colors.game.textMuted} style={{ marginLeft: 6 }} />
+          </Pressable>
+        )}
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusText, { color: statusColor }]}>
+            {statusLabel}
+          </Text>
         </View>
+      </View>
 
-        <SceneView
-          scene={gameState.currentScene}
-          onPress={handleScenePress}
-          disabled={isInteracting}
-          isAnimating={isAnimating}
+      <View style={styles.divider} />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
+        <FlatList
+          data={[...messages].reverse()}
+          inverted
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <MessageBubble msg={item} isOwn={item.senderId === yourId} />
+          )}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: 8 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Feather
+                name="message-circle"
+                size={40}
+                color={Colors.game.textMuted}
+              />
+              <Text style={styles.emptyText}>
+                {status === "connecting"
+                  ? "Connecting to the mountain road..."
+                  : "No messages yet. Say something!"}
+              </Text>
+            </View>
+          }
         />
 
-        {lastCoOpEvent && (
-          <View style={styles.coOpBanner}>
-            <Text style={styles.coOpBannerText}>
-              <Text style={styles.coOpName}>{lastCoOpEvent.triggeredBy}</Text>
-              {" triggered: "}
-              <Text style={styles.coOpEventName}>
-                {lastCoOpEvent.event.title}
-              </Text>
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>PLAYERS IN ROOM</Text>
-          {players.length === 0 ? (
-            <Text style={styles.emptyText}>
-              Waiting for others... Share the room code!
-            </Text>
-          ) : (
-            players.map((p) => (
-              <View key={p.id} style={styles.playerRow}>
-                <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>{p.name}</Text>
-                  <Text style={styles.playerLevel}>Lv.{p.level}</Text>
-                </View>
-                <View style={styles.playerMiniStats}>
-                  <Text style={styles.miniStat}>
-                    <Text style={{ color: Colors.game.red }}>⚔</Text> {p.stats.strength}
-                  </Text>
-                  <Text style={styles.miniStat}>
-                    <Text style={{ color: Colors.game.green }}>♥</Text> {p.stats.health}
-                  </Text>
-                  <Text style={styles.miniStat}>
-                    <Text style={{ color: Colors.game.blue }}>🛡</Text> {p.stats.defence}
-                  </Text>
-                </View>
-                <Pressable
-                  style={[
-                    styles.challengeBtn,
-                    challengedId === p.id && styles.challengeBtnPending,
-                  ]}
-                  onPress={() => handleChallenge(p.id)}
-                  disabled={challengedId === p.id}
-                >
-                  <Text style={styles.challengeBtnText}>
-                    {challengedId === p.id ? "..." : "⚔"}
-                  </Text>
-                </Pressable>
-              </View>
-            ))
-          )}
+        <View
+          style={[
+            styles.inputRow,
+            { paddingBottom: bottomPad > 0 ? bottomPad : 12 },
+          ]}
+        >
+          <TextInput
+            ref={inputRef}
+            style={styles.chatInput}
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Say something..."
+            placeholderTextColor={Colors.game.textMuted}
+            returnKeyType="send"
+            onSubmitEditing={handleSend}
+            blurOnSubmit={false}
+            maxLength={300}
+            multiline={false}
+            editable={status === "connected"}
+          />
+          <Pressable
+            style={[
+              styles.sendBtn,
+              (!draft.trim() || status !== "connected") && styles.sendBtnDisabled,
+            ]}
+            onPress={handleSend}
+            disabled={!draft.trim() || status !== "connected"}
+          >
+            <Feather
+              name="send"
+              size={18}
+              color={
+                draft.trim() && status === "connected"
+                  ? Colors.game.background
+                  : Colors.game.textMuted
+              }
+            />
+          </Pressable>
         </View>
-
-        {coOpLog.length > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>CO-OP EVENT LOG</Text>
-            {coOpLog.slice(0, 8).map((e, i) => (
-              <View key={i} style={styles.coOpLogRow}>
-                <View style={styles.coOpLogDot} />
-                <View style={styles.coOpLogContent}>
-                  <Text style={styles.coOpLogWho}>{e.triggeredBy}</Text>
-                  <Text style={styles.coOpLogEvent}>{e.event.title}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.coOpLogType,
-                    {
-                      color:
-                        e.event.type === "gain"
-                          ? Colors.game.green
-                          : e.event.type === "loss"
-                            ? Colors.game.red
-                            : Colors.game.purple,
-                    },
-                  ]}
-                >
-                  {e.event.type === "gain"
-                    ? "▲"
-                    : e.event.type === "loss"
-                      ? "▼"
-                      : "◆"}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      <ChallengeModal
-        challenge={incomingChallenge}
-        onAccept={() => {
-          if (incomingChallenge) acceptBattle(incomingChallenge.fromId);
-        }}
-        onDecline={() => {
-          if (incomingChallenge) declineBattle(incomingChallenge.fromId);
-        }}
-      />
-      <BattleModal result={lastBattleResult} onClose={() => {
-        clearBattleResult();
-        setChallengedId(null);
-      }} />
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -332,263 +221,199 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.game.background,
   },
-  lobbyContent: {
-    paddingHorizontal: 16,
-    gap: 14,
-  },
-  roomContent: {
-    paddingHorizontal: 16,
-    gap: 14,
-  },
-  titleBlock: {
+  header: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
-  },
-  mapLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 3,
-    marginBottom: 2,
-    textAlign: "center",
-  },
-  mapTitle: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.gold,
-    letterSpacing: 0.5,
-  },
-  mapSubtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: Colors.game.textDim,
-    textAlign: "center",
-    marginTop: 6,
-  },
-  formCard: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-  },
-  formLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: Colors.game.background,
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  playerNameText: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.text,
+  },
+  nameEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  nameInput: {
+    flex: 1,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     fontSize: 15,
     fontFamily: "Inter_500Medium",
     color: Colors.game.text,
     borderWidth: 1,
-    borderColor: Colors.game.border,
+    borderColor: Colors.game.gold,
   },
-  codeInput: {
-    letterSpacing: 8,
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-  },
-  joinBtn: {
+  nameSaveBtn: {
     backgroundColor: Colors.game.gold,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 8,
+    width: 34,
+    height: 34,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
   },
-  joinBtnDisabled: {
-    opacity: 0.6,
-  },
-  joinBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.background,
-    letterSpacing: 1,
-  },
-  infoCard: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-    gap: 8,
-  },
-  infoTitle: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.game.textDim,
-    marginBottom: 4,
-  },
-  infoLine: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: Colors.game.textMuted,
-    lineHeight: 20,
-  },
-  roomHeader: {
+  statusRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-  roomCode: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.gold,
-    letterSpacing: 8,
-  },
-  roomHeaderRight: {
-    alignItems: "flex-end",
+    alignItems: "center",
     gap: 6,
   },
-  playerCountText: {
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
-    color: Colors.game.textDim,
   },
-  leaveBtn: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 8,
+  divider: {
+    height: 1,
+    backgroundColor: Colors.game.border,
+  },
+  listContent: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
+    paddingTop: 8,
+    flexGrow: 1,
+    justifyContent: "flex-end",
   },
-  leaveBtnText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.game.textDim,
+  systemRow: {
+    alignItems: "center",
+    paddingVertical: 8,
   },
-  coOpBanner: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: Colors.game.purple,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.game.purple,
-  },
-  coOpBannerText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: Colors.game.textDim,
-  },
-  coOpName: {
-    color: Colors.game.purpleLight,
-    fontFamily: "Inter_600SemiBold",
-  },
-  coOpEventName: {
-    color: Colors.game.text,
-    fontFamily: "Inter_600SemiBold",
-  },
-  sectionCard: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 2,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 13,
+  systemText: {
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
     color: Colors.game.textMuted,
     fontStyle: "italic",
     textAlign: "center",
-    paddingVertical: 8,
   },
-  playerRow: {
+  bubbleRow: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.game.border,
+    alignItems: "flex-end",
+    marginVertical: 4,
     gap: 8,
   },
-  playerInfo: {
-    flex: 1,
+  bubbleRowOwn: {
+    flexDirection: "row-reverse",
   },
-  playerName: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.game.text,
-  },
-  playerLevel: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.gold,
-    marginTop: 1,
-  },
-  playerMiniStats: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  miniStat: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.textDim,
-  },
-  challengeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(201,168,76,0.15)",
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.game.surfaceAlt,
     borderWidth: 1,
-    borderColor: Colors.game.gold,
+    borderColor: Colors.game.border,
     justifyContent: "center",
     alignItems: "center",
-  },
-  challengeBtnPending: {
-    opacity: 0.5,
-    borderColor: Colors.game.textMuted,
-  },
-  challengeBtnText: {
-    fontSize: 14,
-    color: Colors.game.gold,
-  },
-  coOpLogRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.game.border,
-    gap: 10,
-  },
-  coOpLogDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.game.purple,
     flexShrink: 0,
   },
-  coOpLogContent: {
-    flex: 1,
+  avatarText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
   },
-  coOpLogWho: {
+  bubble: {
+    maxWidth: "72%",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  bubbleOther: {
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+    borderBottomLeftRadius: 4,
+  },
+  bubbleOwn: {
+    backgroundColor: Colors.game.gold,
+    borderBottomRightRadius: 4,
+  },
+  senderName: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
-    color: Colors.game.purpleLight,
+    color: Colors.game.gold,
+    marginBottom: 2,
   },
-  coOpLogEvent: {
-    fontSize: 12,
+  bubbleText: {
+    fontSize: 14,
     fontFamily: "Inter_400Regular",
-    color: Colors.game.textDim,
+    color: Colors.game.text,
+    lineHeight: 20,
   },
-  coOpLogType: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
+  bubbleTextOwn: {
+    color: Colors.game.background,
+  },
+  timeText: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textMuted,
+    marginTop: 3,
+    alignSelf: "flex-end",
+  },
+  timeTextOwn: {
+    color: "rgba(13,10,20,0.5)",
+  },
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingVertical: 60,
+    transform: [{ scaleY: -1 }],
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textMuted,
+    textAlign: "center",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.game.border,
+    backgroundColor: Colors.game.background,
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.text,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+    maxHeight: 100,
+  },
+  sendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Colors.game.gold,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  sendBtnDisabled: {
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
   },
 });

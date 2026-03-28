@@ -49,9 +49,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="multiplayer"
         options={{
-          title: "Multiplayer",
+          title: "Chat",
           tabBarIcon: ({ color }) => (
-            <Feather name="users" size={22} color={color} />
+            <Feather name="message-circle" size={22} color={color} />
           ),
         }}
       />

@@ -7,68 +7,25 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { EventResult } from "./GameContext";
 
-export interface RemotePlayer {
+export interface ChatMessage {
   id: string;
-  name: string;
-  level: number;
-  stats: {
-    strength: number;
-    health: number;
-    defence: number;
-    speed: number;
-  };
-}
-
-export interface BattleResult {
-  won: boolean;
-  opponentName: string;
-  opponentLevel: number;
-  log: string[];
-  hpRemaining: number;
-}
-
-export interface IncomingChallenge {
-  fromId: string;
-  fromName: string;
-  fromLevel: number;
-  fromStats: RemotePlayer["stats"];
-}
-
-export interface CoOpEvent {
-  event: EventResult;
-  triggeredBy: string;
-  triggeredById: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  ts: number;
+  type: "chat" | "system";
 }
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
 interface MultiplayerContextType {
   status: ConnectionStatus;
-  roomCode: string | null;
   yourId: string | null;
-  players: RemotePlayer[];
   playerName: string;
   setPlayerName: (name: string) => void;
-  joinRoom: (
-    roomCode: string | null,
-    level: number,
-    stats: RemotePlayer["stats"]
-  ) => void;
-  leaveRoom: () => void;
-  broadcastCoOpEvent: (event: EventResult) => void;
-  challengePlayer: (targetId: string) => void;
-  acceptBattle: (challengerId: string) => void;
-  declineBattle: (challengerId: string) => void;
-  syncStats: (level: number, stats: RemotePlayer["stats"]) => void;
-  incomingChallenge: IncomingChallenge | null;
-  clearIncomingChallenge: () => void;
-  lastBattleResult: BattleResult | null;
-  clearBattleResult: () => void;
-  lastCoOpEvent: CoOpEvent | null;
-  clearCoOpEvent: () => void;
-  coOpLog: CoOpEvent[];
+  messages: ChatMessage[];
+  sendChat: (text: string) => void;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | null>(null);
@@ -81,238 +38,120 @@ export function MultiplayerProvider({
   children: React.ReactNode;
 }) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
-  const [roomCode, setRoomCode] = useState<string | null>(null);
   const [yourId, setYourId] = useState<string | null>(null);
-  const [players, setPlayers] = useState<RemotePlayer[]>([]);
   const [playerName, setPlayerNameState] = useState("Wanderer");
-  const [incomingChallenge, setIncomingChallenge] =
-    useState<IncomingChallenge | null>(null);
-  const [lastBattleResult, setLastBattleResult] =
-    useState<BattleResult | null>(null);
-  const [lastCoOpEvent, setLastCoOpEvent] = useState<CoOpEvent | null>(null);
-  const [coOpLog, setCoOpLog] = useState<CoOpEvent[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const pendingJoin = useRef<{
-    roomCode: string | null;
-    level: number;
-    stats: RemotePlayer["stats"];
-  } | null>(null);
   const nameRef = useRef(playerName);
   nameRef.current = playerName;
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(NAME_KEY).then((name) => {
-      if (name) setPlayerNameState(name);
+    AsyncStorage.getItem(NAME_KEY).then((saved) => {
+      if (saved) {
+        setPlayerNameState(saved);
+        nameRef.current = saved;
+      }
     });
-  }, []);
-
-  const setPlayerName = useCallback((name: string) => {
-    setPlayerNameState(name);
-    nameRef.current = name;
-    AsyncStorage.setItem(NAME_KEY, name);
-  }, []);
-
-  const send = useCallback((data: object) => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
-    }
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   const connect = useCallback(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
-    if (!domain) return;
-    const url = `wss://${domain}/api/ws`;
+    if (!domain || wsRef.current) return;
 
     setStatus("connecting");
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(`wss://${domain}/api/ws`);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (!mountedRef.current) return;
       setStatus("connected");
-      if (pendingJoin.current) {
-        const { roomCode: code, level, stats } = pendingJoin.current;
-        ws.send(
-          JSON.stringify({
-            type: "join",
-            name: nameRef.current,
-            roomCode: code,
-            level,
-            stats,
-          })
-        );
-        pendingJoin.current = null;
-      }
-    };
-
-    ws.onclose = () => {
-      setStatus("disconnected");
-      setRoomCode(null);
-      setPlayers([]);
-      setYourId(null);
-      wsRef.current = null;
-    };
-
-    ws.onerror = () => {
-      setStatus("disconnected");
+      ws.send(JSON.stringify({ type: "join", name: nameRef.current }));
     };
 
     ws.onmessage = (e) => {
+      if (!mountedRef.current) return;
       let msg: any;
       try {
         msg = JSON.parse(e.data);
       } catch {
         return;
       }
-
-      const { type } = msg;
-
-      if (type === "room_joined") {
-        setRoomCode(msg.roomCode);
+      if (msg.type === "joined") {
         setYourId(msg.yourId);
-        setPlayers(
-          (msg.players as RemotePlayer[]).filter((p) => p.id !== msg.yourId)
-        );
-      } else if (type === "player_joined") {
-        setPlayers((prev) => {
-          if (prev.find((p) => p.id === msg.player.id)) return prev;
-          return [...prev, msg.player];
-        });
-      } else if (type === "player_left") {
-        setPlayers((prev) => prev.filter((p) => p.id !== msg.playerId));
-      } else if (type === "player_updated") {
-        setPlayers((prev) =>
-          prev.map((p) => (p.id === msg.player.id ? { ...p, ...msg.player } : p))
-        );
-      } else if (type === "co_op_event") {
-        const coOpEv: CoOpEvent = {
-          event: msg.event,
-          triggeredBy: msg.triggeredBy,
-          triggeredById: msg.triggeredById,
-        };
-        setLastCoOpEvent(coOpEv);
-        setCoOpLog((prev) => [coOpEv, ...prev].slice(0, 30));
-      } else if (type === "battle_challenge") {
-        setIncomingChallenge({
-          fromId: msg.fromId,
-          fromName: msg.fromName,
-          fromLevel: msg.fromLevel,
-          fromStats: msg.fromStats,
-        });
-      } else if (type === "battle_result") {
-        setLastBattleResult({
-          won: msg.won,
-          opponentName: msg.opponentName,
-          opponentLevel: msg.opponentLevel,
-          log: msg.log,
-          hpRemaining: msg.hpRemaining,
-        });
-        setIncomingChallenge(null);
-      } else if (type === "battle_declined") {
-        setLastBattleResult({
-          won: false,
-          opponentName: msg.byName,
-          opponentLevel: 0,
-          log: [`${msg.byName} declined the challenge.`],
-          hpRemaining: 0,
-        });
+      } else if (msg.type === "chat" || msg.type === "system") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: msg.id,
+            senderId: msg.senderId ?? "system",
+            senderName: msg.senderName ?? "",
+            text: msg.text,
+            ts: msg.ts,
+            type: msg.type,
+          },
+        ].slice(-200));
       }
+    };
+
+    ws.onclose = () => {
+      if (!mountedRef.current) return;
+      wsRef.current = null;
+      setStatus("disconnected");
+      reconnectTimer.current = setTimeout(() => {
+        if (mountedRef.current) connect();
+      }, 3000);
+    };
+
+    ws.onerror = () => {
+      ws.close();
     };
   }, []);
 
-  const joinRoom = useCallback(
-    (
-      code: string | null,
-      level: number,
-      stats: RemotePlayer["stats"]
-    ) => {
+  useEffect(() => {
+    connect();
+    return () => {
+      mountedRef.current = false;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
+    };
+  }, [connect]);
+
+  const setPlayerName = useCallback(
+    (name: string) => {
+      const trimmed = name.trim().slice(0, 20) || "Wanderer";
+      setPlayerNameState(trimmed);
+      nameRef.current = trimmed;
+      AsyncStorage.setItem(NAME_KEY, trimmed);
       const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        pendingJoin.current = { roomCode: code, level, stats };
-        connect();
-      } else {
-        ws.send(
-          JSON.stringify({
-            type: "join",
-            name: nameRef.current,
-            roomCode: code,
-            level,
-            stats,
-          })
-        );
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "join", name: trimmed }));
       }
     },
-    [connect]
+    []
   );
 
-  const leaveRoom = useCallback(() => {
-    wsRef.current?.close();
-    setRoomCode(null);
-    setPlayers([]);
-    setYourId(null);
-    setStatus("disconnected");
+  const sendChat = useCallback((text: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "chat", text }));
+    }
   }, []);
-
-  const broadcastCoOpEvent = useCallback(
-    (event: EventResult) => {
-      send({ type: "co_op_event", event });
-    },
-    [send]
-  );
-
-  const challengePlayer = useCallback(
-    (targetId: string) => {
-      send({ type: "challenge", targetId });
-    },
-    [send]
-  );
-
-  const acceptBattle = useCallback(
-    (challengerId: string) => {
-      send({ type: "accept_battle", challengerId });
-    },
-    [send]
-  );
-
-  const declineBattle = useCallback(
-    (challengerId: string) => {
-      send({ type: "decline_battle", challengerId });
-      setIncomingChallenge(null);
-    },
-    [send]
-  );
-
-  const syncStats = useCallback(
-    (level: number, stats: RemotePlayer["stats"]) => {
-      send({ type: "sync_stats", level, stats });
-    },
-    [send]
-  );
 
   return (
     <MultiplayerContext.Provider
       value={{
         status,
-        roomCode,
         yourId,
-        players,
         playerName,
         setPlayerName,
-        joinRoom,
-        leaveRoom,
-        broadcastCoOpEvent,
-        challengePlayer,
-        acceptBattle,
-        declineBattle,
-        syncStats,
-        incomingChallenge,
-        clearIncomingChallenge: () => setIncomingChallenge(null),
-        lastBattleResult,
-        clearBattleResult: () => setLastBattleResult(null),
-        lastCoOpEvent,
-        clearCoOpEvent: () => setLastCoOpEvent(null),
-        coOpLog,
+        messages,
+        sendChat,
       }}
     >
       {children}
@@ -322,7 +161,6 @@ export function MultiplayerProvider({
 
 export function useMultiplayer(): MultiplayerContextType {
   const ctx = useContext(MultiplayerContext);
-  if (!ctx)
-    throw new Error("useMultiplayer must be used within MultiplayerProvider");
+  if (!ctx) throw new Error("useMultiplayer must be used within MultiplayerProvider");
   return ctx;
 }
