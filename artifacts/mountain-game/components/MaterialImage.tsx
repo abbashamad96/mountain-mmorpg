@@ -307,7 +307,7 @@ export function MaterialImage({
             numberOfLines={1}
             adjustsFontSizeToFit
           >
-            {rarity.toUpperCase()}{version > 0 ? `  V${version}` : ""}
+            {rarity.toUpperCase()}{version > 0 ? `  T${version}` : ""}
           </Text>
         </View>
       )}

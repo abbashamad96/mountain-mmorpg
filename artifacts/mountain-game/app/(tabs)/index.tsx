@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   StyleSheet,
@@ -28,6 +29,45 @@ import {
   useGame,
 } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
+
+// ─── AH toast banner ──────────────────────────────────────────────────────────
+
+type AhToastData = { id: string; msg: string; isGold: boolean };
+
+function AhToast({ toast }: { toast: AhToastData }) {
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.delay(2700),
+      Animated.timing(fade, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={[toastStyles.toast, { opacity: fade }]}>
+      <Feather
+        name={toast.isGold ? "dollar-sign" : "package"}
+        size={11}
+        color={toast.isGold ? Colors.game.gold : Colors.game.blue}
+      />
+      <Text style={toastStyles.toastTxt}>{toast.msg}</Text>
+    </Animated.View>
+  );
+}
+
+const toastStyles = StyleSheet.create({
+  toast: {
+    flexDirection: "row", alignItems: "center", gap: 7,
+    backgroundColor: "rgba(18,18,24,0.92)",
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: Colors.game.border,
+    alignSelf: "flex-start",
+  },
+  toastTxt: {
+    fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.text,
+    flexShrink: 1,
+  },
+});
 
 export default function GameScreen() {
   const {
@@ -61,6 +101,7 @@ export default function GameScreen() {
   const [battleNpc, setBattleNpc] = useState<NpcBattleStats | null>(null);
   const [showBattle, setShowBattle] = useState(false);
   const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
+  const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -87,39 +128,48 @@ export default function GameScreen() {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [gameState, isAuthenticated, saveGameState]);
 
+  // ── AH toast helper ───────────────────────────────────────────────────────
+  const pushToast = useCallback((msg: string, isGold: boolean) => {
+    const id = `t-${Date.now()}-${Math.random()}`;
+    setAhToasts((prev) => [...prev, { id, msg, isGold }]);
+    setTimeout(() => setAhToasts((prev) => prev.filter((t) => t.id !== id)), 3600);
+  }, []);
+
   // ── Process AH + buy order events ────────────────────────────────────────
   useEffect(() => {
     for (const ev of ahEvents) {
       if (ev.kind === "sale") {
         applyGoldXp(ev.listing!.price, 0);
+        pushToast(`Listing sold! +${ev.listing!.price.toLocaleString()}G`, true);
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bought") {
         addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
+        pushToast(`Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`, false);
         consumeAhEvent(ev.id);
       } else if (ev.kind === "cancelled") {
         addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_sold") {
-        // Seller filled someone's buy order → receive gold
         if (ev.boGoldEarned && ev.boGoldEarned > 0) {
           applyGoldXp(ev.boGoldEarned, 0);
+          pushToast(`Buy order filled! +${ev.boGoldEarned.toLocaleString()}G`, true);
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_received") {
-        // Buyer's order was filled → receive items
         if (ev.boMaterial && ev.boCount && ev.boCount > 0) {
           addMaterials(Array(ev.boCount).fill(ev.boMaterial));
+          pushToast(`Received ×${ev.boCount} ${ev.boMaterial.rarity} ${ev.boMaterial.type} from order`, false);
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_cancelled") {
-        // Buyer cancelled their buy order → get gold refund
         if (ev.boGoldReturn && ev.boGoldReturn > 0) {
           applyGoldXp(ev.boGoldReturn, 0);
+          pushToast(`Order cancelled — +${ev.boGoldReturn.toLocaleString()}G refunded`, true);
         }
         consumeAhEvent(ev.id);
       }
     }
-  }, [ahEvents, applyGoldXp, addMaterials, consumeAhEvent]);
+  }, [ahEvents, applyGoldXp, addMaterials, consumeAhEvent, pushToast]);
 
   // ── Scene exploration ─────────────────────────────────────────────────────
   const handleScenePress = useCallback(() => {
@@ -322,6 +372,7 @@ export default function GameScreen() {
 
       {/* ── Bottom: notification + scene + timer ──────────────────────── */}
       <View style={[styles.bottomSection, { paddingBottom: bottomPad + 16 }]}>
+        {ahToasts.map((t) => <AhToast key={t.id} toast={t} />)}
         {lastRoll && <EventNotification roll={lastRoll} />}
         <SceneView
           scene={gameState.currentScene}

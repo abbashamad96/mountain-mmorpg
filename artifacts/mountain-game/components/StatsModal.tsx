@@ -41,9 +41,9 @@ const RARITY_DESC: Record<string, string> = {
 
 const VERSION_LABELS: Record<number, { label: string; color: string }> = {
   0: { label: "Standard", color: Colors.game.textMuted },
-  1: { label: "Version I", color: "#A78BFA" },
-  2: { label: "Version II", color: "#34D399" },
-  3: { label: "Version III", color: "#FCD34D" },
+  1: { label: "Tier I", color: "#A78BFA" },
+  2: { label: "Tier II", color: "#34D399" },
+  3: { label: "Tier III", color: "#FCD34D" },
 };
 
 // ─── Item detail modal ────────────────────────────────────────────────────────
@@ -259,7 +259,7 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                         <View style={styles.typeLabel}>
                           <Text style={styles.typeLabelText} adjustsFontSizeToFit minimumFontScale={0.7}>
                             {entry.material.type.toUpperCase()}
-                            {entry.material.version > 0 ? ` V${entry.material.version}` : ""}
+                            {entry.material.version > 0 ? ` T${entry.material.version}` : ""}
                           </Text>
                         </View>
                       </Pressable>

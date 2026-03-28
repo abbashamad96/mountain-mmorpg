@@ -29,7 +29,7 @@ export function RarityText({ rarity, version, label, style }: RarityTextProps) {
     }
   }, [rarity]);
 
-  const vLabel = version && version > 0 ? ` V${version}` : "";
+  const vLabel = version && version > 0 ? ` T${version}` : "";
   const text = (label ?? rarity) + vLabel;
 
   if (rarity === "Cosmic") {

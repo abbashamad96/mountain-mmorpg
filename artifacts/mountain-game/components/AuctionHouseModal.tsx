@@ -113,13 +113,16 @@ function BuyOrderCard({
   order: BuyOrder;
   isOwn: boolean;
   matchEntry: MaterialEntry | undefined;
-  onFill: () => void;
+  onFill: (qty: number) => void;
   onCancel: () => void;
 }) {
   const remaining = order.count - order.filled;
-  const fillCount = matchEntry ? Math.min(matchEntry.count, remaining) : 0;
+  const maxFill = matchEntry ? Math.min(matchEntry.count, remaining) : 0;
   const rarityColor = RARITY_COLORS[order.material.rarity as RarityName] ?? "#9CA3AF";
   const displayVersion = (order.material.version ?? 0) as VersionNum;
+
+  const [qty, setQty] = useState(maxFill);
+  useEffect(() => { setQty(maxFill); }, [maxFill]);
 
   return (
     <View style={[styles.listingCard, isOwn && styles.ownCard, { borderColor: rarityColor + "55" }]}>
@@ -141,7 +144,7 @@ function BuyOrderCard({
           style={styles.listingName}
         />
         <Text style={styles.listingMeta}>
-          {order.material.version === null ? "Any version" : `v${order.material.version}`}  ·  {isOwn ? "YOUR ORDER" : order.buyerName}
+          {order.material.version === null ? "Any tier" : `T${order.material.version}`}  ·  {isOwn ? "YOUR ORDER" : order.buyerName}
         </Text>
         <Text style={styles.boRemaining}>×{remaining} still needed</Text>
       </View>
@@ -155,10 +158,31 @@ function BuyOrderCard({
           <Pressable style={styles.cancelBtn} onPress={onCancel}>
             <Text style={styles.cancelBtnTxt}>CANCEL</Text>
           </Pressable>
-        ) : fillCount > 0 ? (
-          <Pressable style={styles.fillBtn} onPress={onFill}>
-            <Text style={styles.fillBtnTxt}>SELL ×{fillCount}</Text>
-          </Pressable>
+        ) : maxFill > 0 ? (
+          <View style={styles.fillCol}>
+            {maxFill > 1 && (
+              <View style={styles.stepperRow}>
+                <Pressable
+                  style={styles.stepBtn}
+                  onPress={() => setQty((q) => Math.max(1, q - 1))}
+                  hitSlop={6}
+                >
+                  <Text style={styles.stepBtnTxt}>−</Text>
+                </Pressable>
+                <Text style={styles.stepQty}>×{qty}</Text>
+                <Pressable
+                  style={styles.stepBtn}
+                  onPress={() => setQty((q) => Math.min(maxFill, q + 1))}
+                  hitSlop={6}
+                >
+                  <Text style={styles.stepBtnTxt}>+</Text>
+                </Pressable>
+              </View>
+            )}
+            <Pressable style={styles.fillBtn} onPress={() => onFill(qty)}>
+              <Text style={styles.fillBtnTxt}>SELL</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={styles.noItemTag}>
             <Text style={styles.noItemTagTxt}>NO ITEM</Text>
@@ -262,7 +286,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
 
   // ── Buy order actions ──────────────────────────────────────────────────────
 
-  const handleFillOrder = useCallback((order: BuyOrder) => {
+  const handleFillOrder = useCallback((order: BuyOrder, qty: number) => {
     const matchEntry = char.materials.find((e) =>
       e.material.type === order.material.type &&
       e.material.rarity === order.material.rarity &&
@@ -271,7 +295,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     );
     if (!matchEntry) { showFeedback("You don't have this item.", false); return; }
     const remaining = order.count - order.filled;
-    const fillCount = Math.min(matchEntry.count, remaining);
+    const fillCount = Math.min(qty, matchEntry.count, remaining);
+    if (fillCount <= 0) return;
     const goldEarned = fillCount * order.pricePerUnit;
     removeMaterial(matchEntry.key, fillCount);
     fillBuyOrder(order.id, fillCount, matchEntry.material.version);
@@ -400,7 +425,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                   order={item}
                   isOwn={item.buyerId === yourId}
                   matchEntry={matchEntry}
-                  onFill={() => handleFillOrder(item)}
+                  onFill={(qty) => handleFillOrder(item, qty)}
                   onCancel={() => handleCancelOrder(item)}
                 />
               );
@@ -580,7 +605,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
         {/* Version */}
         {boRarity && (
           <>
-            <Text style={styles.boSectionLabel}>VERSION (OPTIONAL)</Text>
+            <Text style={styles.boSectionLabel}>TIER (OPTIONAL)</Text>
             <View style={styles.boVersionRow}>
               {([null, 0, 1, 2, 3] as (number | null)[]).map((v, idx) => (
                 <Pressable
@@ -589,7 +614,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                   onPress={() => setBoVersion(v)}
                 >
                   <Text style={[styles.boChipTxt, boVersion === v && styles.boChipTxtActive]}>
-                    {v === null ? "ANY" : `V${v}`}
+                    {v === null ? "ANY" : `T${v}`}
                   </Text>
                 </Pressable>
               ))}
@@ -872,6 +897,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.border,
   },
   noItemTagTxt: { fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted },
+  fillCol: { alignItems: "flex-end", gap: 4 },
+  stepperRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stepBtn: {
+    width: 22, height: 22, borderRadius: 6,
+    backgroundColor: Colors.game.surfaceAlt, borderWidth: 1, borderColor: Colors.game.border,
+    alignItems: "center", justifyContent: "center",
+  },
+  stepBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.text, lineHeight: 16 },
+  stepQty: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.text, minWidth: 28, textAlign: "center" },
   // Wizard
   wizardArea: { height: 340, marginBottom: 10 },
   wizardTitle: {
