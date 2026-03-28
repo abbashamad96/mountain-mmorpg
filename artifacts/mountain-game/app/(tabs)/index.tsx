@@ -289,45 +289,42 @@ export default function GameScreen() {
       {/* ── Top: header + stat strip ──────────────────────────────────── */}
       <View style={[styles.topSection, { paddingTop: topPad + 12 }]}>
         <View style={styles.titleRow}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.mapLabel}>MAP 01</Text>
-            <Text style={styles.mapTitle}>Mountain of Supremacy</Text>
-          </View>
-          <View style={styles.headerBtns}>
-            <Pressable
-              style={styles.headerBtn}
-              onPress={() => setShowAuction(true)}
-              hitSlop={4}
-            >
-              <Feather name="shopping-bag" size={20} color={Colors.game.gold} />
-            </Pressable>
-            <Pressable
-              style={styles.headerBtn}
-              onPress={() => setShowChat(true)}
-              hitSlop={4}
-            >
-              <Feather name="message-circle" size={20} color={Colors.game.blue} />
-            </Pressable>
-            <Pressable style={styles.headerBtn} onPress={() => setShowStats(true)} hitSlop={4}>
-              <Feather name="user" size={20} color={Colors.game.gold} />
-              {char.pendingStatPoints > 0 && (
-                <View style={styles.statsBadge}>
-                  <Text style={styles.statsBadgeText}>{char.pendingStatPoints}</Text>
-                </View>
-              )}
-            </Pressable>
-            <Pressable
-              style={[styles.headerBtn, isAuthenticated && styles.headerBtnAuth]}
-              onPress={() => setShowAuth(true)}
-              hitSlop={4}
-            >
-              <Feather
-                name={isAuthenticated ? "check-circle" : "key"}
-                size={20}
-                color={isAuthenticated ? Colors.game.green : Colors.game.textDim}
-              />
-            </Pressable>
-          </View>
+          <Text style={styles.mapTitle}>Mountain of Supremacy</Text>
+        </View>
+        <View style={styles.headerBtns}>
+          <Pressable
+            style={styles.headerBtn}
+            onPress={() => setShowAuction(true)}
+            hitSlop={4}
+          >
+            <Feather name="shopping-bag" size={20} color={Colors.game.gold} />
+          </Pressable>
+          <Pressable
+            style={styles.headerBtn}
+            onPress={() => setShowChat(true)}
+            hitSlop={4}
+          >
+            <Feather name="message-circle" size={20} color={Colors.game.blue} />
+          </Pressable>
+          <Pressable style={styles.headerBtn} onPress={() => setShowStats(true)} hitSlop={4}>
+            <Feather name="user" size={20} color={Colors.game.gold} />
+            {char.pendingStatPoints > 0 && (
+              <View style={styles.statsBadge}>
+                <Text style={styles.statsBadgeText}>{char.pendingStatPoints}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            style={[styles.headerBtn, isAuthenticated && styles.headerBtnAuth]}
+            onPress={() => setShowAuth(true)}
+            hitSlop={4}
+          >
+            <Feather
+              name={isAuthenticated ? "check-circle" : "key"}
+              size={20}
+              color={isAuthenticated ? Colors.game.green : Colors.game.textDim}
+            />
+          </Pressable>
         </View>
 
         {/* Quick gold + level strip */}
@@ -423,21 +420,15 @@ const styles = StyleSheet.create({
   bottomSection: { paddingHorizontal: 16, gap: 10 },
   titleRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  titleBlock: {},
-  mapLabel: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 3, marginBottom: 1,
+    alignItems: "center",
   },
   mapTitle: {
-    fontSize: 17, fontFamily: "Inter_700Bold",
-    color: Colors.game.gold, letterSpacing: 0.3,
+    fontSize: 18, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 0.4,
   },
   headerBtns: {
     flexDirection: "row",
-    gap: 6,
+    gap: 8,
     alignItems: "center",
   },
   headerBtn: {

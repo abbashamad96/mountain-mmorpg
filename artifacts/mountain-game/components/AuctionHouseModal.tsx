@@ -64,7 +64,7 @@ function ListingCard({
           version={listing.material.version as VersionNum}
           size={54}
           compact
-          animateParticles={Platform.OS === "web"}
+          animateParticles={false}
         />
       </View>
       <View style={styles.listingInfo}>
@@ -133,7 +133,7 @@ function BuyOrderCard({
           version={displayVersion}
           size={54}
           compact
-          animateParticles={Platform.OS === "web"}
+          animateParticles={false}
         />
       </View>
       <View style={styles.listingInfo}>

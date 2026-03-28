@@ -85,6 +85,16 @@ function stableId(player: Player): string {
   return player.username ?? player.id;
 }
 
+/** Reassign any in-memory listings/orders that used oldId to newId (e.g. after auth). */
+function reassignOwnedEntries(oldId: string, newId: string) {
+  for (const listing of auctionListings.values()) {
+    if (listing.sellerId === oldId) listing.sellerId = newId;
+  }
+  for (const order of buyOrders.values()) {
+    if (order.buyerId === oldId) order.buyerId = newId;
+  }
+}
+
 /** Find a connected player by their stable ID (username or ephemeral id). */
 function getPlayerByStableId(id: string): Player | undefined {
   // Try direct lookup (ephemeral id)
@@ -268,6 +278,7 @@ async function handleMessage(player: Player, raw: string) {
     await dbCreateUser(username, hashPassword(password), msg.gameState ?? null);
     await dbCreateSession(token, username.toLowerCase());
 
+    reassignOwnedEntries(player.id, username);
     player.username = username;
     player.name = username;
     userIdMap.set(username.toLowerCase(), player.id);
@@ -289,6 +300,7 @@ async function handleMessage(player: Player, raw: string) {
     const token = generateToken();
     await dbCreateSession(token, uname);
 
+    reassignOwnedEntries(player.id, user.username);
     player.username = user.username;
     player.name = user.username;
     userIdMap.set(uname, player.id);
@@ -318,6 +330,7 @@ async function handleMessage(player: Player, raw: string) {
     const newToken = generateToken();
     await dbCreateSession(newToken, session.usernameLower);
 
+    reassignOwnedEntries(player.id, user.username);
     player.username = user.username;
     player.name = user.username;
     userIdMap.set(session.usernameLower, player.id);
@@ -385,7 +398,7 @@ async function handleMessage(player: Player, raw: string) {
   } else if (msg.type === "ah_buy") {
     const listing = auctionListings.get(String(msg.listingId));
     if (!listing) { send(player.ws, { type: "ah_buy_fail", reason: "Listing no longer available." }); return; }
-    if (listing.sellerId === stableId(player)) return;
+    if (listing.sellerId === stableId(player)) { send(player.ws, { type: "ah_buy_fail", reason: "You cannot buy your own listing." }); return; }
     auctionListings.delete(listing.id);
     await dbDeleteAhListing(listing.id);
     send(player.ws, { type: "ah_bought", listing });

@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -16,14 +16,6 @@ import Colors from "@/constants/colors";
 import { ChatMessage, useMultiplayer } from "@/context/MultiplayerContext";
 
 function MessageBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
-  if (msg.type === "system") {
-    return (
-      <View style={styles.systemRow}>
-        <Text style={styles.systemText}>{msg.text}</Text>
-      </View>
-    );
-  }
-
   const time = new Date(msg.ts).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -53,14 +45,14 @@ interface ChatModalProps {
 }
 
 export function ChatModal({ visible, onClose }: ChatModalProps) {
-  const { status, yourId, playerName, setPlayerName, messages, sendChat } = useMultiplayer();
+  const { status, yourId, playerName, messages, sendChat } = useMultiplayer();
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === "web" ? 12 : insets.bottom;
 
-  const [draft, setDraft] = useState("");
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(playerName);
+  const [draft, setDraft] = React.useState("");
   const inputRef = useRef<TextInput>(null);
+
+  const chatMessages = messages.filter((m) => m.type === "chat").slice(-40);
 
   const handleSend = useCallback(() => {
     const text = draft.trim();
@@ -68,12 +60,6 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
     sendChat(text);
     setDraft("");
   }, [draft, sendChat]);
-
-  const handleSaveName = useCallback(() => {
-    const n = nameInput.trim();
-    if (n) setPlayerName(n);
-    setEditingName(false);
-  }, [nameInput, setPlayerName]);
 
   const statusColor =
     status === "connected"
@@ -91,31 +77,7 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {editingName ? (
-              <View style={styles.nameEditRow}>
-                <TextInput
-                  style={styles.nameInput}
-                  value={nameInput}
-                  onChangeText={setNameInput}
-                  autoFocus
-                  maxLength={20}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveName}
-                  placeholderTextColor={Colors.game.textMuted}
-                />
-                <Pressable style={styles.nameSaveBtn} onPress={handleSaveName}>
-                  <Feather name="check" size={16} color={Colors.game.background} />
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                style={styles.nameRow}
-                onPress={() => { setNameInput(playerName); setEditingName(true); }}
-              >
-                <Text style={styles.playerNameText}>{playerName}</Text>
-                <Feather name="edit-2" size={12} color={Colors.game.textMuted} style={{ marginLeft: 5 }} />
-              </Pressable>
-            )}
+            <Text style={styles.playerNameText}>{playerName}</Text>
             <View style={styles.statusRow}>
               <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
               <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
@@ -134,7 +96,7 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
           keyboardVerticalOffset={0}
         >
           <FlatList
-            data={[...messages].reverse()}
+            data={[...chatMessages].reverse()}
             inverted
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
@@ -211,41 +173,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   playerNameText: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
     color: Colors.game.text,
-  },
-  nameEditRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-    marginRight: 12,
-  },
-  nameInput: {
-    flex: 1,
-    backgroundColor: Colors.game.surface,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.text,
-    borderWidth: 1,
-    borderColor: Colors.game.gold,
-  },
-  nameSaveBtn: {
-    backgroundColor: Colors.game.gold,
-    borderRadius: 8,
-    width: 32,
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
   },
   statusRow: {
     flexDirection: "row",
@@ -278,17 +209,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     flexGrow: 1,
     justifyContent: "flex-end",
-  },
-  systemRow: {
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  systemText: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    color: Colors.game.textMuted,
-    fontStyle: "italic",
-    textAlign: "center",
   },
   bubbleRow: {
     flexDirection: "row",

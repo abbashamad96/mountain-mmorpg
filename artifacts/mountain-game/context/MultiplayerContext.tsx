@@ -108,6 +108,15 @@ const NAME_KEY = "@mountain_player_name";
 const AUTH_TOKEN_KEY = "@mountain_auth_token_v1";
 const AUTH_USER_KEY = "@mountain_auth_user_v1";
 
+const GUEST_ADJ = ["Swift", "Iron", "Dark", "Stone", "Wild", "Frost", "Brave", "Shadow", "Silver", "Ember", "Ash", "Storm"];
+const GUEST_NOUN = ["Walker", "Seeker", "Hunter", "Climber", "Ranger", "Scout", "Blade", "Shield", "Arrow", "Drifter", "Pilgrim", "Warden"];
+function generateGuestName(): string {
+  const adj = GUEST_ADJ[Math.floor(Math.random() * GUEST_ADJ.length)];
+  const noun = GUEST_NOUN[Math.floor(Math.random() * GUEST_NOUN.length)];
+  const num = Math.floor(10 + Math.random() * 90);
+  return `${adj}${noun}${num}`;
+}
+
 // ─── Provider ───────────────────────────────────────────────────────────────────
 
 export function MultiplayerProvider({ children }: { children: React.ReactNode }) {
@@ -133,7 +142,11 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     AsyncStorage.getItem(NAME_KEY).then((saved) => {
-      if (saved) { setPlayerNameState(saved); nameRef.current = saved; }
+      const usable = saved && saved !== "Wanderer" ? saved : null;
+      const name = usable ?? generateGuestName();
+      setPlayerNameState(name);
+      nameRef.current = name;
+      if (!usable) AsyncStorage.setItem(NAME_KEY, name);
     });
     AsyncStorage.getItem(AUTH_TOKEN_KEY).then((tok) => {
       if (tok) authTokenRef.current = tok;
