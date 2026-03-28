@@ -341,6 +341,7 @@ interface GameContextType {
   allocateStat: (stat: keyof CharacterStats) => void;
   addLogEntry: (entry: LogEntry) => void;
   incrementEvents: () => void;
+  loadState: (state: Partial<GameState>) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -427,9 +428,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState((prev) => ({ ...prev, totalEvents: prev.totalEvents + 1 }));
   }, []);
 
+  const loadState = useCallback((state: Partial<GameState>) => {
+    if (!state) return;
+    const saved = state as GameState;
+    const char: Character = {
+      ...defaultCharacter,
+      ...saved.character,
+      stats: { ...defaultCharacter.stats, ...saved.character?.stats },
+      materials: saved.character?.materials ?? [],
+    };
+    setGameState({ ...defaultGameState, ...saved, character: char });
+  }, []);
+
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, removeMaterial, allocateStat, addLogEntry, incrementEvents }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState }}
     >
       {children}
     </GameContext.Provider>

@@ -9,12 +9,16 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { MaterialEntry, RARITY_COLORS, useGame } from "@/context/GameContext";
+import { useMultiplayer } from "@/context/MultiplayerContext";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
+
+// ─── Config ───────────────────────────────────────────────────────────────────
 
 interface StatsModalProps {
   visible: boolean;
   onClose: () => void;
+  onListOnAh?: (entry: MaterialEntry) => void;
 }
 
 const STAT_CONFIG = [
@@ -42,15 +46,41 @@ const VERSION_LABELS: Record<number, { label: string; color: string }> = {
   3: { label: "Version III", color: "#FCD34D" },
 };
 
+// ─── Item detail modal ────────────────────────────────────────────────────────
+
 function ItemDetailModal({
   entry,
   onClose,
+  onListOnAh,
 }: {
   entry: MaterialEntry;
   onClose: () => void;
+  onListOnAh?: (entry: MaterialEntry) => void;
 }) {
+  const { removeMaterial } = useGame();
+  const { buyOrders, yourId, fillBuyOrder } = useMultiplayer();
   const rc = RARITY_COLORS[entry.material.rarity];
   const vInfo = VERSION_LABELS[entry.material.version] ?? VERSION_LABELS[0];
+
+  const matchingOrders = buyOrders.filter(
+    (o) =>
+      o.material.type === entry.material.type &&
+      o.material.rarity === entry.material.rarity &&
+      (o.material.version === null || o.material.version === entry.material.version) &&
+      o.buyerId !== yourId &&
+      o.count - o.filled > 0
+  );
+  const bestOrder = [...matchingOrders].sort((a, b) => b.pricePerUnit - a.pricePerUnit)[0] ?? null;
+  const fillCount = bestOrder ? Math.min(entry.count, bestOrder.count - bestOrder.filled) : 0;
+  const quickSellGold = bestOrder ? fillCount * bestOrder.pricePerUnit : 0;
+
+  const handleQuickSell = () => {
+    if (!bestOrder || fillCount <= 0) return;
+    removeMaterial(entry.key, fillCount);
+    fillBuyOrder(bestOrder.id, fillCount, entry.material.version);
+    onClose();
+  };
+
   return (
     <Modal transparent visible animationType="fade">
       <Pressable style={styles.detailOverlay} onPress={onClose}>
@@ -86,6 +116,24 @@ function ItemDetailModal({
               <Text style={[styles.detailCount, { color: rc }]}>×{entry.count}</Text>
             </View>
           </View>
+
+          {/* Quick Sell if buy orders exist */}
+          {bestOrder && (
+            <Pressable style={styles.quickSellBtn} onPress={handleQuickSell}>
+              <Text style={styles.quickSellTxt}>
+                ⚡ QUICK SELL ×{fillCount}  ·  {quickSellGold.toLocaleString()}G
+              </Text>
+              <Text style={styles.quickSellSub}>Best buy order — {bestOrder.pricePerUnit}G each · by {bestOrder.buyerName}</Text>
+            </Pressable>
+          )}
+
+          {/* List on AH */}
+          {onListOnAh && (
+            <Pressable style={styles.listAhBtn} onPress={() => onListOnAh(entry)}>
+              <Text style={styles.listAhTxt}>LIST ON AUCTION HOUSE</Text>
+            </Pressable>
+          )}
+
           <Pressable style={styles.detailClose} onPress={onClose}>
             <Text style={styles.detailCloseTxt}>CLOSE</Text>
           </Pressable>
@@ -95,12 +143,19 @@ function ItemDetailModal({
   );
 }
 
-export function StatsModal({ visible, onClose }: StatsModalProps) {
+// ─── Main modal ───────────────────────────────────────────────────────────────
+
+export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
   const { gameState, allocateStat } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
+
+  const handleListOnAhFromDetail = (entry: MaterialEntry) => {
+    setSelectedEntry(null);
+    onListOnAh?.(entry);
+  };
 
   return (
     <Modal transparent visible={visible} animationType="slide">
@@ -175,7 +230,7 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
               })}
             </View>
 
-            {/* Inventory — tap for detail */}
+            {/* Inventory */}
             {char.materials.length > 0 && (
               <View style={styles.materialsBlock}>
                 <Text style={styles.sectionLabel}>INVENTORY  ·  tap to inspect</Text>
@@ -227,11 +282,14 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
         <ItemDetailModal
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
+          onListOnAh={onListOnAh ? handleListOnAhFromDetail : undefined}
         />
       )}
     </Modal>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   overlay: {
@@ -349,7 +407,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.border,
   },
   closeBtnText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
-  // Item detail modal
+  // Item detail
   detailOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center", alignItems: "center",
@@ -359,7 +417,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.game.surfaceAlt,
     borderRadius: 20, padding: 20,
     width: "100%", maxWidth: 340,
-    borderWidth: 2, gap: 12,
+    borderWidth: 2, gap: 10,
   },
   detailImgWrap: { alignItems: "center", marginBottom: 4 },
   detailInfo: { gap: 8 },
@@ -383,6 +441,29 @@ const styles = StyleSheet.create({
     color: Colors.game.textMuted, letterSpacing: 2,
   },
   detailCount: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  quickSellBtn: {
+    backgroundColor: "rgba(34,197,94,0.10)", borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 14, gap: 3,
+    borderWidth: 1, borderColor: Colors.game.green,
+    alignItems: "center",
+  },
+  quickSellTxt: {
+    fontSize: 12, fontFamily: "Inter_700Bold",
+    color: Colors.game.green, letterSpacing: 1,
+  },
+  quickSellSub: {
+    fontSize: 10, fontFamily: "Inter_400Regular",
+    color: Colors.game.textMuted,
+  },
+  listAhBtn: {
+    backgroundColor: "rgba(201,168,76,0.10)", borderRadius: 12,
+    paddingVertical: 11, alignItems: "center",
+    borderWidth: 1, borderColor: Colors.game.gold,
+  },
+  listAhTxt: {
+    fontSize: 11, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 1.5,
+  },
   detailClose: {
     backgroundColor: Colors.game.surface, borderRadius: 12,
     paddingVertical: 12, alignItems: "center",

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuctionHouseModal } from "@/components/AuctionHouseModal";
+import { AuthModal } from "@/components/AuthModal";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { EventNotification } from "@/components/EventNotification";
@@ -21,6 +22,7 @@ import {
   EventRoll,
   LogEntry,
   Material,
+  MaterialEntry,
   NpcBattleStats,
   rollEvent,
   useGame,
@@ -28,8 +30,15 @@ import {
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 export default function GameScreen() {
-  const { gameState, setScene, applyGoldXp, addMaterials, addLogEntry, incrementEvents } = useGame();
-  const { ahEvents, consumeAhEvent } = useMultiplayer();
+  const {
+    gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
+    incrementEvents, loadState,
+  } = useGame();
+  const {
+    ahEvents, consumeAhEvent,
+    isAuthenticated, authUsername, serverGameState, clearServerGameState,
+    saveGameState,
+  } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -45,11 +54,13 @@ export default function GameScreen() {
   const [showStats, setShowStats] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [gatherMaterial, setGatherMaterial] = useState<Material | null>(null);
   const [gatherAttempts, setGatherAttempts] = useState(1);
   const [showGather, setShowGather] = useState(false);
   const [battleNpc, setBattleNpc] = useState<NpcBattleStats | null>(null);
   const [showBattle, setShowBattle] = useState(false);
+  const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -57,25 +68,60 @@ export default function GameScreen() {
 
   const char = gameState.character;
 
-  // ── Process AH events (bought items / sold gold / cancelled items) ─────────
+  // ── Load server state on login ────────────────────────────────────────────
+  useEffect(() => {
+    if (serverGameState) {
+      loadState(serverGameState as any);
+      clearServerGameState();
+    }
+  }, [serverGameState, loadState, clearServerGameState]);
+
+  // ── Auto-save game state when authenticated ───────────────────────────────
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveGameState(gameState);
+    }, 5000);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [gameState, isAuthenticated, saveGameState]);
+
+  // ── Process AH + buy order events ────────────────────────────────────────
   useEffect(() => {
     for (const ev of ahEvents) {
       if (ev.kind === "sale") {
-        // Seller receives gold when buyer purchases their listing
-        applyGoldXp(ev.listing.price, 0);
+        applyGoldXp(ev.listing!.price, 0);
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bought") {
-        // Buyer receives items after successful purchase
-        addMaterials(Array(ev.listing.count).fill(ev.listing.material));
+        addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
         consumeAhEvent(ev.id);
       } else if (ev.kind === "cancelled") {
-        // Seller gets items back when cancellation confirmed
-        addMaterials(Array(ev.listing.count).fill(ev.listing.material));
+        addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
+        consumeAhEvent(ev.id);
+      } else if (ev.kind === "bo_sold") {
+        // Seller filled someone's buy order → receive gold
+        if (ev.boGoldEarned && ev.boGoldEarned > 0) {
+          applyGoldXp(ev.boGoldEarned, 0);
+        }
+        consumeAhEvent(ev.id);
+      } else if (ev.kind === "bo_received") {
+        // Buyer's order was filled → receive items
+        if (ev.boMaterial && ev.boCount && ev.boCount > 0) {
+          addMaterials(Array(ev.boCount).fill(ev.boMaterial));
+        }
+        consumeAhEvent(ev.id);
+      } else if (ev.kind === "bo_cancelled") {
+        // Buyer cancelled their buy order → get gold refund
+        if (ev.boGoldReturn && ev.boGoldReturn > 0) {
+          applyGoldXp(ev.boGoldReturn, 0);
+        }
         consumeAhEvent(ev.id);
       }
     }
   }, [ahEvents, applyGoldXp, addMaterials, consumeAhEvent]);
 
+  // ── Scene exploration ─────────────────────────────────────────────────────
   const handleScenePress = useCallback(() => {
     if (isInteracting) return;
 
@@ -88,7 +134,6 @@ export default function GameScreen() {
     setScene(roll.sceneType);
     incrementEvents();
 
-    // Advance background art every 10-20 triggers
     artTriggerRef.current += 1;
     if (artTriggerRef.current >= artThresholdRef.current) {
       artTriggerRef.current = 0;
@@ -106,8 +151,7 @@ export default function GameScreen() {
         statPointsGained: result.statPointsGained,
       };
       setLastRoll(finalRoll);
-
-      const entry: LogEntry = {
+      addLogEntry({
         id: roll.id,
         timestamp: roll.timestamp,
         type: "gold_xp",
@@ -115,13 +159,9 @@ export default function GameScreen() {
         goldGained: roll.goldGained,
         xpGained: roll.xpGained,
         material: null,
-      };
-      addLogEntry(entry);
-
+      });
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-      cooldownTimer.current = setTimeout(() => {
-        setIsInteracting(false);
-      }, duration);
+      cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     } else if (roll.type === "gather" && roll.material) {
       setLastRoll(roll);
       setGatherMaterial(roll.material);
@@ -140,7 +180,7 @@ export default function GameScreen() {
       if (gathered.length > 0) {
         addMaterials(gathered);
         const mat = gathered[0];
-        const entry: LogEntry = {
+        addLogEntry({
           id: `g-${Date.now()}`,
           timestamp: Date.now(),
           type: "gather",
@@ -148,15 +188,12 @@ export default function GameScreen() {
           goldGained: 0,
           xpGained: 0,
           material: mat,
-        };
-        addLogEntry(entry);
+        });
       }
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-      cooldownTimer.current = setTimeout(() => {
-        setIsInteracting(false);
-      }, 500);
+      cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
-    [addMaterials, addLogEntry, cooldownDuration]
+    [addMaterials, addLogEntry]
   );
 
   const handleBattleComplete = useCallback(
@@ -167,7 +204,7 @@ export default function GameScreen() {
       }
       const npc = battleNpc;
       if (npc) {
-        const entry: LogEntry = {
+        addLogEntry({
           id: `b-${Date.now()}`,
           timestamp: Date.now(),
           type: "battle",
@@ -178,19 +215,28 @@ export default function GameScreen() {
           xpGained: xpReward,
           material: null,
           victory,
-        };
-        addLogEntry(entry);
+        });
       }
-      cooldownTimer.current = setTimeout(() => {
-        setIsInteracting(false);
-      }, 500);
+      cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
     [battleNpc, applyGoldXp, addLogEntry]
   );
 
+  // ── List item from inventory → AH ─────────────────────────────────────────
+  const handleListOnAh = useCallback((entry: MaterialEntry) => {
+    setShowStats(false);
+    setPreSelectForAh(entry);
+    setShowAuction(true);
+  }, []);
+
+  const handleAhClose = useCallback(() => {
+    setShowAuction(false);
+    setPreSelectForAh(null);
+  }, []);
+
   return (
     <View style={styles.root}>
-      {/* ── Top: header + stat strip ─────────────────────────── */}
+      {/* ── Top: header + stat strip ──────────────────────────────────── */}
       <View style={[styles.topSection, { paddingTop: topPad + 12 }]}>
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
@@ -220,6 +266,17 @@ export default function GameScreen() {
                 </View>
               )}
             </Pressable>
+            <Pressable
+              style={[styles.headerBtn, isAuthenticated && styles.headerBtnAuth]}
+              onPress={() => setShowAuth(true)}
+              hitSlop={4}
+            >
+              <Feather
+                name={isAuthenticated ? "check-circle" : "key"}
+                size={20}
+                color={isAuthenticated ? Colors.game.green : Colors.game.textDim}
+              />
+            </Pressable>
           </View>
         </View>
 
@@ -248,13 +305,22 @@ export default function GameScreen() {
             </View>
             <Text style={styles.xpText}>{char.xp}/{char.xpToNext} XP</Text>
           </View>
+          {isAuthenticated && authUsername && (
+            <>
+              <View style={styles.stripDivider} />
+              <View style={styles.stripItem}>
+                <Feather name="check-circle" size={11} color={Colors.game.green} />
+                <Text style={styles.stripUsername}>{authUsername}</Text>
+              </View>
+            </>
+          )}
         </View>
       </View>
 
-      {/* ── Middle spacer (scene shifted ~15% higher) ─────────── */}
+      {/* ── Middle spacer ─────────────────────────────────────────────── */}
       <View style={styles.midSpacer} />
 
-      {/* ── Bottom: notification + scene + timer ─────────────── */}
+      {/* ── Bottom: notification + scene + timer ──────────────────────── */}
       <View style={[styles.bottomSection, { paddingBottom: bottomPad + 16 }]}>
         {lastRoll && <EventNotification roll={lastRoll} />}
         <SceneView
@@ -268,9 +334,18 @@ export default function GameScreen() {
       </View>
 
       {/* Modals */}
-      <AuctionHouseModal visible={showAuction} onClose={() => setShowAuction(false)} />
+      <AuctionHouseModal
+        visible={showAuction}
+        onClose={handleAhClose}
+        preSelectedEntry={preSelectForAh}
+      />
+      <AuthModal visible={showAuth} onClose={() => setShowAuth(false)} />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
-      <StatsModal visible={showStats} onClose={() => setShowStats(false)} />
+      <StatsModal
+        visible={showStats}
+        onClose={() => setShowStats(false)}
+        onListOnAh={handleListOnAh}
+      />
       <GatheringModal
         visible={showGather}
         material={gatherMaterial}
@@ -306,21 +381,25 @@ const styles = StyleSheet.create({
     color: Colors.game.textMuted, letterSpacing: 3, marginBottom: 1,
   },
   mapTitle: {
-    fontSize: 20, fontFamily: "Inter_700Bold",
-    color: Colors.game.gold, letterSpacing: 0.5,
+    fontSize: 17, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 0.3,
   },
   headerBtns: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     alignItems: "center",
   },
   headerBtn: {
-    padding: 10,
+    padding: 8,
     backgroundColor: Colors.game.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.game.border,
     position: "relative",
+  },
+  headerBtnAuth: {
+    borderColor: Colors.game.green + "55",
+    backgroundColor: "rgba(34,197,94,0.06)",
   },
   statsBadge: {
     position: "absolute", top: -4, right: -4,
@@ -363,4 +442,9 @@ const styles = StyleSheet.create({
   },
   xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 2 },
   xpText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
+  stripUsername: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    color: Colors.game.green, letterSpacing: 0.5,
+    maxWidth: 80,
+  },
 });
