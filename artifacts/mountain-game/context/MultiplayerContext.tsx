@@ -226,6 +226,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         AsyncStorage.setItem(AUTH_TOKEN_KEY, msg.token);
         AsyncStorage.setItem(AUTH_USER_KEY, msg.username);
         authTokenRef.current = msg.token;
+        if (msg.yourId) setYourId(msg.yourId);
         if (msg.gameState) setServerGameState(msg.gameState);
       } else if (msg.type === "auth_fail") {
         setAuthError(msg.reason ?? "Authentication failed.");

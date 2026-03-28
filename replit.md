@@ -1,8 +1,41 @@
-# Workspace
+# Mountain of Supremacy — Workspace
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Mobile RPG Expo game + shared API server in a pnpm monorepo. Players explore a mountain road, gather materials (8 rarities × 3 versions), battle NPCs, and trade on a global real-time auction house. Authentication is handled via username/password with session tokens.
+
+### Key artifacts
+- `artifacts/mountain-game` — Expo mobile app (web-exported, served statically)
+- `artifacts/api-server` — Express + WebSocket server (all game logic + AH + auth)
+- `lib/db` — Drizzle ORM schema + PostgreSQL connection
+
+### DB tables (Drizzle, schema at `lib/db/src/schema/game.ts`)
+| Table | Purpose |
+|-------|---------|
+| `users` | username, password_hash, game_state (jsonb) |
+| `sessions` | session tokens → username_lower |
+| `auction_listings` | live AH sell listings |
+| `buy_orders` | open buy orders |
+| `pending_deliveries` | offline AH sale/purchase notifications, flushed on login |
+
+### WebSocket protocol (path `/api/ws`)
+- Client sends: `join`, `register`, `login`, `auth`, `save_state`, `chat`, `ah_list`, `ah_cancel`, `ah_buy`, `ah_get`, `bo_create`, `bo_cancel`, `bo_fill`, `bo_get`
+- Server sends: `joined` (with `yourId`), `auth_ok` (with `yourId: username` for stable ownership), `auth_fail`, `state_saved`, `chat`, `system`, `ah_update`, `ah_bought`, `ah_cancelled`, `ah_sale`, `bo_update`, `bo_sold`, `bo_received`, `bo_cancelled`, `bo_fill_fail`, `bo_cancel`
+- `yourId` is the stable identity key — ephemeral `pN` before auth, username after auth. AH sellerId/buyerId also uses username.
+
+### Client auth keys (AsyncStorage)
+- `@mountain_auth_token_v1` — session token
+- `@mountain_auth_user_v1` — username
+- `@mountain_game_v3` — full game state
+
+### Push schema changes
+```bash
+pnpm --filter @workspace/db run push
+```
+
+---
+
+## Monorepo
 
 ## Stack
 
