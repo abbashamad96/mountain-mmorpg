@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
 import {
   Platform,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BattleModal } from "@/components/BattleModal";
+import { ChatModal } from "@/components/ChatModal";
 import { EventNotification } from "@/components/EventNotification";
 import { GatheringModal } from "@/components/GatheringModal";
 import { SceneView } from "@/components/SceneView";
@@ -28,7 +28,6 @@ import {
 
 export default function GameScreen() {
   const { gameState, setScene, applyGoldXp, addMaterials, addLogEntry, incrementEvents } = useGame();
-  const router = useRouter();
 
   const [isInteracting, setIsInteracting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -38,6 +37,7 @@ export default function GameScreen() {
   const [lastRoll, setLastRoll] = useState<EventRoll | null>(null);
 
   const [showStats, setShowStats] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [gatherMaterial, setGatherMaterial] = useState<Material | null>(null);
   const [gatherAttempts, setGatherAttempts] = useState(1);
   const [showGather, setShowGather] = useState(false);
@@ -172,12 +172,13 @@ export default function GameScreen() {
           <View style={styles.headerBtns}>
             <Pressable
               style={styles.headerBtn}
-              onPress={() => router.navigate("/(tabs)/multiplayer")}
+              onPress={() => setShowChat(true)}
+              hitSlop={4}
             >
-              <Feather name="message-circle" size={18} color={Colors.game.blue} />
+              <Feather name="message-circle" size={20} color={Colors.game.blue} />
             </Pressable>
-            <Pressable style={styles.headerBtn} onPress={() => setShowStats(true)}>
-              <Feather name="user" size={18} color={Colors.game.gold} />
+            <Pressable style={styles.headerBtn} onPress={() => setShowStats(true)} hitSlop={4}>
+              <Feather name="user" size={20} color={Colors.game.gold} />
               {char.pendingStatPoints > 0 && (
                 <View style={styles.statsBadge}>
                   <Text style={styles.statsBadgeText}>{char.pendingStatPoints}</Text>
@@ -236,6 +237,7 @@ export default function GameScreen() {
       </ScrollView>
 
       {/* Modals */}
+      <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal visible={showStats} onClose={() => setShowStats(false)} />
       <GatheringModal
         visible={showGather}

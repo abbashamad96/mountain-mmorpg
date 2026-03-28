@@ -8,8 +8,8 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { Character, useGame } from "@/context/GameContext";
-import { RarityText } from "./RarityText";
+import { RARITY_COLORS, useGame } from "@/context/GameContext";
+import { MaterialImage } from "./MaterialImage";
 
 interface StatsModalProps {
   visible: boolean;
@@ -44,7 +44,9 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
               </View>
             </View>
             <View style={styles.goldBlock}>
-              <Text style={styles.goldIcon}>🪙</Text>
+              <View style={styles.goldCoin}>
+                <Text style={styles.goldCoinText}>G</Text>
+              </View>
               <Text style={styles.goldVal}>{char.gold.toLocaleString()}</Text>
             </View>
           </View>
@@ -58,7 +60,6 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
             <Text style={styles.xpNums}>{char.xp}/{char.xpToNext}</Text>
           </View>
 
-          {/* Pending stat points */}
           {hasPending && (
             <View style={styles.pendingBanner}>
               <Text style={styles.pendingText}>
@@ -69,8 +70,8 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
 
           <View style={styles.divider} />
 
-          {/* Stats */}
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Stats */}
             <View style={styles.statGrid}>
               {STAT_CONFIG.map((s) => {
                 const val = char.stats[s.key];
@@ -110,22 +111,34 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
               })}
             </View>
 
-            {/* Materials summary */}
+            {/* Inventory — material art squares */}
             {char.materials.length > 0 && (
               <View style={styles.materialsBlock}>
                 <Text style={styles.sectionLabel}>INVENTORY</Text>
-                <View style={styles.materialList}>
-                  {char.materials.slice(0, 16).map((entry) => (
-                    <View key={entry.key} style={styles.matChip}>
-                      <RarityText
-                        rarity={entry.material.rarity}
-                        version={entry.material.version}
-                        label={`${entry.material.type}`}
-                        style={styles.matChipText}
-                      />
-                      <Text style={styles.matChipCount}>×{entry.count}</Text>
-                    </View>
-                  ))}
+                <View style={styles.inventoryGrid}>
+                  {char.materials.map((entry) => {
+                    const rarityColor = RARITY_COLORS[entry.material.rarity];
+                    return (
+                      <View key={entry.key} style={[styles.invSlot, { borderColor: rarityColor }]}>
+                        <MaterialImage
+                          type={entry.material.type}
+                          rarity={entry.material.rarity}
+                          version={entry.material.version}
+                          size={60}
+                        />
+                        {/* Count badge */}
+                        <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
+                          <Text style={styles.countText}>×{entry.count}</Text>
+                        </View>
+                        {/* Type label */}
+                        <View style={styles.typeLabel}>
+                          <Text style={styles.typeLabelText} numberOfLines={1}>
+                            {entry.material.type.slice(0, 3).toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -178,8 +191,22 @@ const styles = StyleSheet.create({
   levelRow: { flexDirection: "row", alignItems: "baseline" },
   lvLabel: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
   lvValue: { fontSize: 34, fontFamily: "Inter_700Bold", color: Colors.game.gold, lineHeight: 38 },
-  goldBlock: { flexDirection: "row", alignItems: "center", gap: 5 },
-  goldIcon: { fontSize: 18 },
+  goldBlock: { flexDirection: "row", alignItems: "center", gap: 7 },
+  goldCoin: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.game.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#a07820",
+  },
+  goldCoinText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: "#3d2e00",
+  },
   goldVal: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.game.gold },
   xpRow: {
     flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10,
@@ -226,20 +253,55 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.03)",
   },
   allocBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
-  materialsBlock: { gap: 10 },
+  materialsBlock: { gap: 10, marginBottom: 8 },
   sectionLabel: {
     fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 2,
   },
-  materialList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  matChip: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: Colors.game.surface, borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: Colors.game.border,
+  inventoryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  matChipText: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  matChipCount: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
+  invSlot: {
+    width: 66,
+    height: 66,
+    borderRadius: 10,
+    borderWidth: 2,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: Colors.game.surface,
+  },
+  countBadge: {
+    position: "absolute",
+    top: 3,
+    right: 3,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 20,
+    alignItems: "center",
+  },
+  countText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "#000",
+  },
+  typeLabel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingVertical: 2,
+    alignItems: "center",
+  },
+  typeLabelText: {
+    fontSize: 8,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    letterSpacing: 1,
+  },
   closeBtn: {
     backgroundColor: Colors.game.surface,
     borderRadius: 14, paddingVertical: 14,
