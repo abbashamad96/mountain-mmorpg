@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Material } from "./GameContext";
 
 export interface ChatMessage {
   id: string;
@@ -15,6 +16,32 @@ export interface ChatMessage {
   text: string;
   ts: number;
   type: "chat" | "system";
+}
+
+export interface AuctionListing {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  material: Material;
+  count: number;
+  price: number;
+  ts: number;
+}
+
+export interface IncomingChallenge {
+  fromId: string;
+  fromName: string;
+  fromLevel: number;
+  fromStats: { strength: number; health: number; defence: number; speed: number };
+  ts: number;
+}
+
+export type AhEventType = "bought" | "sale" | "cancelled";
+export interface AhEvent {
+  id: string;
+  kind: AhEventType;
+  listing: AuctionListing;
+  buyerName?: string;
 }
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected";
@@ -26,6 +53,14 @@ interface MultiplayerContextType {
   setPlayerName: (name: string) => void;
   messages: ChatMessage[];
   sendChat: (text: string) => void;
+  // Auction House
+  listings: AuctionListing[];
+  listAhItem: (material: Material, count: number, price: number) => void;
+  buyAhItem: (listingId: string) => void;
+  cancelAhListing: (listingId: string) => void;
+  // AH events queue (consume + clear)
+  ahEvents: AhEvent[];
+  consumeAhEvent: (id: string) => void;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | null>(null);
@@ -41,6 +76,8 @@ export function MultiplayerProvider({
   const [yourId, setYourId] = useState<string | null>(null);
   const [playerName, setPlayerNameState] = useState("Wanderer");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [listings, setListings] = useState<AuctionListing[]>([]);
+  const [ahEvents, setAhEvents] = useState<AhEvent[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const nameRef = useRef(playerName);
@@ -96,6 +133,30 @@ export function MultiplayerProvider({
             type: msg.type,
           },
         ].slice(-200));
+      } else if (msg.type === "ah_update") {
+        setListings(msg.listings ?? []);
+      } else if (msg.type === "ah_bought" && msg.listing) {
+        const ev: AhEvent = {
+          id: `ahev-${Date.now()}-${Math.random()}`,
+          kind: "bought",
+          listing: msg.listing,
+        };
+        setAhEvents((prev) => [...prev, ev]);
+      } else if (msg.type === "ah_sale" && msg.listing) {
+        const ev: AhEvent = {
+          id: `ahev-${Date.now()}-${Math.random()}`,
+          kind: "sale",
+          listing: msg.listing,
+          buyerName: msg.buyerName,
+        };
+        setAhEvents((prev) => [...prev, ev]);
+      } else if (msg.type === "ah_cancelled" && msg.listing) {
+        const ev: AhEvent = {
+          id: `ahev-${Date.now()}-${Math.random()}`,
+          kind: "cancelled",
+          listing: msg.listing,
+        };
+        setAhEvents((prev) => [...prev, ev]);
       }
     };
 
@@ -143,6 +204,31 @@ export function MultiplayerProvider({
     }
   }, []);
 
+  const listAhItem = useCallback((material: Material, count: number, price: number) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ah_list", material, count, price }));
+    }
+  }, []);
+
+  const buyAhItem = useCallback((listingId: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ah_buy", listingId }));
+    }
+  }, []);
+
+  const cancelAhListing = useCallback((listingId: string) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ah_cancel", listingId }));
+    }
+  }, []);
+
+  const consumeAhEvent = useCallback((id: string) => {
+    setAhEvents((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
   return (
     <MultiplayerContext.Provider
       value={{
@@ -152,6 +238,12 @@ export function MultiplayerProvider({
         setPlayerName,
         messages,
         sendChat,
+        listings,
+        listAhItem,
+        buyAhItem,
+        cancelAhListing,
+        ahEvents,
+        consumeAhEvent,
       }}
     >
       {children}

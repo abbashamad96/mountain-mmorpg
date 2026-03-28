@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Modal,
   Pressable,
@@ -8,32 +8,9 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { RARITY_COLORS, RARITIES, useGame } from "@/context/GameContext";
+import { MaterialEntry, RARITY_COLORS, useGame } from "@/context/GameContext";
 import { MaterialImage } from "./MaterialImage";
-
-// ── Rate data (mirrors GameContext roll logic exactly) ─────────────────────────
-
-const RARITY_WEIGHTS = [60, 25, 10, 5.9, 2.9, 0.98, 0.2, 0.02];
-const RARITY_TOTAL   = RARITY_WEIGHTS.reduce((a, b) => a + b, 0); // 105
-
-const EVENT_RATES = [
-  { label: "Gold & XP",  pct: (65 / 105) * 100, color: Colors.game.gold,   icon: "⚡" },
-  { label: "Gathering",  pct: (25 / 105) * 100, color: Colors.game.green,  icon: "🌿" },
-  { label: "Battle",     pct: (15 / 105) * 100, color: Colors.game.red,    icon: "⚔" },
-];
-
-const RARITY_RATES = RARITIES.map((r, i) => ({
-  rarity: r,
-  pct: (RARITY_WEIGHTS[i] / RARITY_TOTAL) * 100,
-  color: RARITY_COLORS[r],
-}));
-
-const VERSION_RATES = [
-  { label: "No Version", pct: 84, color: Colors.game.textMuted },
-  { label: "V1",         pct: 10, color: "#A78BFA" },
-  { label: "V2",         pct: 5,  color: "#34D399" },
-  { label: "V3",         pct: 1,  color: "#FCD34D" },
-];
+import { RarityText } from "./RarityText";
 
 interface StatsModalProps {
   visible: boolean;
@@ -47,11 +24,83 @@ const STAT_CONFIG = [
   { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Turn order", bonus: "+1" },
 ];
 
+const RARITY_DESC: Record<string, string> = {
+  Common: "Widely found along the mountain road.",
+  Uncommon: "Requires a keen eye to gather.",
+  Rare: "Scarce and sought after by travelers.",
+  Epic: "Powerful materials of unusual origin.",
+  Elite: "Fierce rarity — few ever find these.",
+  Legendary: "Storied materials of ancient power.",
+  Superior: "Transcends ordinary classification.",
+  Cosmic: "Touched by forces beyond understanding.",
+};
+
+const VERSION_LABELS: Record<number, { label: string; color: string }> = {
+  0: { label: "Standard", color: Colors.game.textMuted },
+  1: { label: "Version I", color: "#A78BFA" },
+  2: { label: "Version II", color: "#34D399" },
+  3: { label: "Version III", color: "#FCD34D" },
+};
+
+function ItemDetailModal({
+  entry,
+  onClose,
+}: {
+  entry: MaterialEntry;
+  onClose: () => void;
+}) {
+  const rc = RARITY_COLORS[entry.material.rarity];
+  const vInfo = VERSION_LABELS[entry.material.version] ?? VERSION_LABELS[0];
+  return (
+    <Modal transparent visible animationType="fade">
+      <Pressable style={styles.detailOverlay} onPress={onClose}>
+        <Pressable style={[styles.detailCard, { borderColor: rc }]} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.detailImgWrap}>
+            <MaterialImage
+              type={entry.material.type}
+              rarity={entry.material.rarity}
+              version={entry.material.version}
+              size={96}
+              compact={false}
+              animateParticles={false}
+            />
+          </View>
+          <View style={styles.detailInfo}>
+            <RarityText
+              rarity={entry.material.rarity}
+              version={entry.material.version}
+              label={`${entry.material.rarity} ${entry.material.type}`}
+              style={styles.detailName}
+            />
+            <View style={styles.detailTagRow}>
+              <View style={[styles.detailTag, { borderColor: rc }]}>
+                <Text style={[styles.detailTagTxt, { color: rc }]}>{entry.material.type.toUpperCase()}</Text>
+              </View>
+              <View style={[styles.detailTag, { borderColor: vInfo.color }]}>
+                <Text style={[styles.detailTagTxt, { color: vInfo.color }]}>{vInfo.label.toUpperCase()}</Text>
+              </View>
+            </View>
+            <Text style={styles.detailDesc}>{RARITY_DESC[entry.material.rarity] ?? ""}</Text>
+            <View style={styles.detailCountRow}>
+              <Text style={styles.detailCountLabel}>IN INVENTORY</Text>
+              <Text style={[styles.detailCount, { color: rc }]}>×{entry.count}</Text>
+            </View>
+          </View>
+          <Pressable style={styles.detailClose} onPress={onClose}>
+            <Text style={styles.detailCloseTxt}>CLOSE</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export function StatsModal({ visible, onClose }: StatsModalProps) {
   const { gameState, allocateStat } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
+  const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
 
   return (
     <Modal transparent visible={visible} animationType="slide">
@@ -111,17 +160,6 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
                       </View>
                       <Text style={[styles.statVal, { color: s.color }]}>{val}</Text>
                     </View>
-                    <View style={styles.statBarTrack}>
-                      <View
-                        style={[
-                          styles.statBarFill,
-                          {
-                            width: `${Math.min(100, (val / 50) * 100)}%` as any,
-                            backgroundColor: s.color,
-                          },
-                        ]}
-                      />
-                    </View>
                     {hasPending && (
                       <Pressable
                         style={[styles.allocBtn, { borderColor: s.color }]}
@@ -137,15 +175,19 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
               })}
             </View>
 
-            {/* Inventory — material art squares */}
+            {/* Inventory — tap for detail */}
             {char.materials.length > 0 && (
               <View style={styles.materialsBlock}>
-                <Text style={styles.sectionLabel}>INVENTORY</Text>
+                <Text style={styles.sectionLabel}>INVENTORY  ·  tap to inspect</Text>
                 <View style={styles.inventoryGrid}>
                   {char.materials.map((entry) => {
                     const rarityColor = RARITY_COLORS[entry.material.rarity];
                     return (
-                      <View key={entry.key} style={styles.invSlotWrap}>
+                      <Pressable
+                        key={entry.key}
+                        style={styles.invSlotWrap}
+                        onPress={() => setSelectedEntry(entry)}
+                      >
                         <View style={[styles.invSlot, { borderColor: rarityColor }]}>
                           <MaterialImage
                             type={entry.material.type}
@@ -156,85 +198,21 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
                             animateParticles={false}
                           />
                         </View>
-                        {/* Count badge — below slot, right-aligned */}
                         <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
                           <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>
                         </View>
-                        {/* Type + version label — below slot */}
                         <View style={styles.typeLabel}>
                           <Text style={styles.typeLabelText} adjustsFontSizeToFit minimumFontScale={0.7}>
                             {entry.material.type.toUpperCase()}
                             {entry.material.version > 0 ? ` V${entry.material.version}` : ""}
                           </Text>
                         </View>
-                      </View>
+                      </Pressable>
                     );
                   })}
                 </View>
               </View>
             )}
-
-            {/* Encounter Rates */}
-            <View style={styles.ratesBlock}>
-              <Text style={styles.sectionLabel}>ENCOUNTER RATES</Text>
-              <View style={styles.ratesCard}>
-                {EVENT_RATES.map((e) => (
-                  <View key={e.label} style={styles.rateRow}>
-                    <Text style={styles.rateIcon}>{e.icon}</Text>
-                    <Text style={[styles.rateLabel, { color: e.color }]}>{e.label}</Text>
-                    <View style={styles.rateBarTrack}>
-                      <View style={[styles.rateBarFill, { width: `${e.pct}%` as any, backgroundColor: e.color }]} />
-                    </View>
-                    <Text style={[styles.ratePct, { color: e.color }]}>{e.pct.toFixed(1)}%</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Material Rarity Rates */}
-            <View style={styles.ratesBlock}>
-              <Text style={styles.sectionLabel}>MATERIAL RARITY</Text>
-              <View style={styles.ratesCard}>
-                {RARITY_RATES.map((r) => (
-                  <View key={r.rarity} style={styles.rateRow}>
-                    <View style={[styles.rarityDot, { backgroundColor: r.color }]} />
-                    <Text style={[styles.rateLabel, { color: r.color }]}>{r.rarity}</Text>
-                    <View style={styles.rateBarTrack}>
-                      <View
-                        style={[
-                          styles.rateBarFill,
-                          {
-                            width: `${Math.max(r.pct, 0.3)}%` as any,
-                            backgroundColor: r.color,
-                            minWidth: r.pct < 1 ? 3 : 0,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.ratePct, { color: r.color }]}>
-                      {r.pct < 0.1 ? r.pct.toFixed(3) : r.pct < 1 ? r.pct.toFixed(2) : r.pct.toFixed(1)}%
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Version Rates */}
-            <View style={styles.ratesBlock}>
-              <Text style={styles.sectionLabel}>VERSION CHANCE</Text>
-              <View style={styles.ratesCard}>
-                {VERSION_RATES.map((v) => (
-                  <View key={v.label} style={styles.rateRow}>
-                    <View style={[styles.rarityDot, { backgroundColor: v.color }]} />
-                    <Text style={[styles.rateLabel, { color: v.color }]}>{v.label}</Text>
-                    <View style={styles.rateBarTrack}>
-                      <View style={[styles.rateBarFill, { width: `${v.pct}%` as any, backgroundColor: v.color }]} />
-                    </View>
-                    <Text style={[styles.ratePct, { color: v.color }]}>{v.pct}%</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
 
             <View style={{ height: 24 }} />
           </ScrollView>
@@ -244,6 +222,13 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
           </Pressable>
         </View>
       </View>
+
+      {selectedEntry && (
+        <ItemDetailModal
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+        />
+      )}
     </Modal>
   );
 }
@@ -286,24 +271,14 @@ const styles = StyleSheet.create({
   lvValue: { fontSize: 34, fontFamily: "Inter_700Bold", color: Colors.game.gold, lineHeight: 38 },
   goldBlock: { flexDirection: "row", alignItems: "center", gap: 7 },
   goldCoin: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 22, height: 22, borderRadius: 11,
     backgroundColor: Colors.game.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#a07820",
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: "#a07820",
   },
-  goldCoinText: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    color: "#3d2e00",
-  },
+  goldCoinText: { fontSize: 10, fontFamily: "Inter_700Bold", color: "#3d2e00" },
   goldVal: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.game.gold },
-  xpRow: {
-    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10,
-  },
+  xpRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
   xpGem: {
     width: 18, height: 18, borderRadius: 4,
     backgroundColor: Colors.game.purple,
@@ -338,11 +313,6 @@ const styles = StyleSheet.create({
   statName: { fontSize: 13, fontFamily: "Inter_700Bold" },
   statDesc: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
   statVal: { fontSize: 26, fontFamily: "Inter_700Bold" },
-  statBarTrack: {
-    height: 4, backgroundColor: Colors.game.border,
-    borderRadius: 2, overflow: "hidden",
-  },
-  statBarFill: { height: "100%", borderRadius: 2 },
   allocBtn: {
     borderWidth: 1, borderRadius: 8,
     paddingVertical: 7, alignItems: "center",
@@ -354,96 +324,23 @@ const styles = StyleSheet.create({
     fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 2,
   },
-  inventoryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  invSlotWrap: {
-    alignItems: "center",
-    gap: 4,
-  },
+  inventoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  invSlotWrap: { alignItems: "center", gap: 4 },
   invSlot: {
-    width: 72,
-    height: 72,
-    borderRadius: 12,
-    borderWidth: 2,
-    overflow: "visible",
-    alignItems: "center",
-    justifyContent: "center",
+    width: 72, height: 72, borderRadius: 12,
+    borderWidth: 2, overflow: "visible",
+    alignItems: "center", justifyContent: "center",
     backgroundColor: Colors.game.surface,
   },
   countBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    minWidth: 24,
-    alignItems: "center",
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
+    minWidth: 24, alignItems: "center",
   },
-  countText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    color: "#000",
-  },
-  typeLabel: {
-    alignItems: "center",
-    width: 72,
-  },
+  countText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#000" },
+  typeLabel: { alignItems: "center", width: 72 },
   typeLabelText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 0.5,
-    textAlign: "center",
-  },
-  ratesBlock: {
-    gap: 8,
-    marginBottom: 14,
-  },
-  ratesCard: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-    gap: 9,
-  },
-  rateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  rateIcon: {
-    fontSize: 13,
-    width: 18,
-    textAlign: "center",
-  },
-  rarityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  rateLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    width: 72,
-  },
-  rateBarTrack: {
-    flex: 1,
-    height: 5,
-    backgroundColor: Colors.game.border,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  rateBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  ratePct: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    width: 44,
-    textAlign: "right",
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 0.5, textAlign: "center",
   },
   closeBtn: {
     backgroundColor: Colors.game.surface,
@@ -451,8 +348,45 @@ const styles = StyleSheet.create({
     alignItems: "center", marginTop: 10,
     borderWidth: 1, borderColor: Colors.game.border,
   },
-  closeBtnText: {
-    fontSize: 13, fontFamily: "Inter_700Bold",
+  closeBtnText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
+  // Item detail modal
+  detailOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center", alignItems: "center",
+    padding: 24,
+  },
+  detailCard: {
+    backgroundColor: Colors.game.surfaceAlt,
+    borderRadius: 20, padding: 20,
+    width: "100%", maxWidth: 340,
+    borderWidth: 2, gap: 12,
+  },
+  detailImgWrap: { alignItems: "center", marginBottom: 4 },
+  detailInfo: { gap: 8 },
+  detailName: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  detailTagRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  detailTag: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6, borderWidth: 1,
+  },
+  detailTagTxt: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  detailDesc: {
+    fontSize: 12, fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim, lineHeight: 18,
+  },
+  detailCountRow: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.game.border,
+  },
+  detailCountLabel: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 2,
   },
+  detailCount: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  detailClose: {
+    backgroundColor: Colors.game.surface, borderRadius: 12,
+    paddingVertical: 12, alignItems: "center",
+    borderWidth: 1, borderColor: Colors.game.border,
+  },
+  detailCloseTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
 });

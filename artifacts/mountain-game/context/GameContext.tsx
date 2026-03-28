@@ -337,6 +337,7 @@ interface GameContextType {
   setScene: (scene: SceneType) => void;
   applyGoldXp: (gold: number, xp: number) => ApplyResult;
   addMaterials: (mats: Material[]) => void;
+  removeMaterial: (key: string, count: number) => void;
   allocateStat: (stat: keyof CharacterStats) => void;
   addLogEntry: (entry: LogEntry) => void;
   incrementEvents: () => void;
@@ -394,6 +395,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const removeMaterial = useCallback((key: string, count: number) => {
+    setGameState((prev) => {
+      const materials = prev.character.materials
+        .map((e) => e.key === key ? { ...e, count: e.count - count } : e)
+        .filter((e) => e.count > 0);
+      return { ...prev, character: { ...prev.character, materials } };
+    });
+  }, []);
+
   const allocateStat = useCallback((stat: keyof CharacterStats) => {
     setGameState((prev) => {
       if (prev.character.pendingStatPoints <= 0) return prev;
@@ -419,7 +429,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, allocateStat, addLogEntry, incrementEvents }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, removeMaterial, allocateStat, addLogEntry, incrementEvents }}
     >
       {children}
     </GameContext.Provider>

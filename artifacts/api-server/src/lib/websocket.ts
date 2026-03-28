@@ -8,7 +8,18 @@ interface Player {
   ws: WebSocket;
 }
 
+interface AuctionListing {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  material: { type: string; rarity: string; version: number };
+  count: number;
+  price: number;
+  ts: number;
+}
+
 const players = new Map<string, Player>();
+const auctionListings = new Map<string, AuctionListing>();
 let counter = 0;
 
 function send(ws: WebSocket, data: object) {
@@ -31,6 +42,13 @@ function broadcastAll(data: object) {
   }
 }
 
+function broadcastAhUpdate() {
+  broadcastAll({
+    type: "ah_update",
+    listings: Array.from(auctionListings.values()),
+  });
+}
+
 function handleMessage(player: Player, raw: string) {
   let msg: any;
   try {
@@ -45,6 +63,12 @@ function handleMessage(player: Player, raw: string) {
     player.name = name;
 
     send(player.ws, { type: "joined", yourId: player.id });
+
+    // Send current AH listings to the newly joined player
+    send(player.ws, {
+      type: "ah_update",
+      listings: Array.from(auctionListings.values()),
+    });
 
     if (oldName !== name && oldName) {
       broadcastAll({
@@ -72,6 +96,72 @@ function handleMessage(player: Player, raw: string) {
       text,
       ts: Date.now(),
     });
+
+  } else if (msg.type === "ah_get") {
+    send(player.ws, {
+      type: "ah_update",
+      listings: Array.from(auctionListings.values()),
+    });
+
+  } else if (msg.type === "ah_list") {
+    const material = msg.material;
+    if (!material || !material.type || !material.rarity) return;
+    const count = Math.max(1, parseInt(msg.count) || 1);
+    const price = Math.max(1, parseInt(msg.price) || 1);
+    const id = `ah-${Date.now()}-${player.id}`;
+    const listing: AuctionListing = {
+      id,
+      sellerId: player.id,
+      sellerName: player.name,
+      material: {
+        type: String(material.type).slice(0, 20),
+        rarity: String(material.rarity).slice(0, 20),
+        version: parseInt(material.version) || 0,
+      },
+      count,
+      price,
+      ts: Date.now(),
+    };
+    auctionListings.set(id, listing);
+    broadcastAhUpdate();
+
+  } else if (msg.type === "ah_cancel") {
+    const listing = auctionListings.get(String(msg.listingId));
+    if (!listing || listing.sellerId !== player.id) return;
+    auctionListings.delete(listing.id);
+    // Tell the canceller to get their items back
+    send(player.ws, {
+      type: "ah_cancelled",
+      listing,
+    });
+    broadcastAhUpdate();
+
+  } else if (msg.type === "ah_buy") {
+    const listing = auctionListings.get(String(msg.listingId));
+    if (!listing) {
+      send(player.ws, { type: "ah_buy_fail", reason: "Listing no longer available." });
+      return;
+    }
+    if (listing.sellerId === player.id) return; // can't buy own
+    auctionListings.delete(listing.id);
+
+    // Notify buyer
+    send(player.ws, {
+      type: "ah_bought",
+      listing,
+    });
+
+    // Notify seller
+    const seller = players.get(listing.sellerId);
+    if (seller) {
+      send(seller.ws, {
+        type: "ah_sale",
+        listing,
+        buyerName: player.name,
+      });
+    }
+
+    broadcastAhUpdate();
   }
 }
 

@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { EventNotification } from "@/components/EventNotification";
@@ -24,9 +25,11 @@ import {
   rollEvent,
   useGame,
 } from "@/context/GameContext";
+import { useMultiplayer } from "@/context/MultiplayerContext";
 
 export default function GameScreen() {
   const { gameState, setScene, applyGoldXp, addMaterials, addLogEntry, incrementEvents } = useGame();
+  const { ahEvents, consumeAhEvent } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -41,6 +44,7 @@ export default function GameScreen() {
 
   const [showStats, setShowStats] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showAuction, setShowAuction] = useState(false);
   const [gatherMaterial, setGatherMaterial] = useState<Material | null>(null);
   const [gatherAttempts, setGatherAttempts] = useState(1);
   const [showGather, setShowGather] = useState(false);
@@ -52,6 +56,25 @@ export default function GameScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const char = gameState.character;
+
+  // ── Process AH events (bought items / sold gold / cancelled items) ─────────
+  useEffect(() => {
+    for (const ev of ahEvents) {
+      if (ev.kind === "sale") {
+        // Seller receives gold when buyer purchases their listing
+        applyGoldXp(ev.listing.price, 0);
+        consumeAhEvent(ev.id);
+      } else if (ev.kind === "bought") {
+        // Buyer receives items after successful purchase
+        addMaterials(Array(ev.listing.count).fill(ev.listing.material));
+        consumeAhEvent(ev.id);
+      } else if (ev.kind === "cancelled") {
+        // Seller gets items back when cancellation confirmed
+        addMaterials(Array(ev.listing.count).fill(ev.listing.material));
+        consumeAhEvent(ev.id);
+      }
+    }
+  }, [ahEvents, applyGoldXp, addMaterials, consumeAhEvent]);
 
   const handleScenePress = useCallback(() => {
     if (isInteracting) return;
@@ -177,6 +200,13 @@ export default function GameScreen() {
           <View style={styles.headerBtns}>
             <Pressable
               style={styles.headerBtn}
+              onPress={() => setShowAuction(true)}
+              hitSlop={4}
+            >
+              <Feather name="shopping-bag" size={20} color={Colors.game.gold} />
+            </Pressable>
+            <Pressable
+              style={styles.headerBtn}
               onPress={() => setShowChat(true)}
               hitSlop={4}
             >
@@ -221,7 +251,7 @@ export default function GameScreen() {
         </View>
       </View>
 
-      {/* ── Middle spacer (pushes scene to bottom) ───────────── */}
+      {/* ── Middle spacer (scene shifted ~15% higher) ─────────── */}
       <View style={styles.midSpacer} />
 
       {/* ── Bottom: notification + scene + timer ─────────────── */}
@@ -238,6 +268,7 @@ export default function GameScreen() {
       </View>
 
       {/* Modals */}
+      <AuctionHouseModal visible={showAuction} onClose={() => setShowAuction(false)} />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal visible={showStats} onClose={() => setShowStats(false)} />
       <GatheringModal
@@ -262,7 +293,7 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.game.background },
   topSection: { paddingHorizontal: 16, gap: 12 },
-  midSpacer: { flex: 1 },
+  midSpacer: { flex: 1, maxHeight: "28%" },
   bottomSection: { paddingHorizontal: 16, gap: 10 },
   titleRow: {
     flexDirection: "row",
@@ -314,36 +345,22 @@ const styles = StyleSheet.create({
   stripItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   stripItemXp: { flex: 1, gap: 3 },
   goldCoin: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 18, height: 18, borderRadius: 9,
     backgroundColor: Colors.game.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#a07820",
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#a07820",
   },
-  goldCoinText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    color: "#3d2e00",
-  },
+  goldCoinText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#3d2e00" },
   stripLabel: {
     fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 1,
   },
-  stripValue: {
-    fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.gold,
-  },
-  stripDivider: {
-    width: 1, height: 20, backgroundColor: Colors.game.border,
-  },
+  stripValue: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  stripDivider: { width: 1, height: 20, backgroundColor: Colors.game.border },
   xpTrack: {
     height: 4, backgroundColor: Colors.game.border,
     borderRadius: 2, overflow: "hidden",
   },
   xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 2 },
-  xpText: {
-    fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted,
-  },
+  xpText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
 });
