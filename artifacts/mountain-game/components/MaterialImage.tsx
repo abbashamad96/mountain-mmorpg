@@ -1,72 +1,60 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { RARITY_COLORS, MaterialType, RarityName, VersionNum, VERSION_PARTICLE_COLORS } from "@/context/GameContext";
-import Colors from "@/constants/colors";
+import { Image, ImageSourcePropType, StyleSheet, Text, View } from "react-native";
+import {
+  RARITY_COLORS,
+  MaterialType,
+  RarityName,
+  VersionNum,
+  VERSION_PARTICLE_COLORS,
+} from "@/context/GameContext";
 
-// Per-type, per-rarity: escalating mystery and power in the icon
-const TYPE_RARITY_ICON: Record<MaterialType, Record<RarityName, string>> = {
+// ── Splash art map ────────────────────────────────────────────────────────────
+// One AI-generated image per type × rarity
+const SPLASH: Record<MaterialType, Record<RarityName, ImageSourcePropType>> = {
   Ore: {
-    Common:    "◆",
-    Uncommon:  "◈",
-    Rare:      "💎",
-    Epic:      "🔷",
-    Elite:     "💠",
-    Legendary: "⭐",
-    Superior:  "🌟",
-    Cosmic:    "✨",
+    Common:    require("@/assets/images/materials/ore_common.png"),
+    Uncommon:  require("@/assets/images/materials/ore_uncommon.png"),
+    Rare:      require("@/assets/images/materials/ore_rare.png"),
+    Epic:      require("@/assets/images/materials/ore_epic.png"),
+    Elite:     require("@/assets/images/materials/ore_elite.png"),
+    Legendary: require("@/assets/images/materials/ore_legendary.png"),
+    Superior:  require("@/assets/images/materials/ore_superior.png"),
+    Cosmic:    require("@/assets/images/materials/ore_cosmic.png"),
   },
   Wood: {
-    Common:    "🌿",
-    Uncommon:  "🍃",
-    Rare:      "🌲",
-    Epic:      "🌳",
-    Elite:     "🌴",
-    Legendary: "🎋",
-    Superior:  "☘",
-    Cosmic:    "🌌",
+    Common:    require("@/assets/images/materials/wood_common.png"),
+    Uncommon:  require("@/assets/images/materials/wood_uncommon.png"),
+    Rare:      require("@/assets/images/materials/wood_rare.png"),
+    Epic:      require("@/assets/images/materials/wood_epic.png"),
+    Elite:     require("@/assets/images/materials/wood_elite.png"),
+    Legendary: require("@/assets/images/materials/wood_legendary.png"),
+    Superior:  require("@/assets/images/materials/wood_superior.png"),
+    Cosmic:    require("@/assets/images/materials/wood_cosmic.png"),
   },
   Herb: {
-    Common:    "🌱",
-    Uncommon:  "🌸",
-    Rare:      "🌺",
-    Epic:      "💐",
-    Elite:     "🌻",
-    Legendary: "🌹",
-    Superior:  "⚗",
-    Cosmic:    "🔮",
+    Common:    require("@/assets/images/materials/herb_common.png"),
+    Uncommon:  require("@/assets/images/materials/herb_uncommon.png"),
+    Rare:      require("@/assets/images/materials/herb_rare.png"),
+    Epic:      require("@/assets/images/materials/herb_epic.png"),
+    Elite:     require("@/assets/images/materials/herb_elite.png"),
+    Legendary: require("@/assets/images/materials/herb_legendary.png"),
+    Superior:  require("@/assets/images/materials/herb_superior.png"),
+    Cosmic:    require("@/assets/images/materials/herb_cosmic.png"),
   },
   Leather: {
-    Common:    "🐺",
-    Uncommon:  "🦊",
-    Rare:      "🐆",
-    Epic:      "🦁",
-    Elite:     "🐉",
-    Legendary: "🦅",
-    Superior:  "🌑",
-    Cosmic:    "👁",
+    Common:    require("@/assets/images/materials/leather_common.png"),
+    Uncommon:  require("@/assets/images/materials/leather_uncommon.png"),
+    Rare:      require("@/assets/images/materials/leather_rare.png"),
+    Epic:      require("@/assets/images/materials/leather_epic.png"),
+    Elite:     require("@/assets/images/materials/leather_elite.png"),
+    Legendary: require("@/assets/images/materials/leather_legendary.png"),
+    Superior:  require("@/assets/images/materials/leather_superior.png"),
+    Cosmic:    require("@/assets/images/materials/leather_cosmic.png"),
   },
 };
 
-const TYPE_BG: Record<MaterialType, string[]> = {
-  Ore:     ["#1C1108", "#2A1A0A"],
-  Wood:    ["#0A1A08", "#121F0A"],
-  Herb:    ["#091518", "#0E1E22"],
-  Leather: ["#180A08", "#211010"],
-};
+// ── Rarity frame escalation ───────────────────────────────────────────────────
 
-// Rarity → number of border rings (1–4)
-const RARITY_RINGS: Record<RarityName, number> = {
-  Common:    1,
-  Uncommon:  1,
-  Rare:      2,
-  Epic:      2,
-  Elite:     3,
-  Legendary: 3,
-  Superior:  4,
-  Cosmic:    4,
-};
-
-// Border width escalation
 const RARITY_BORDER_W: Record<RarityName, number> = {
   Common:    1,
   Uncommon:  1.5,
@@ -78,19 +66,42 @@ const RARITY_BORDER_W: Record<RarityName, number> = {
   Cosmic:    4,
 };
 
-// Icon scale multiplier per rarity
-const RARITY_ICON_SCALE: Record<RarityName, number> = {
-  Common:    0.38,
-  Uncommon:  0.40,
-  Rare:      0.43,
-  Epic:      0.46,
-  Elite:     0.49,
-  Legendary: 0.52,
-  Superior:  0.55,
-  Cosmic:    0.58,
+const RARITY_RINGS: Record<RarityName, number> = {
+  Common:    0,
+  Uncommon:  0,
+  Rare:      1,
+  Epic:      2,
+  Elite:     2,
+  Legendary: 3,
+  Superior:  3,
+  Cosmic:    4,
 };
 
-// Decorative corner symbol per rarity
+// Overlay darkness on the image — lower rarity = darker/murkier; higher = vivid
+const RARITY_DARKEN: Record<RarityName, number> = {
+  Common:    0.45,
+  Uncommon:  0.30,
+  Rare:      0.18,
+  Epic:      0.12,
+  Elite:     0.08,
+  Legendary: 0.05,
+  Superior:  0.02,
+  Cosmic:    0,
+};
+
+// Rarity glow intensity for the halo behind the image
+const RARITY_GLOW: Record<RarityName, number> = {
+  Common:    0,
+  Uncommon:  0,
+  Rare:      0.15,
+  Epic:      0.28,
+  Elite:     0.42,
+  Legendary: 0.58,
+  Superior:  0.75,
+  Cosmic:    0.95,
+};
+
+// Decorative corner marks (Epic+)
 const RARITY_CORNER: Record<RarityName, string | null> = {
   Common:    null,
   Uncommon:  null,
@@ -102,7 +113,7 @@ const RARITY_CORNER: Record<RarityName, string | null> = {
   Cosmic:    "✺",
 };
 
-// Top badge for legendary+
+// Top center badge (Legendary+)
 const RARITY_TOP_BADGE: Record<RarityName, string | null> = {
   Common:    null,
   Uncommon:  null,
@@ -114,23 +125,14 @@ const RARITY_TOP_BADGE: Record<RarityName, string | null> = {
   Cosmic:    "∞",
 };
 
-// Glow intensity per rarity (0–1)
-const RARITY_GLOW: Record<RarityName, number> = {
-  Common:    0,
-  Uncommon:  0.08,
-  Rare:      0.18,
-  Epic:      0.30,
-  Elite:     0.42,
-  Legendary: 0.55,
-  Superior:  0.70,
-  Cosmic:    0.90,
-};
-
-// Hexifies a color with an alpha (0–1)
 function withAlpha(hex: string, alpha: number): string {
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  const a = Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0");
   return hex + a;
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 interface MaterialImageProps {
   type: MaterialType;
@@ -141,21 +143,19 @@ interface MaterialImageProps {
 
 export function MaterialImage({ type, rarity, version, size = 140 }: MaterialImageProps) {
   const rarityColor = RARITY_COLORS[rarity];
-  const rings = RARITY_RINGS[rarity];
   const borderW = RARITY_BORDER_W[rarity];
-  const iconScale = RARITY_ICON_SCALE[rarity];
+  const rings = RARITY_RINGS[rarity];
+  const darken = RARITY_DARKEN[rarity];
+  const glow = RARITY_GLOW[rarity];
   const corner = RARITY_CORNER[rarity];
   const topBadge = RARITY_TOP_BADGE[rarity];
-  const glow = RARITY_GLOW[rarity];
-  const icon = TYPE_RARITY_ICON[type][rarity];
-  const [bg1, bg2] = TYPE_BG[type];
-  const vColor = VERSION_PARTICLE_COLORS[version] !== "transparent"
-    ? VERSION_PARTICLE_COLORS[version]
-    : rarityColor;
+  const vColor =
+    VERSION_PARTICLE_COLORS[version] !== "transparent"
+      ? VERSION_PARTICLE_COLORS[version]
+      : rarityColor;
 
-  const iconSize = size * iconScale;
-  const cornerFontSize = Math.max(8, size * 0.09);
-  const br = size * 0.22;
+  const br = size * 0.18;
+  const cornerFs = Math.max(8, size * 0.09);
 
   return (
     <View
@@ -167,48 +167,83 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
           borderRadius: br,
           borderWidth: borderW,
           borderColor: rarityColor,
-          backgroundColor: bg1,
         },
       ]}
     >
-      {/* Inner background gradient-like layer */}
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            borderRadius: br - borderW,
-            backgroundColor: bg2,
-            opacity: 0.7,
-          },
-        ]}
-      />
-
-      {/* Glow halo behind icon */}
-      {glow > 0 && (
+      {/* Outer glow ring (Elite+) */}
+      {glow >= 0.42 && (
         <View
           style={[
-            styles.glowHalo,
+            styles.absRing,
             {
-              width: size * 0.72,
-              height: size * 0.72,
-              borderRadius: size * 0.36,
-              backgroundColor: withAlpha(rarityColor, glow * 0.5),
+              width: size + borderW * 2 + 10,
+              height: size + borderW * 2 + 10,
+              borderRadius: br + 5,
+              borderWidth: 5,
+              borderColor: withAlpha(rarityColor, glow * 0.4),
             },
           ]}
         />
       )}
 
-      {/* Extra border rings */}
-      {rings >= 2 && (
+      {/* Full-bleed splash art */}
+      <Image
+        source={SPLASH[type][rarity]}
+        style={[styles.img, { borderRadius: br - borderW }]}
+        resizeMode="cover"
+      />
+
+      {/* Darkening veil for lower rarities */}
+      {darken > 0 && (
         <View
           style={[
-            styles.ringAbs,
+            StyleSheet.absoluteFill,
+            {
+              borderRadius: br - borderW,
+              backgroundColor: `rgba(0,0,0,${darken})`,
+            },
+          ]}
+        />
+      )}
+
+      {/* Rarity glow overlay (color tint for high rarity) */}
+      {glow > 0 && (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              borderRadius: br - borderW,
+              backgroundColor: withAlpha(rarityColor, glow * 0.12),
+            },
+          ]}
+        />
+      )}
+
+      {/* Inner border rings */}
+      {rings >= 1 && (
+        <View
+          style={[
+            styles.absRing,
             {
               width: size * 0.88,
               height: size * 0.88,
               borderRadius: size * 0.44,
               borderWidth: 1,
-              borderColor: withAlpha(rarityColor, 0.35),
+              borderColor: withAlpha(rarityColor, 0.45),
+            },
+          ]}
+        />
+      )}
+      {rings >= 2 && (
+        <View
+          style={[
+            styles.absRing,
+            {
+              width: size * 0.76,
+              height: size * 0.76,
+              borderRadius: size * 0.38,
+              borderWidth: 1,
+              borderColor: withAlpha(rarityColor, 0.3),
             },
           ]}
         />
@@ -216,13 +251,13 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
       {rings >= 3 && (
         <View
           style={[
-            styles.ringAbs,
+            styles.absRing,
             {
-              width: size * 0.77,
-              height: size * 0.77,
-              borderRadius: size * 0.385,
+              width: size * 0.64,
+              height: size * 0.64,
+              borderRadius: size * 0.32,
               borderWidth: 1,
-              borderColor: withAlpha(rarityColor, 0.25),
+              borderColor: withAlpha(rarityColor, 0.22),
             },
           ]}
         />
@@ -230,70 +265,53 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
       {rings >= 4 && (
         <View
           style={[
-            styles.ringAbs,
+            styles.absRing,
             {
-              width: size * 0.65,
-              height: size * 0.65,
-              borderRadius: size * 0.325,
+              width: size * 0.52,
+              height: size * 0.52,
+              borderRadius: size * 0.26,
               borderWidth: 1,
-              borderColor: withAlpha(rarityColor, 0.20),
+              borderColor: withAlpha(rarityColor, 0.18),
             },
           ]}
         />
       )}
 
-      {/* Strong outer glow (Elite+) as shadow-like ring */}
-      {glow >= 0.42 && (
-        <View
-          style={[
-            styles.ringAbs,
-            {
-              width: size + 8,
-              height: size + 8,
-              borderRadius: br + 4,
-              borderWidth: 4,
-              borderColor: withAlpha(rarityColor, glow * 0.35),
-            },
-          ]}
-        />
-      )}
-
-      {/* Main icon */}
-      <Text style={{ fontSize: iconSize, textAlign: "center", lineHeight: iconSize * 1.1 }}>
-        {icon}
-      </Text>
-
-      {/* Corner rarity marks (Epic+) */}
+      {/* Corner marks (Epic+) */}
       {corner && (
         <>
-          <Text style={[styles.cornerMark, styles.cornerTL, { fontSize: cornerFontSize, color: rarityColor }]}>{corner}</Text>
-          <Text style={[styles.cornerMark, styles.cornerTR, { fontSize: cornerFontSize, color: rarityColor }]}>{corner}</Text>
-          <Text style={[styles.cornerMark, styles.cornerBL, { fontSize: cornerFontSize, color: rarityColor }]}>{corner}</Text>
-          <Text style={[styles.cornerMark, styles.cornerBR, { fontSize: cornerFontSize, color: rarityColor }]}>{corner}</Text>
+          <Text style={[styles.corner, styles.cTL, { fontSize: cornerFs, color: rarityColor }]}>{corner}</Text>
+          <Text style={[styles.corner, styles.cTR, { fontSize: cornerFs, color: rarityColor }]}>{corner}</Text>
+          <Text style={[styles.corner, styles.cBL, { fontSize: cornerFs, color: rarityColor }]}>{corner}</Text>
+          <Text style={[styles.corner, styles.cBR, { fontSize: cornerFs, color: rarityColor }]}>{corner}</Text>
         </>
       )}
 
-      {/* Top center badge (Legendary+) */}
+      {/* Top badge (Legendary+) */}
       {topBadge && (
-        <Text
-          style={[
-            styles.topBadge,
-            { fontSize: size * 0.12, color: rarityColor },
-          ]}
-        >
+        <Text style={[styles.topBadge, { fontSize: size * 0.12, color: rarityColor }]}>
           {topBadge}
         </Text>
       )}
 
-      {/* Bottom rarity label strip */}
-      <View style={[styles.strip, { backgroundColor: withAlpha(rarityColor, 0.22) }]}>
-        <Text style={[styles.stripText, { color: rarityColor, fontSize: Math.max(8, size * 0.085) }]}>
+      {/* Bottom strip — rarity name + version */}
+      <View
+        style={[
+          styles.strip,
+          {
+            backgroundColor: withAlpha(rarityColor, 0.28),
+            borderBottomLeftRadius: br - borderW,
+            borderBottomRightRadius: br - borderW,
+          },
+        ]}
+      >
+        <Text style={[styles.stripText, { color: rarityColor, fontSize: Math.max(8, size * 0.083) }]}>
           {rarity.toUpperCase()}
-          {version > 0 ? `  V${version}` : ""}
+          {version > 0 ? `   V${version}` : ""}
         </Text>
       </View>
 
-      {/* Version dots at top-right */}
+      {/* Version dots (top-right) */}
       {version > 0 && (
         <View style={styles.vDots}>
           {Array.from({ length: version }).map((_, i) => (
@@ -305,7 +323,11 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
                   backgroundColor: vColor,
                   width: Math.max(5, size * 0.055),
                   height: Math.max(5, size * 0.055),
-                  borderRadius: size * 0.03,
+                  borderRadius: 99,
+                  shadowColor: vColor,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.8,
+                  shadowRadius: 4,
                 },
               ]}
             />
@@ -318,44 +340,57 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
 
 const styles = StyleSheet.create({
   outer: {
-    alignItems: "center",
-    justifyContent: "center",
     overflow: "visible",
     position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  glowHalo: {
+  img: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
+  absRing: {
     position: "absolute",
   },
-  ringAbs: {
+  corner: {
     position: "absolute",
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  cornerMark: {
-    position: "absolute",
-    fontWeight: "700",
-  },
-  cornerTL: { top: 5, left: 5 },
-  cornerTR: { top: 5, right: 5 },
-  cornerBL: { bottom: 16, left: 5 },
-  cornerBR: { bottom: 16, right: 5 },
+  cTL: { top: 5, left: 5 },
+  cTR: { top: 5, right: 5 },
+  cBL: { bottom: 18, left: 5 },
+  cBR: { bottom: 18, right: 5 },
   topBadge: {
     position: "absolute",
-    top: 5,
+    top: 4,
     alignSelf: "center",
-    fontWeight: "700",
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   strip: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 3,
+    paddingVertical: 4,
     alignItems: "center",
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
   },
   stripText: {
     fontFamily: "Inter_700Bold",
     letterSpacing: 1.5,
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   vDots: {
     position: "absolute",
