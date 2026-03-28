@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useState } from "react";
 import {
   FlatList,
@@ -12,17 +13,19 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { AuctionListing, useMultiplayer } from "@/context/MultiplayerContext";
-import { Material, MaterialEntry, RARITY_COLORS, useGame } from "@/context/GameContext";
+import { Material, MaterialEntry, MaterialType, RARITY_COLORS, useGame } from "@/context/GameContext";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 
-type Tab = "browse" | "mine";
-type ListStep = "pick" | "price" | null;
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AuctionHouseModalProps {
-  visible: boolean;
-  onClose: () => void;
-}
+type Tab = "browse" | "mine";
+type Step = "tabs" | "pick" | "price";
+type FilterType = "All" | MaterialType;
+
+const FILTER_TYPES: FilterType[] = ["All", "Ore", "Wood", "Herb", "Leather"];
+
+// ─── Listing card ────────────────────────────────────────────────────────────
 
 function ListingCard({
   listing,
@@ -39,7 +42,7 @@ function ListingCard({
 }) {
   const rarityColor = RARITY_COLORS[listing.material.rarity as keyof typeof RARITY_COLORS] ?? "#9CA3AF";
   return (
-    <View style={[styles.listingCard, { borderColor: rarityColor + "60" }]}>
+    <View style={[styles.listingCard, { borderColor: rarityColor + "55" }]}>
       <View style={styles.listingImg}>
         <MaterialImage
           type={listing.material.type as any}
@@ -57,9 +60,7 @@ function ListingCard({
           label={`${listing.material.rarity} ${listing.material.type}`}
           style={styles.listingName}
         />
-        <Text style={styles.listingMeta}>
-          ×{listing.count}  ·  by {listing.sellerName}
-        </Text>
+        <Text style={styles.listingMeta}>×{listing.count}  ·  {listing.sellerName}</Text>
       </View>
       <View style={styles.listingRight}>
         <View style={styles.priceRow}>
@@ -84,31 +85,42 @@ function ListingCard({
   );
 }
 
+// ─── Main modal ───────────────────────────────────────────────────────────────
+
+interface AuctionHouseModalProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
 export function AuctionHouseModal({ visible, onClose }: AuctionHouseModalProps) {
   const { gameState, removeMaterial, applyGoldXp } = useGame();
-  const { yourId, listings, listAhItem, buyAhItem, cancelAhListing } = useMultiplayer();
+  const { yourId, listings, listAhItem, buyAhItem, cancelAhListing, refreshListings } = useMultiplayer();
   const char = gameState.character;
 
   const [tab, setTab] = useState<Tab>("browse");
-  const [listStep, setListStep] = useState<ListStep>(null);
+  const [step, setStep] = useState<Step>("tabs");
   const [pickedEntry, setPickedEntry] = useState<MaterialEntry | null>(null);
   const [countStr, setCountStr] = useState("1");
   const [priceStr, setPriceStr] = useState("");
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [typeFilter, setTypeFilter] = useState<FilterType>("All");
 
   const myListings = listings.filter((l) => l.sellerId === yourId);
   const otherListings = listings.filter((l) => l.sellerId !== yourId);
 
-  const showFeedback = useCallback((msg: string) => {
-    setFeedback(msg);
+  const applyFilter = (list: AuctionListing[]) =>
+    typeFilter === "All" ? list : list.filter((l) => l.material.type === typeFilter);
+
+  const showFeedback = useCallback((msg: string, ok = true) => {
+    setFeedback({ msg, ok });
     setTimeout(() => setFeedback(null), 2500);
   }, []);
 
   const handleBuy = useCallback((listing: AuctionListing) => {
-    if (char.gold < listing.price) { showFeedback("Not enough gold!"); return; }
+    if (char.gold < listing.price) { showFeedback("Not enough gold!", false); return; }
     applyGoldXp(-listing.price, 0);
     buyAhItem(listing.id);
-    showFeedback(`Sent purchase — items incoming!`);
+    showFeedback(`Purchase sent — items incoming!`);
   }, [char.gold, buyAhItem, applyGoldXp, showFeedback]);
 
   const handleCancel = useCallback((listing: AuctionListing) => {
@@ -120,88 +132,140 @@ export function AuctionHouseModal({ visible, onClose }: AuctionHouseModalProps) 
     setPickedEntry(entry);
     setCountStr("1");
     setPriceStr("");
-    setListStep("price");
+    setStep("price");
   };
 
   const handleConfirmList = () => {
     if (!pickedEntry) return;
-    const count = Math.max(1, parseInt(countStr) || 1);
-    const price = parseInt(priceStr) || 0;
-    if (count > pickedEntry.count) { showFeedback("Not enough items!"); return; }
-    if (price <= 0) { showFeedback("Set a price above 0."); return; }
+    // Parse inputs — handle non-numeric gracefully
+    const parsedCount = parseInt(countStr.replace(/[^0-9]/g, ""), 10);
+    const parsedPrice = parseInt(priceStr.replace(/[^0-9]/g, ""), 10);
+    const count = isNaN(parsedCount) || parsedCount < 1 ? 1 : Math.min(parsedCount, pickedEntry.count);
+    const price = isNaN(parsedPrice) ? 0 : parsedPrice;
+    if (price <= 0) { showFeedback("Enter a price above 0.", false); return; }
     removeMaterial(pickedEntry.key, count);
     listAhItem(pickedEntry.material, count, price);
-    setListStep(null);
-    setPickedEntry(null);
+    setStep("tabs");
     setTab("mine");
-    showFeedback("Item listed!");
+    setPickedEntry(null);
+    showFeedback("Item listed successfully!");
   };
 
-  const renderBrowse = () => (
-    <View style={styles.tabContent}>
-      {otherListings.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>No listings from other players.</Text>
-          <Text style={styles.emptySubText}>Be the first to sell something!</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={otherListings}
-          keyExtractor={(l) => l.id}
-          renderItem={({ item }) => (
-            <ListingCard
-              listing={item}
-              isOwn={false}
-              canAfford={char.gold >= item.price}
-              onBuy={() => handleBuy(item)}
-              onCancel={() => {}}
-            />
-          )}
-          contentContainerStyle={{ gap: 8 }}
-          showsVerticalScrollIndicator={false}
-          style={{ flex: 1 }}
-        />
-      )}
-    </View>
+  const handleRefresh = () => {
+    refreshListings();
+    showFeedback("Listings refreshed.");
+  };
+
+  const handleClose = () => {
+    setStep("tabs");
+    setPickedEntry(null);
+    onClose();
+  };
+
+  // ── Render filter chips ────────────────────────────────────────────────────
+
+  const renderFilters = () => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.filterScroll}
+      contentContainerStyle={styles.filterRow}
+    >
+      {FILTER_TYPES.map((ft) => (
+        <Pressable
+          key={ft}
+          style={[styles.filterChip, typeFilter === ft && styles.filterChipActive]}
+          onPress={() => setTypeFilter(ft)}
+        >
+          <Text style={[styles.filterChipTxt, typeFilter === ft && styles.filterChipTxtActive]}>
+            {ft.toUpperCase()}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 
-  const renderMine = () => (
-    <View style={styles.tabContent}>
-      <Pressable style={styles.listItemBtn} onPress={() => setListStep("pick")}>
-        <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
-      </Pressable>
-      {myListings.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>No active listings.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={myListings}
-          keyExtractor={(l) => l.id}
-          renderItem={({ item }) => (
-            <ListingCard
-              listing={item}
-              isOwn
-              canAfford={false}
-              onBuy={() => {}}
-              onCancel={() => handleCancel(item)}
-            />
-          )}
-          contentContainerStyle={{ gap: 8 }}
-          showsVerticalScrollIndicator={false}
-          style={{ flex: 1 }}
-        />
-      )}
-    </View>
-  );
+  // ── Render tabs ────────────────────────────────────────────────────────────
+
+  const renderBrowse = () => {
+    const filtered = applyFilter(otherListings);
+    return (
+      <View style={styles.listArea}>
+        {filtered.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>
+              {otherListings.length === 0 ? "No listings yet." : "No listings match this filter."}
+            </Text>
+            {otherListings.length === 0 && (
+              <Text style={styles.emptySubText}>Be the first to list something!</Text>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(l) => l.id}
+            renderItem={({ item }) => (
+              <ListingCard
+                listing={item}
+                isOwn={false}
+                canAfford={char.gold >= item.price}
+                onBuy={() => handleBuy(item)}
+                onCancel={() => {}}
+              />
+            )}
+            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
+    );
+  };
+
+  const renderMine = () => {
+    const filtered = applyFilter(myListings);
+    return (
+      <View style={styles.listArea}>
+        <Pressable style={styles.listItemBtn} onPress={() => setStep("pick")}>
+          <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
+        </Pressable>
+        {filtered.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>
+              {myListings.length === 0 ? "No active listings." : "No listings match this filter."}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(l) => l.id}
+            renderItem={({ item }) => (
+              <ListingCard
+                listing={item}
+                isOwn
+                canAfford={false}
+                onBuy={() => {}}
+                onCancel={() => handleCancel(item)}
+              />
+            )}
+            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
+    );
+  };
+
+  // ── Pick item wizard ───────────────────────────────────────────────────────
 
   const renderPickStep = () => (
-    <View style={styles.listSheet}>
-      <Text style={styles.listSheetTitle}>SELECT ITEM TO LIST</Text>
+    <View style={styles.wizardArea}>
+      <Text style={styles.wizardTitle}>SELECT ITEM TO LIST</Text>
       {char.materials.length === 0 ? (
-        <Text style={styles.emptyText}>No items in inventory.</Text>
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>No items in inventory.</Text>
+        </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
           <View style={styles.pickGrid}>
             {char.materials.map((entry) => {
               const rc = RARITY_COLORS[entry.material.rarity];
@@ -229,18 +293,21 @@ export function AuctionHouseModal({ visible, onClose }: AuctionHouseModalProps) 
           </View>
         </ScrollView>
       )}
-      <Pressable style={styles.cancelSheetBtn} onPress={() => setListStep(null)}>
-        <Text style={styles.cancelSheetBtnTxt}>BACK</Text>
+      <Pressable style={styles.backBtn} onPress={() => setStep("tabs")}>
+        <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
+        <Text style={styles.backBtnTxt}>BACK</Text>
       </Pressable>
     </View>
   );
 
+  // ── Price wizard ───────────────────────────────────────────────────────────
+
   const renderPriceStep = () => {
     if (!pickedEntry) return null;
-    const maxCount = pickedEntry.count;
     return (
-      <View style={styles.listSheet}>
-        <Text style={styles.listSheetTitle}>SET LISTING DETAILS</Text>
+      <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
+        <Text style={styles.wizardTitle}>SET LISTING DETAILS</Text>
+
         <View style={styles.pricePreview}>
           <MaterialImage
             type={pickedEntry.material.type}
@@ -255,94 +322,121 @@ export function AuctionHouseModal({ visible, onClose }: AuctionHouseModalProps) 
               rarity={pickedEntry.material.rarity}
               version={pickedEntry.material.version}
               label={`${pickedEntry.material.rarity} ${pickedEntry.material.type}`}
-              style={styles.pricePreviewName}
+              style={styles.previewName}
             />
-            <Text style={styles.pricePreviewSub}>You have ×{maxCount}</Text>
+            <Text style={styles.previewSub}>In inventory: ×{pickedEntry.count}</Text>
           </View>
         </View>
+
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Quantity</Text>
           <TextInput
             style={styles.priceInput}
-            keyboardType="number-pad"
+            keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
             value={countStr}
-            onChangeText={setCountStr}
+            onChangeText={(v) => setCountStr(v.replace(/[^0-9]/g, ""))}
             maxLength={4}
             placeholderTextColor={Colors.game.textMuted}
             placeholder="1"
             selectionColor={Colors.game.gold}
           />
         </View>
+
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Total Price (G)</Text>
           <TextInput
             style={styles.priceInput}
-            keyboardType="number-pad"
+            keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
             value={priceStr}
-            onChangeText={setPriceStr}
-            maxLength={8}
+            onChangeText={(v) => setPriceStr(v.replace(/[^0-9]/g, ""))}
+            maxLength={9}
             placeholderTextColor={Colors.game.textMuted}
             placeholder="100"
             selectionColor={Colors.game.gold}
+            autoFocus={Platform.OS === "web"}
           />
         </View>
-        <View style={styles.listBtnRow}>
-          <Pressable style={styles.cancelSheetBtn} onPress={() => setListStep("pick")}>
-            <Text style={styles.cancelSheetBtnTxt}>BACK</Text>
+
+        <View style={styles.wizardBtnRow}>
+          <Pressable style={styles.backBtn} onPress={() => setStep("pick")}>
+            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
+            <Text style={styles.backBtnTxt}>BACK</Text>
           </Pressable>
           <Pressable style={styles.confirmBtn} onPress={handleConfirmList}>
             <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     );
   };
 
+  // ── Final render ───────────────────────────────────────────────────────────
+
+  const showFilters = step === "tabs";
+  const showTabs = step === "tabs";
+
   return (
-    <Modal transparent visible={visible} animationType="slide">
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
+          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>AUCTION HOUSE</Text>
-            <View style={styles.goldPill}>
-              <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
-              <Text style={styles.goldAmt}>{char.gold.toLocaleString()}</Text>
+            <View style={styles.headerRight}>
+              <View style={styles.goldPill}>
+                <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
+                <Text style={styles.goldAmt}>{char.gold.toLocaleString()}</Text>
+              </View>
+              <Pressable style={styles.refreshBtn} onPress={handleRefresh} hitSlop={8}>
+                <Feather name="refresh-cw" size={16} color={Colors.game.textDim} />
+              </Pressable>
             </View>
           </View>
 
+          {/* Feedback */}
           {feedback && (
-            <View style={styles.feedbackBanner}>
-              <Text style={styles.feedbackText}>{feedback}</Text>
+            <View style={[styles.feedbackBanner, !feedback.ok && styles.feedbackBannerErr]}>
+              <Text style={[styles.feedbackText, !feedback.ok && styles.feedbackTextErr]}>
+                {feedback.msg}
+              </Text>
             </View>
           )}
 
-          <View style={styles.tabs}>
-            <Pressable
-              style={[styles.tabBtn, tab === "browse" && styles.tabBtnActive]}
-              onPress={() => setTab("browse")}
-            >
-              <Text style={[styles.tabBtnTxt, tab === "browse" && styles.tabBtnTxtActive]}>
-                BROWSE ({otherListings.length})
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tabBtn, tab === "mine" && styles.tabBtnActive]}
-              onPress={() => setTab("mine")}
-            >
-              <Text style={[styles.tabBtnTxt, tab === "mine" && styles.tabBtnTxtActive]}>
-                MY LISTINGS ({myListings.length})
-              </Text>
-            </Pressable>
-          </View>
+          {/* Filters (visible in tabs mode) */}
+          {showFilters && renderFilters()}
 
-          {tab === "browse" ? renderBrowse() : renderMine()}
+          {/* Tabs (visible in tabs mode) */}
+          {showTabs && (
+            <View style={styles.tabs}>
+              <Pressable
+                style={[styles.tabBtn, tab === "browse" && styles.tabBtnActive]}
+                onPress={() => setTab("browse")}
+              >
+                <Text style={[styles.tabBtnTxt, tab === "browse" && styles.tabBtnTxtActive]}>
+                  BROWSE ({applyFilter(otherListings).length})
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.tabBtn, tab === "mine" && styles.tabBtnActive]}
+                onPress={() => setTab("mine")}
+              >
+                <Text style={[styles.tabBtnTxt, tab === "mine" && styles.tabBtnTxtActive]}>
+                  MY LISTINGS ({myListings.length})
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
-          {listStep === "pick" && renderPickStep()}
-          {listStep === "price" && renderPriceStep()}
+          {/* Content area */}
+          {step === "tabs" && tab === "browse" && renderBrowse()}
+          {step === "tabs" && tab === "mine" && renderMine()}
+          {step === "pick" && renderPickStep()}
+          {step === "price" && renderPriceStep()}
 
-          <Pressable style={styles.closeBtn} onPress={onClose}>
+          {/* Close */}
+          <Pressable style={styles.closeBtn} onPress={handleClose}>
             <Text style={styles.closeBtnTxt}>CLOSE</Text>
           </Pressable>
         </View>
@@ -361,7 +455,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.game.surfaceAlt,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
+    paddingTop: 14,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     maxHeight: "92%",
     borderWidth: 1,
     borderBottomWidth: 0,
@@ -374,12 +470,13 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row", justifyContent: "space-between",
-    alignItems: "center", marginBottom: 14,
+    alignItems: "center", marginBottom: 10,
   },
   headerTitle: {
     fontSize: 14, fontFamily: "Inter_700Bold",
     color: Colors.game.gold, letterSpacing: 3,
   },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   goldPill: { flexDirection: "row", alignItems: "center", gap: 6 },
   goldCoin: {
     width: 18, height: 18, borderRadius: 9,
@@ -389,15 +486,41 @@ const styles = StyleSheet.create({
   },
   goldCoinTxt: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#3d2e00" },
   goldAmt: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  refreshBtn: {
+    padding: 6, borderRadius: 8,
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1, borderColor: Colors.game.border,
+  },
   feedbackBanner: {
-    backgroundColor: "rgba(34,197,94,0.12)", borderRadius: 8,
-    padding: 8, marginBottom: 10, alignItems: "center",
+    backgroundColor: "rgba(34,197,94,0.10)", borderRadius: 8,
+    paddingVertical: 7, paddingHorizontal: 12,
+    marginBottom: 10, alignItems: "center",
     borderWidth: 1, borderColor: Colors.game.green,
   },
-  feedbackText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.green },
-  tabs: {
-    flexDirection: "row", gap: 8, marginBottom: 14,
+  feedbackBannerErr: {
+    backgroundColor: "rgba(239,68,68,0.10)",
+    borderColor: Colors.game.red,
   },
+  feedbackText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.green },
+  feedbackTextErr: { color: Colors.game.red },
+  filterScroll: { marginBottom: 10 },
+  filterRow: { flexDirection: "row", gap: 6, paddingHorizontal: 2 },
+  filterChip: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1.5,
+    borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+  },
+  filterChipActive: {
+    borderColor: Colors.game.gold,
+    backgroundColor: "rgba(201,168,76,0.12)",
+  },
+  filterChipTxt: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 1.2,
+  },
+  filterChipTxtActive: { color: Colors.game.gold },
+  tabs: { flexDirection: "row", gap: 8, marginBottom: 10 },
   tabBtn: {
     flex: 1, paddingVertical: 8, borderRadius: 10,
     backgroundColor: Colors.game.surface,
@@ -413,13 +536,13 @@ const styles = StyleSheet.create({
     color: Colors.game.textMuted, letterSpacing: 1.5,
   },
   tabBtnTxtActive: { color: Colors.game.gold },
-  tabContent: { height: 280, marginBottom: 10 },
+  listArea: { height: 260, marginBottom: 10 },
   emptyBox: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6 },
-  emptyText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
-  emptySubText: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
+  emptyText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.game.textDim, textAlign: "center" },
+  emptySubText: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted, textAlign: "center" },
   listItemBtn: {
-    backgroundColor: "rgba(201,168,76,0.1)", borderRadius: 12,
-    paddingVertical: 11, alignItems: "center", marginBottom: 12,
+    backgroundColor: "rgba(201,168,76,0.08)", borderRadius: 12,
+    paddingVertical: 10, alignItems: "center", marginBottom: 10,
     borderWidth: 1, borderColor: Colors.game.gold,
   },
   listItemBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.gold, letterSpacing: 2 },
@@ -449,58 +572,62 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.red,
   },
   cancelBtnTxt: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.red, letterSpacing: 1 },
-  listSheet: {
-    position: "absolute", bottom: 70, left: 0, right: 0,
-    backgroundColor: Colors.game.surface, borderRadius: 20,
-    padding: 16, borderWidth: 1, borderColor: Colors.game.border,
-    maxHeight: 420, zIndex: 10,
-    shadowColor: "#000", shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.4, shadowRadius: 12,
-    elevation: 10,
+  // Wizard
+  wizardArea: {
+    height: 340, marginBottom: 10,
   },
-  listSheetTitle: {
+  wizardTitle: {
     fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 3, marginBottom: 12, textAlign: "center",
+    color: Colors.game.textMuted, letterSpacing: 3,
+    marginBottom: 14, textAlign: "center",
   },
-  pickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center" },
+  pickGrid: {
+    flexDirection: "row", flexWrap: "wrap",
+    gap: 10, justifyContent: "center", paddingBottom: 10,
+  },
   pickSlot: {
-    width: 70, alignItems: "center", gap: 3,
-    backgroundColor: Colors.game.surfaceAlt, borderRadius: 12,
-    padding: 6, borderWidth: 2,
+    width: 74, alignItems: "center", gap: 4,
+    backgroundColor: Colors.game.surface, borderRadius: 12,
+    padding: 8, borderWidth: 2,
   },
-  pickLabel: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  pickLabel: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 0.5, textAlign: "center" },
   pickCount: { fontSize: 9, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
   pricePreview: {
     flexDirection: "row", gap: 12, alignItems: "center",
-    backgroundColor: Colors.game.surfaceAlt, borderRadius: 12,
-    padding: 10, marginBottom: 14,
+    backgroundColor: Colors.game.surface, borderRadius: 12,
+    padding: 12, marginBottom: 14,
+    borderWidth: 1, borderColor: Colors.game.border,
   },
-  pricePreviewName: { fontSize: 13, fontFamily: "Inter_700Bold", marginBottom: 2 },
-  pricePreviewSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
+  previewName: { fontSize: 13, fontFamily: "Inter_700Bold", marginBottom: 3 },
+  previewSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
   inputRow: {
-    flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10,
+    flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12,
   },
   inputLabel: {
     fontSize: 12, fontFamily: "Inter_600SemiBold",
-    color: Colors.game.textDim, width: 110,
+    color: Colors.game.textDim, width: 120,
   },
   priceInput: {
-    flex: 1, backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
-    fontSize: 14, fontFamily: "Inter_600SemiBold", color: Colors.game.gold,
+    flex: 1, backgroundColor: Colors.game.surface,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.game.gold,
+    borderWidth: 1, borderColor: Colors.game.border,
+    outlineStyle: "none",
+  } as any,
+  wizardBtnRow: {
+    flexDirection: "row", gap: 10, marginTop: 4, marginBottom: 10,
+  },
+  backBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderRadius: 12, paddingVertical: 11, paddingHorizontal: 16,
     borderWidth: 1, borderColor: Colors.game.border,
   },
-  listBtnRow: { flexDirection: "row", gap: 10, marginTop: 6 },
-  cancelSheetBtn: {
-    flex: 1, borderRadius: 12, paddingVertical: 11,
-    alignItems: "center", borderWidth: 1, borderColor: Colors.game.border,
-  },
-  cancelSheetBtnTxt: {
+  backBtnTxt: {
     fontSize: 12, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 1.5,
   },
   confirmBtn: {
-    flex: 2, borderRadius: 12, paddingVertical: 11,
+    flex: 1, borderRadius: 12, paddingVertical: 11,
     backgroundColor: "rgba(201,168,76,0.12)", alignItems: "center",
     borderWidth: 1, borderColor: Colors.game.gold,
   },

@@ -58,6 +58,7 @@ interface MultiplayerContextType {
   listAhItem: (material: Material, count: number, price: number) => void;
   buyAhItem: (listingId: string) => void;
   cancelAhListing: (listingId: string) => void;
+  refreshListings: () => void;
   // AH events queue (consume + clear)
   ahEvents: AhEvent[];
   consumeAhEvent: (id: string) => void;
@@ -225,6 +226,13 @@ export function MultiplayerProvider({
     }
   }, []);
 
+  const refreshListings = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ah_get" }));
+    }
+  }, []);
+
   const consumeAhEvent = useCallback((id: string) => {
     setAhEvents((prev) => prev.filter((e) => e.id !== id));
   }, []);
@@ -242,6 +250,7 @@ export function MultiplayerProvider({
         listAhItem,
         buyAhItem,
         cancelAhListing,
+        refreshListings,
         ahEvents,
         consumeAhEvent,
       }}
