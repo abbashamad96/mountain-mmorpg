@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "Mountain of Supremacy"
+version = "1.0.0"
+id = "artifacts/mountain-game"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 25279
+
+[services.development]
+run = "pnpm --filter @workspace/mountain-game run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mountain-game", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/mountain-game", "run", "serve" ]
+
+[services.env]
+PORT = "25279"
+BASE_PATH = "/"
