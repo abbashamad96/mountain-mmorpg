@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GameProvider } from "@/context/GameContext";
+import { MultiplayerProvider } from "@/context/MultiplayerContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,7 +52,9 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <GameProvider>
-                <RootLayoutNav />
+                <MultiplayerProvider>
+                  <RootLayoutNav />
+                </MultiplayerProvider>
               </GameProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
