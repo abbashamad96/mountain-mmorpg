@@ -7,6 +7,7 @@ import {
   VersionNum,
   VERSION_PARTICLE_COLORS,
 } from "@/context/GameContext";
+import { AmbientParticles } from "@/components/AmbientParticles";
 
 // ── Splash art map ────────────────────────────────────────────────────────────
 // One AI-generated image per type × rarity
@@ -310,6 +311,15 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
           {version > 0 ? `   V${version}` : ""}
         </Text>
       </View>
+
+      {/* Ambient particle halo for versioned materials — rendered before dots so it sits behind them */}
+      {version > 0 && (
+        <AmbientParticles
+          color={VERSION_PARTICLE_COLORS[version]}
+          version={version as 1 | 2 | 3}
+          size={size}
+        />
+      )}
 
       {/* Version dots (top-right) */}
       {version > 0 && (
