@@ -1,92 +1,116 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Colors from "@/constants/colors";
-import { EventResult } from "@/context/GameContext";
+import { EventOutcome, VERSION_PARTICLE_COLORS } from "@/context/GameContext";
+import { ParticleEffect } from "./ParticleEffect";
+import { RarityText } from "./RarityText";
 
 interface EventNotificationProps {
-  event: EventResult | null;
+  outcome: EventOutcome | null;
 }
 
-export function EventNotification({ event }: EventNotificationProps) {
+export function EventNotification({ outcome }: EventNotificationProps) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+  const translateY = useRef(new Animated.Value(16)).current;
+  const particleTrigger = useRef(0);
+  const [trigger, setTrigger] = React.useState(0);
   const currentId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!event || event.id === currentId.current) return;
-    currentId.current = event.id;
-
+    if (!outcome || outcome.id === currentId.current) return;
+    currentId.current = outcome.id;
     opacity.setValue(0);
-    translateY.setValue(20);
+    translateY.setValue(16);
+
+    if (outcome.gathered && outcome.gathered.version > 0) {
+      particleTrigger.current += 1;
+      setTrigger(particleTrigger.current);
+    }
 
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
+        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
       ]),
-      Animated.delay(2500),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
+      Animated.delay(3200),
+      Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true }),
     ]).start();
-  }, [event]);
+  }, [outcome]);
 
-  if (!event) return null;
+  if (!outcome) return null;
 
-  const borderColor =
-    event.type === "gain"
-      ? Colors.game.green
-      : event.type === "loss"
-        ? Colors.game.red
-        : Colors.game.purple;
+  const hasGold = outcome.goldGained > 0;
+  const hasXp = outcome.xpGained > 0;
+  const leveled = outcome.levelsAfter > outcome.levelsBefore;
+  const hasGather = !!outcome.gathered;
+  const hasNpc = !!outcome.npc;
+  const hasAny = hasGold || hasXp || hasGather || hasNpc || leveled;
 
-  const statLines: string[] = [];
-  if (event.statChanges) {
-    for (const [key, val] of Object.entries(event.statChanges)) {
-      if (val === 0) continue;
-      const sign = (val ?? 0) > 0 ? "+" : "";
-      statLines.push(`${sign}${val} ${key}`);
-    }
-  }
-  if (event.xpGain) {
-    statLines.push(`+${event.xpGain} XP`);
-  }
+  if (!hasAny) return null;
 
   return (
     <Animated.View
-      style={[
-        styles.container,
-        { borderLeftColor: borderColor, opacity, transform: [{ translateY }] },
-      ]}
+      style={[styles.card, { opacity, transform: [{ translateY }] }]}
     >
-      <Text style={styles.title}>{event.title}</Text>
-      <Text style={styles.desc}>{event.description}</Text>
-      {statLines.length > 0 && (
-        <View style={styles.statsRow}>
-          {statLines.map((line, i) => (
-            <Text
-              key={i}
-              style={[
-                styles.statChip,
-                {
-                  color:
-                    line.startsWith("+") ? Colors.game.green : Colors.game.red,
-                },
-              ]}
-            >
-              {line}
-            </Text>
-          ))}
+      {leveled && (
+        <View style={styles.row}>
+          <Text style={styles.levelUpText}>
+            ★ LEVEL UP → Level {outcome.levelsAfter}
+            {outcome.statPointsGained > 0 && (
+              <Text style={styles.statPointText}>
+                {" "}(+{outcome.statPointsGained} stat point{outcome.statPointsGained > 1 ? "s" : ""}!)
+              </Text>
+            )}
+          </Text>
+        </View>
+      )}
+
+      {(hasGold || hasXp) && (
+        <View style={styles.row}>
+          <Text style={styles.sectionIcon}>⚡</Text>
+          <View style={styles.lootChips}>
+            {hasGold && (
+              <Text style={styles.goldChip}>+{outcome.goldGained} Gold</Text>
+            )}
+            {hasXp && (
+              <Text style={styles.xpChip}>+{outcome.xpGained} XP</Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {hasGather && outcome.gathered && (
+        <View style={styles.row}>
+          <Text style={styles.sectionIcon}>📦</Text>
+          <Text style={styles.gatherLabel}>Gathered: </Text>
+          <Text style={styles.gatherType}>{outcome.gathered.type} </Text>
+          <View style={styles.particleAnchor}>
+            <RarityText
+              rarity={outcome.gathered.rarity}
+              version={outcome.gathered.version}
+              style={styles.rarityText}
+            />
+            {outcome.gathered.version > 0 && (
+              <ParticleEffect
+                color={VERSION_PARTICLE_COLORS[outcome.gathered.version]}
+                trigger={trigger}
+                count={6}
+              />
+            )}
+          </View>
+        </View>
+      )}
+
+      {hasNpc && outcome.npc && (
+        <View style={styles.row}>
+          <Text style={styles.sectionIcon}>⚔</Text>
+          <Text style={styles.gatherLabel}>Defeated </Text>
+          <RarityText
+            rarity={outcome.npc.rarity}
+            version={outcome.npc.version}
+            label={`${outcome.npc.rarity} Enemy`}
+            style={styles.rarityText}
+          />
         </View>
       )}
     </Animated.View>
@@ -94,34 +118,67 @@ export function EventNotification({ event }: EventNotificationProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  card: {
     backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 3,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: Colors.game.border,
+    gap: 6,
   },
-  title: {
-    fontSize: 15,
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  sectionIcon: {
+    fontSize: 13,
+    marginRight: 2,
+  },
+  levelUpText: {
+    fontSize: 14,
     fontFamily: "Inter_700Bold",
-    color: Colors.game.text,
-    marginBottom: 4,
+    color: Colors.game.gold,
+    letterSpacing: 0.5,
   },
-  desc: {
+  statPointText: {
+    color: Colors.game.purpleLight,
+    fontFamily: "Inter_600SemiBold",
+  },
+  lootChips: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  goldChip: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.game.gold,
+  },
+  xpChip: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.game.purple,
+  },
+  gatherLabel: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     color: Colors.game.textDim,
-    lineHeight: 18,
   },
-  statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 8,
-  },
-  statChip: {
-    fontSize: 12,
+  gatherType: {
+    fontSize: 13,
     fontFamily: "Inter_600SemiBold",
+    color: Colors.game.text,
+  },
+  particleAnchor: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rarityText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
   },
 });

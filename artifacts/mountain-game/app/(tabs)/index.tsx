@@ -12,20 +12,29 @@ import { CharacterPanel } from "@/components/CharacterPanel";
 import { EventLog } from "@/components/EventLog";
 import { EventNotification } from "@/components/EventNotification";
 import { SceneView } from "@/components/SceneView";
+import { StatAllocModal } from "@/components/StatAllocModal";
+import { TimerBar } from "@/components/TimerBar";
 import Colors from "@/constants/colors";
-import { EventResult, useGame } from "@/context/GameContext";
+import { EventOutcome, useGame } from "@/context/GameContext";
 
 export default function GameScreen() {
-  const { gameState, triggerEvent } = useGame();
+  const { gameState, triggerEvent, lastOutcome } = useGame();
   const [isInteracting, setIsInteracting] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [currentEvent, setCurrentEvent] = useState<EventResult | null>(null);
+  const [cooldownDuration, setCooldownDuration] = useState(2500);
+  const [currentOutcome, setCurrentOutcome] = useState<EventOutcome | null>(null);
+  const [showAllocModal, setShowAllocModal] = useState(false);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
+
+  const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const handleScenePress = useCallback(() => {
     if (isInteracting) return;
 
+    const duration = Math.floor(2500 + Math.random() * 1500);
+    setCooldownDuration(duration);
     setIsInteracting(true);
     setIsAnimating(true);
 
@@ -33,27 +42,28 @@ export default function GameScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const event = triggerEvent();
-    setCurrentEvent(event);
+    const outcome = triggerEvent();
+    setCurrentOutcome(outcome);
 
-    setTimeout(() => {
-      setIsAnimating(false);
-    }, 500);
+    setTimeout(() => setIsAnimating(false), 500);
 
-    const cooldown = 2500 + Math.random() * 1500;
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
     cooldownTimer.current = setTimeout(() => {
       setIsInteracting(false);
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    }, cooldown);
+      if (outcome.statPointsGained > 0) {
+        setTimeout(() => setShowAllocModal(true), 400);
+      }
+    }, duration);
   }, [isInteracting, triggerEvent]);
 
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const char = gameState.character;
+  const hasPending = char.pendingStatPoints > 0;
 
   return (
-    <View style={[styles.root, { backgroundColor: Colors.game.background }]}>
+    <View style={[styles.root]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -74,13 +84,16 @@ export default function GameScreen() {
           isAnimating={isAnimating}
         />
 
-        {currentEvent && (
-          <View style={styles.notifWrapper}>
-            <EventNotification event={currentEvent} />
-          </View>
+        <TimerBar isActive={isInteracting} duration={cooldownDuration} />
+
+        {currentOutcome && (
+          <EventNotification outcome={currentOutcome} />
         )}
 
-        <CharacterPanel character={gameState.character} />
+        <CharacterPanel
+          character={char}
+          onStatAllocPress={() => setShowAllocModal(true)}
+        />
 
         <EventLog events={gameState.eventLog} />
 
@@ -90,6 +103,13 @@ export default function GameScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <StatAllocModal
+        visible={showAllocModal && hasPending}
+        onClose={() => setShowAllocModal(false)}
+        pendingPoints={char.pendingStatPoints}
+        stats={char.stats}
+      />
     </View>
   );
 }
@@ -97,17 +117,15 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: Colors.game.background,
   },
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   content: {
     paddingHorizontal: 16,
-    gap: 14,
+    gap: 12,
   },
   titleBlock: {
     alignItems: "center",
-    marginBottom: 4,
   },
   mapLabel: {
     fontSize: 10,
@@ -121,9 +139,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: Colors.game.gold,
     letterSpacing: 0.5,
-  },
-  notifWrapper: {
-    marginTop: -4,
   },
   footer: {
     alignItems: "center",
