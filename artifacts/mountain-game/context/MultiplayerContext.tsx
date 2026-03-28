@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Platform } from "react-native";
 import { Material } from "./GameContext";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -146,7 +147,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const connect = useCallback(() => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    let domain: string | undefined;
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      domain = window.location.host;
+    } else {
+      domain = process.env.EXPO_PUBLIC_DOMAIN;
+    }
     if (!domain || wsRef.current) return;
     setStatus("connecting");
     const ws = new WebSocket(`wss://${domain}/api/ws`);
