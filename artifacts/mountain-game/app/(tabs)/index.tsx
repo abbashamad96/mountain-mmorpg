@@ -3,7 +3,6 @@ import React, { useCallback, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -168,15 +167,8 @@ export default function GameScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: topPad + 12, paddingBottom: bottomPad + 90 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+      {/* ── Top: header + stat strip ─────────────────────────── */}
+      <View style={[styles.topSection, { paddingTop: topPad + 12 }]}>
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
             <Text style={styles.mapLabel}>MAP 01</Text>
@@ -227,8 +219,14 @@ export default function GameScreen() {
             <Text style={styles.xpText}>{char.xp}/{char.xpToNext} XP</Text>
           </View>
         </View>
+      </View>
 
-        {/* Scene */}
+      {/* ── Middle spacer (pushes scene to bottom) ───────────── */}
+      <View style={styles.midSpacer} />
+
+      {/* ── Bottom: notification + scene + timer ─────────────── */}
+      <View style={[styles.bottomSection, { paddingBottom: bottomPad + 16 }]}>
+        {lastRoll && <EventNotification roll={lastRoll} />}
         <SceneView
           scene={gameState.currentScene}
           artIndex={artIndex}
@@ -236,19 +234,8 @@ export default function GameScreen() {
           disabled={isInteracting}
           isAnimating={isAnimating}
         />
-
-        {/* Timer bar */}
         <TimerBar isActive={isInteracting} duration={cooldownDuration} />
-
-        {/* Event notification */}
-        {lastRoll && <EventNotification roll={lastRoll} />}
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {gameState.totalEvents} EVENTS ENCOUNTERED
-          </Text>
-        </View>
-      </ScrollView>
+      </View>
 
       {/* Modals */}
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
@@ -274,8 +261,9 @@ export default function GameScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.game.background },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, gap: 12 },
+  topSection: { paddingHorizontal: 16, gap: 12 },
+  midSpacer: { flex: 1 },
+  bottomSection: { paddingHorizontal: 16, gap: 10 },
   titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -357,10 +345,5 @@ const styles = StyleSheet.create({
   xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 2 },
   xpText: {
     fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted,
-  },
-  footer: { alignItems: "center", paddingVertical: 8 },
-  footerText: {
-    fontSize: 10, fontFamily: "Inter_500Medium",
-    color: Colors.game.textMuted, letterSpacing: 2,
   },
 });

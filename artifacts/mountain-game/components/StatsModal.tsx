@@ -160,10 +160,10 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
                         <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
                           <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>
                         </View>
-                        {/* Type + version label — below slot, left */}
+                        {/* Type + version label — below slot */}
                         <View style={styles.typeLabel}>
-                          <Text style={styles.typeLabelText} numberOfLines={1}>
-                            {entry.material.type.slice(0, 3).toUpperCase()}
+                          <Text style={styles.typeLabelText} adjustsFontSizeToFit minimumFontScale={0.7}>
+                            {entry.material.type.toUpperCase()}
                             {entry.material.version > 0 ? ` V${entry.material.version}` : ""}
                           </Text>
                         </View>
@@ -387,12 +387,14 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     alignItems: "center",
+    width: 72,
   },
   typeLabelText: {
     fontSize: 9,
     fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted,
     letterSpacing: 0.5,
+    textAlign: "center",
   },
   ratesBlock: {
     gap: 8,
