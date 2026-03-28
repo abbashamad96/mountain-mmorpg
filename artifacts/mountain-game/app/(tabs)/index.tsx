@@ -36,6 +36,10 @@ export default function GameScreen() {
 
   const [lastRoll, setLastRoll] = useState<EventRoll | null>(null);
 
+  const [artIndex, setArtIndex] = useState(0);
+  const artTriggerRef = useRef(0);
+  const artThresholdRef = useRef(Math.floor(10 + Math.random() * 11));
+
   const [showStats, setShowStats] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [gatherMaterial, setGatherMaterial] = useState<Material | null>(null);
@@ -61,6 +65,15 @@ export default function GameScreen() {
     const roll = rollEvent(char);
     setScene(roll.sceneType);
     incrementEvents();
+
+    // Advance background art every 10-20 triggers
+    artTriggerRef.current += 1;
+    if (artTriggerRef.current >= artThresholdRef.current) {
+      artTriggerRef.current = 0;
+      artThresholdRef.current = Math.floor(10 + Math.random() * 11);
+      setArtIndex((prev) => prev + 1);
+    }
+
     setTimeout(() => setIsAnimating(false), 500);
 
     if (roll.type === "gold_xp") {
@@ -218,6 +231,7 @@ export default function GameScreen() {
         {/* Scene */}
         <SceneView
           scene={gameState.currentScene}
+          artIndex={artIndex}
           onPress={handleScenePress}
           disabled={isInteracting}
           isAnimating={isAnimating}

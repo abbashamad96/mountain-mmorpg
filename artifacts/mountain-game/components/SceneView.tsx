@@ -10,21 +10,44 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { SceneType } from "@/context/GameContext";
-import { SceneEffects } from "./SceneEffects";
 
-const SCENE_IMAGES: Record<SceneType, ImageSourcePropType> = {
-  default: require("@/assets/images/road_default.png"),
-  storm: require("@/assets/images/road_storm.png"),
-  treasure: require("@/assets/images/road_treasure.png"),
-  combat: require("@/assets/images/road_combat.png"),
-  ruins: require("@/assets/images/road_ruins.png"),
-  forest: require("@/assets/images/road_forest.png"),
-  snow: require("@/assets/images/road_snow.png"),
-  dungeon: require("@/assets/images/road_dungeon.png"),
-  volcanic: require("@/assets/images/road_volcanic.png"),
-  night: require("@/assets/images/road_night.png"),
-};
+// ── Full background image pool (30 images) ────────────────────────────────────
+const BG_IMAGES: ImageSourcePropType[] = [
+  require("@/assets/images/road_default.png"),
+  require("@/assets/images/road_storm.png"),
+  require("@/assets/images/road_treasure.png"),
+  require("@/assets/images/road_combat.png"),
+  require("@/assets/images/road_ruins.png"),
+  require("@/assets/images/road_forest.png"),
+  require("@/assets/images/road_snow.png"),
+  require("@/assets/images/road_dungeon.png"),
+  require("@/assets/images/road_volcanic.png"),
+  require("@/assets/images/road_night.png"),
+  require("@/assets/images/road_crystal.png"),
+  require("@/assets/images/road_temple.png"),
+  require("@/assets/images/road_desert.png"),
+  require("@/assets/images/road_graveyard.png"),
+  require("@/assets/images/road_tundra.png"),
+  require("@/assets/images/road_mist.png"),
+  require("@/assets/images/road_swamp.png"),
+  require("@/assets/images/road_void.png"),
+  require("@/assets/images/road_clockwork.png"),
+  require("@/assets/images/road_bloodmoon.png"),
+  require("@/assets/images/road_waterfall.png"),
+  require("@/assets/images/road_mushroom.png"),
+  require("@/assets/images/road_lavafield.png"),
+  require("@/assets/images/road_pinewood.png"),
+  require("@/assets/images/road_abyss.png"),
+  require("@/assets/images/road_castle.png"),
+  require("@/assets/images/road_cliff.png"),
+  require("@/assets/images/road_glowcave.png"),
+  require("@/assets/images/road_oasis.png"),
+  require("@/assets/images/road_peak.png"),
+];
 
+export const BG_IMAGES_COUNT = BG_IMAGES.length;
+
+// ── Scene overlay tints (for mood/gameplay feedback) ─────────────────────────
 const SCENE_TINT: Record<SceneType, string> = {
   default: "transparent",
   storm: "rgba(30,60,140,0.3)",
@@ -66,28 +89,30 @@ const SCENE_SUBTITLES: Record<SceneType, string> = {
 
 interface SceneViewProps {
   scene: SceneType;
+  artIndex: number;
   onPress: () => void;
   disabled: boolean;
   isAnimating: boolean;
 }
 
-export function SceneView({ scene, onPress, disabled, isAnimating }: SceneViewProps) {
+export function SceneView({ scene, artIndex, onPress, disabled, isAnimating }: SceneViewProps) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
-  const prevScene = useRef(scene);
+  const prevArtIndex = useRef(artIndex);
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
+  // Fade transition when the background image changes
   useEffect(() => {
-    if (prevScene.current !== scene) {
-      prevScene.current = scene;
+    if (prevArtIndex.current !== artIndex) {
+      prevArtIndex.current = artIndex;
       Animated.sequence([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-        Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
       ]).start();
     }
-  }, [scene]);
+  }, [artIndex]);
 
   useEffect(() => {
     if (isAnimating) {
@@ -126,6 +151,7 @@ export function SceneView({ scene, onPress, disabled, isAnimating }: SceneViewPr
   }, [disabled]);
 
   const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] });
+  const bgImage = BG_IMAGES[artIndex % BG_IMAGES_COUNT];
 
   return (
     <View style={styles.wrapper}>
@@ -141,15 +167,12 @@ export function SceneView({ scene, onPress, disabled, isAnimating }: SceneViewPr
           style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
           testID="scene-press-button"
         >
-          <Image source={SCENE_IMAGES[scene]} style={styles.img} resizeMode="cover" />
+          <Image source={bgImage} style={styles.img} resizeMode="cover" />
 
-          {/* Scene color tint */}
+          {/* Scene color tint for mood/event feedback */}
           {SCENE_TINT[scene] !== "transparent" && (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: SCENE_TINT[scene] }]} />
           )}
-
-          {/* Scene-specific animated effects */}
-          <SceneEffects scene={scene} />
 
           {/* Gold press glow */}
           <Animated.View

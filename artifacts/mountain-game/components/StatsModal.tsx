@@ -119,21 +119,26 @@ export function StatsModal({ visible, onClose }: StatsModalProps) {
                   {char.materials.map((entry) => {
                     const rarityColor = RARITY_COLORS[entry.material.rarity];
                     return (
-                      <View key={entry.key} style={[styles.invSlot, { borderColor: rarityColor }]}>
-                        <MaterialImage
-                          type={entry.material.type}
-                          rarity={entry.material.rarity}
-                          version={entry.material.version}
-                          size={60}
-                        />
-                        {/* Count badge */}
-                        <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
-                          <Text style={styles.countText}>×{entry.count}</Text>
+                      <View key={entry.key} style={styles.invSlotWrap}>
+                        <View style={[styles.invSlot, { borderColor: rarityColor }]}>
+                          <MaterialImage
+                            type={entry.material.type}
+                            rarity={entry.material.rarity}
+                            version={entry.material.version}
+                            size={68}
+                            compact
+                            animateParticles={false}
+                          />
                         </View>
-                        {/* Type label */}
+                        {/* Count badge — below slot, right-aligned */}
+                        <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
+                          <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>
+                        </View>
+                        {/* Type + version label — below slot, left */}
                         <View style={styles.typeLabel}>
                           <Text style={styles.typeLabelText} numberOfLines={1}>
                             {entry.material.type.slice(0, 3).toUpperCase()}
+                            {entry.material.version > 0 ? ` V${entry.material.version}` : ""}
                           </Text>
                         </View>
                       </View>
@@ -261,25 +266,27 @@ const styles = StyleSheet.create({
   inventoryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 12,
+  },
+  invSlotWrap: {
+    alignItems: "center",
+    gap: 4,
   },
   invSlot: {
-    width: 66,
-    height: 66,
-    borderRadius: 10,
+    width: 72,
+    height: 72,
+    borderRadius: 12,
     borderWidth: 2,
-    overflow: "hidden",
-    position: "relative",
+    overflow: "visible",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.game.surface,
   },
   countBadge: {
-    position: "absolute",
-    top: 3,
-    right: 3,
     borderRadius: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    minWidth: 20,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    minWidth: 24,
     alignItems: "center",
   },
   countText: {
@@ -288,19 +295,13 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   typeLabel: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    paddingVertical: 2,
     alignItems: "center",
   },
   typeLabelText: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: "Inter_700Bold",
-    color: "#fff",
-    letterSpacing: 1,
+    color: Colors.game.textMuted,
+    letterSpacing: 0.5,
   },
   closeBtn: {
     backgroundColor: Colors.game.surface,

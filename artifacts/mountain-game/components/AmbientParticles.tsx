@@ -9,7 +9,6 @@ interface AmbientConfig {
   glowRadius: number;
 }
 
-// HALO_MARGIN: pixels beyond the splash frame edge where particles orbit
 const HALO_MARGIN = 18;
 
 const AMBIENT_CONFIG: Record<1 | 2 | 3, AmbientConfig> = {
@@ -24,19 +23,17 @@ interface AmbientParticlesProps {
   color: string;
   version: 1 | 2 | 3;
   size: number;
+  animated?: boolean;
 }
 
-export function AmbientParticles({ color, version, size }: AmbientParticlesProps) {
+export function AmbientParticles({ color, version, size, animated = true }: AmbientParticlesProps) {
   const cfg = AMBIENT_CONFIG[version];
 
-  // Expanded container: size + HALO_MARGIN on each side so particles orbit outside the frame
   const containerSize = size + HALO_MARGIN * 2;
   const center = containerSize / 2;
-  // Base orbit radius: puts particles just outside the splash art frame edge
   const baseOrbitRadius = size / 2 + HALO_MARGIN * cfg.orbitRadius;
   const pSize = cfg.particleSize;
 
-  // Pre-allocate output Animated.Values (x, y, opacity, scale) once per particle slot
   const xVals = useRef(
     Array.from({ length: MAX_PARTICLES }, () => new Animated.Value(0))
   ).current;
@@ -52,6 +49,23 @@ export function AmbientParticles({ color, version, size }: AmbientParticlesProps
 
   useEffect(() => {
     const count = cfg.count;
+
+    if (!animated) {
+      // Place particles at fixed evenly-spaced positions, no animation
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI;
+        xVals[i].setValue(center - pSize / 2 + Math.cos(angle) * baseOrbitRadius);
+        yVals[i].setValue(center - pSize / 2 + Math.sin(angle) * baseOrbitRadius);
+        opacities[i].setValue(0.55 + (i % 3) * 0.15);
+        scales[i].setValue(0.7 + (i % 2) * 0.3);
+      }
+      for (let i = count; i < MAX_PARTICLES; i++) {
+        opacities[i].setValue(0);
+        scales[i].setValue(0);
+      }
+      return;
+    }
+
     const loopAnims: Animated.CompositeAnimation[] = [];
     const listenerCleanups: Array<() => void> = [];
 
@@ -68,7 +82,6 @@ export function AmbientParticles({ color, version, size }: AmbientParticlesProps
       opacities[i].setValue(0);
       scales[i].setValue(0);
 
-      // Tracked JS values for angle and radius — updated via listeners
       let currentAngle = startAngle;
       let currentRadius = baseR;
 
@@ -77,14 +90,12 @@ export function AmbientParticles({ color, version, size }: AmbientParticlesProps
         yVals[i].setValue(center - pSize / 2 + Math.sin(currentAngle) * currentRadius);
       };
 
-      // Animate angle 0→2π in a loop (orbit)
       const angleAnim = new Animated.Value(startAngle);
       const angleId = angleAnim.addListener(({ value }) => {
         currentAngle = value;
         writeXY();
       });
 
-      // Animate radius (drift)
       const radiusAnim = new Animated.Value(baseR);
       const radiusId = radiusAnim.addListener(({ value }) => {
         currentRadius = value;
@@ -159,7 +170,6 @@ export function AmbientParticles({ color, version, size }: AmbientParticlesProps
       loopAnims.push(orbit, drift, twinkle);
     }
 
-    // Hide unused particle slots
     for (let i = count; i < MAX_PARTICLES; i++) {
       opacities[i].setValue(0);
       scales[i].setValue(0);
@@ -169,7 +179,7 @@ export function AmbientParticles({ color, version, size }: AmbientParticlesProps
       for (const a of loopAnims) a.stop();
       for (const cleanup of listenerCleanups) cleanup();
     };
-  }, [version, size]);
+  }, [version, size, animated]);
 
   return (
     <View

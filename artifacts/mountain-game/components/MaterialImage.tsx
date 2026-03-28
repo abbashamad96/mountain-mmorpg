@@ -9,8 +9,6 @@ import {
 } from "@/context/GameContext";
 import { AmbientParticles } from "@/components/AmbientParticles";
 
-// ── Splash art map ────────────────────────────────────────────────────────────
-// One AI-generated image per type × rarity
 const SPLASH: Record<MaterialType, Record<RarityName, ImageSourcePropType>> = {
   Ore: {
     Common:    require("@/assets/images/materials/ore_common.png"),
@@ -54,8 +52,6 @@ const SPLASH: Record<MaterialType, Record<RarityName, ImageSourcePropType>> = {
   },
 };
 
-// ── Rarity frame escalation ───────────────────────────────────────────────────
-
 const RARITY_BORDER_W: Record<RarityName, number> = {
   Common:    1,
   Uncommon:  1.5,
@@ -78,7 +74,6 @@ const RARITY_RINGS: Record<RarityName, number> = {
   Cosmic:    4,
 };
 
-// Overlay darkness on the image — lower rarity = darker/murkier; higher = vivid
 const RARITY_DARKEN: Record<RarityName, number> = {
   Common:    0.45,
   Uncommon:  0.30,
@@ -90,7 +85,6 @@ const RARITY_DARKEN: Record<RarityName, number> = {
   Cosmic:    0,
 };
 
-// Rarity glow intensity for the halo behind the image
 const RARITY_GLOW: Record<RarityName, number> = {
   Common:    0,
   Uncommon:  0,
@@ -102,7 +96,6 @@ const RARITY_GLOW: Record<RarityName, number> = {
   Cosmic:    0.95,
 };
 
-// Decorative corner marks (Epic+)
 const RARITY_CORNER: Record<RarityName, string | null> = {
   Common:    null,
   Uncommon:  null,
@@ -114,7 +107,6 @@ const RARITY_CORNER: Record<RarityName, string | null> = {
   Cosmic:    "✺",
 };
 
-// Top center badge (Legendary+)
 const RARITY_TOP_BADGE: Record<RarityName, string | null> = {
   Common:    null,
   Uncommon:  null,
@@ -133,16 +125,23 @@ function withAlpha(hex: string, alpha: number): string {
   return hex + a;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 interface MaterialImageProps {
   type: MaterialType;
   rarity: RarityName;
   version: VersionNum;
   size?: number;
+  compact?: boolean;
+  animateParticles?: boolean;
 }
 
-export function MaterialImage({ type, rarity, version, size = 140 }: MaterialImageProps) {
+export function MaterialImage({
+  type,
+  rarity,
+  version,
+  size = 140,
+  compact = false,
+  animateParticles = true,
+}: MaterialImageProps) {
   const rarityColor = RARITY_COLORS[rarity];
   const borderW = RARITY_BORDER_W[rarity];
   const rings = RARITY_RINGS[rarity];
@@ -150,10 +149,6 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
   const glow = RARITY_GLOW[rarity];
   const corner = RARITY_CORNER[rarity];
   const topBadge = RARITY_TOP_BADGE[rarity];
-  const vColor =
-    VERSION_PARTICLE_COLORS[version] !== "transparent"
-      ? VERSION_PARTICLE_COLORS[version]
-      : rarityColor;
 
   const br = size * 0.18;
   const cornerFs = Math.max(8, size * 0.09);
@@ -207,7 +202,7 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
         />
       )}
 
-      {/* Rarity glow overlay (color tint for high rarity) */}
+      {/* Rarity glow overlay */}
       {glow > 0 && (
         <View
           style={[
@@ -278,8 +273,8 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
         />
       )}
 
-      {/* Corner marks (Epic+) */}
-      {corner && (
+      {/* Corner marks (Epic+) — only in non-compact mode */}
+      {!compact && corner && (
         <>
           <Text style={[styles.corner, styles.cTL, { fontSize: cornerFs, color: rarityColor }]}>{corner}</Text>
           <Text style={[styles.corner, styles.cTR, { fontSize: cornerFs, color: rarityColor }]}>{corner}</Text>
@@ -288,61 +283,43 @@ export function MaterialImage({ type, rarity, version, size = 140 }: MaterialIma
         </>
       )}
 
-      {/* Top badge (Legendary+) */}
-      {topBadge && (
+      {/* Top badge (Legendary+) — only in non-compact mode */}
+      {!compact && topBadge && (
         <Text style={[styles.topBadge, { fontSize: size * 0.12, color: rarityColor }]}>
           {topBadge}
         </Text>
       )}
 
-      {/* Bottom strip — rarity name + version */}
-      <View
-        style={[
-          styles.strip,
-          {
-            backgroundColor: withAlpha(rarityColor, 0.28),
-            borderBottomLeftRadius: br - borderW,
-            borderBottomRightRadius: br - borderW,
-          },
-        ]}
-      >
-        <Text style={[styles.stripText, { color: rarityColor, fontSize: Math.max(8, size * 0.083) }]}>
-          {rarity.toUpperCase()}
-          {version > 0 ? `   V${version}` : ""}
-        </Text>
-      </View>
+      {/* Bottom strip — rarity name + version (hidden in compact mode) */}
+      {!compact && (
+        <View
+          style={[
+            styles.strip,
+            {
+              backgroundColor: withAlpha(rarityColor, 0.28),
+              borderBottomLeftRadius: br - borderW,
+              borderBottomRightRadius: br - borderW,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.stripText, { color: rarityColor, fontSize: Math.max(8, size * 0.083) }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {rarity.toUpperCase()}{version > 0 ? `  V${version}` : ""}
+          </Text>
+        </View>
+      )}
 
-      {/* Ambient particle halo for versioned materials — rendered before dots so it sits behind them */}
+      {/* Ambient particle halo for versioned materials */}
       {version > 0 && (
         <AmbientParticles
           color={VERSION_PARTICLE_COLORS[version]}
           version={version as 1 | 2 | 3}
           size={size}
+          animated={animateParticles}
         />
-      )}
-
-      {/* Version dots (top-right) */}
-      {version > 0 && (
-        <View style={styles.vDots}>
-          {Array.from({ length: version }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.vDot,
-                {
-                  backgroundColor: vColor,
-                  width: Math.max(5, size * 0.055),
-                  height: Math.max(5, size * 0.055),
-                  borderRadius: 99,
-                  shadowColor: vColor,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.8,
-                  shadowRadius: 4,
-                },
-              ]}
-            />
-          ))}
-        </View>
       )}
     </View>
   );
@@ -392,25 +369,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
     alignItems: "center",
   },
   stripText: {
     fontFamily: "Inter_700Bold",
-    letterSpacing: 1.5,
+    letterSpacing: 1,
     textShadowColor: "rgba(0,0,0,0.9)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
-  },
-  vDots: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    flexDirection: "row",
-    gap: 3,
-    alignItems: "center",
-  },
-  vDot: {
-    borderRadius: 99,
   },
 });
