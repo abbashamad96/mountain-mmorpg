@@ -95,6 +95,7 @@ export interface LogEntry {
   goldGained: number;
   xpGained: number;
   material: Material | null;
+  dropCount?: number;
   victory?: boolean;
 }
 
@@ -189,8 +190,19 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
 
 const MATERIAL_TYPES_DROP: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
 
-/** Roll a material drop from a defeated NPC. Returns null if no drop this time. */
-export function rollNpcDrop(npc: NpcBattleStats): Material | null {
+// How many items drop per rarity [min, max]
+const DROP_COUNT_RANGE: Record<RarityName, [number, number]> = {
+  Common:    [1, 1],
+  Uncommon:  [1, 2],
+  Rare:      [1, 2],
+  Epic:      [1, 3],
+  Elite:     [2, 3],
+  Legendary: [2, 4],
+  Superior:  [2, 4],
+  Cosmic:    [3, 5],
+};
+
+export function rollNpcDrop(npc: NpcBattleStats): { material: Material; count: number } | null {
   // T3 monsters: 45% drop chance; all others: 40%
   const baseChance = npc.version === 3 ? 45 : 40;
   if (Math.random() * 100 >= baseChance) return null;
@@ -202,7 +214,10 @@ export function rollNpcDrop(npc: NpcBattleStats): Material | null {
   let version = npc.version as VersionNum;
   if (version < 3 && Math.random() * 100 < 4) version = (version + 1) as VersionNum;
 
-  return { type, rarity, version };
+  const [min, max] = DROP_COUNT_RANGE[rarity] ?? [1, 1];
+  const count = min + Math.floor(Math.random() * (max - min + 1));
+
+  return { material: { type, rarity, version }, count };
 }
 
 // ─── Material Helpers ────────────────────────────────────────────────────────

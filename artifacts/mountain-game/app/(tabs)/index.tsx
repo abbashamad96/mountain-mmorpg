@@ -96,10 +96,13 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
     <View style={logStackStyles.row}>
       {/* Left icon */}
       <View style={logStackStyles.iconWrap}>
-        {entry.type === "gold_xp" && (
+        {entry.type === "gold_xp" && entry.goldGained > 0 && (
           <View style={logStackStyles.gCoin}>
             <Text style={logStackStyles.gCoinTxt}>G</Text>
           </View>
+        )}
+        {entry.type === "gold_xp" && entry.goldGained === 0 && (
+          <Text style={logStackStyles.xpStar}>✦</Text>
         )}
         {entry.type === "gather" && (
           <Text style={logStackStyles.emoji}>📦</Text>
@@ -188,6 +191,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                 <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
                   {mat.rarity}
                 </Text>
+                {(entry.dropCount ?? 1) > 1 && (
+                  <Text style={logStackStyles.dimLabel}>×{entry.dropCount}</Text>
+                )}
               </View>
             )}
           </View>
@@ -271,6 +277,7 @@ const logStackStyles = StyleSheet.create({
     borderWidth: 1.5, borderColor: "#a07820",
   },
   gCoinTxt: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#3d2e00" },
+  xpStar: { fontSize: 13, color: Colors.game.purpleLight },
   emoji: { fontSize: 14 },
   content: { flex: 1, gap: 3 },
   battleBlock: { gap: 3 },
@@ -466,20 +473,27 @@ export default function GameScreen() {
       if (npc) {
         // Roll for material drop on victory
         let droppedMat: Material | null = null;
+        let dropCount = 0;
         if (victory) {
-          droppedMat = rollNpcDrop(npc);
-          if (droppedMat) addMaterials([droppedMat]);
+          const drop = rollNpcDrop(npc);
+          if (drop) {
+            droppedMat = drop.material;
+            dropCount = drop.count;
+            const mats = Array.from({ length: drop.count }, () => ({ ...drop.material }));
+            addMaterials(mats);
+          }
         }
         addLogEntry({
           id: `b-${Date.now()}`,
           timestamp: Date.now(),
           type: "battle",
           summary: victory
-            ? `Defeated ${npc.name} +${goldReward}g +${xpReward}xp${droppedMat ? ` · dropped ${droppedMat.type}` : ""}`
+            ? `Defeated ${npc.name} +${goldReward}g +${xpReward}xp${droppedMat ? ` · dropped ${droppedMat.type}${dropCount > 1 ? ` ×${dropCount}` : ""}` : ""}`
             : `Fled from ${npc.name}`,
           goldGained: goldReward,
           xpGained: xpReward,
           material: droppedMat,
+          dropCount: dropCount > 0 ? dropCount : undefined,
           victory,
         });
       }
