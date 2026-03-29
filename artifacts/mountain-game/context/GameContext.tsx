@@ -97,6 +97,7 @@ export interface LogEntry {
   material: Material | null;
   dropCount?: number;
   victory?: boolean;
+  npcRarity?: RarityName;
 }
 
 export interface Character {

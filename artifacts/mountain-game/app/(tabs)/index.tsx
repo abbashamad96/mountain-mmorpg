@@ -153,10 +153,15 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         {/* Battle event */}
         {entry.type === "battle" && (
           <View style={logStackStyles.battleBlock}>
-            {/* Row 1: verb + NPC name */}
+            {/* Row 1: verb + NPC name (colored by rarity) */}
             <View style={logStackStyles.inlineRow}>
               <Text style={logStackStyles.dimLabel}>{isVictory ? "Defeated" : "Fled from"}</Text>
-              <Text style={logStackStyles.npcName} numberOfLines={1}>{npcName}</Text>
+              <Text
+                style={[logStackStyles.npcName, entry.npcRarity ? { color: RARITY_COLORS[entry.npcRarity] } : null]}
+                numberOfLines={1}
+              >
+                {npcName}
+              </Text>
             </View>
 
             {/* Row 2: gold + xp rewards (show whenever values exist, not gated on isVictory flag) */}
@@ -493,6 +498,7 @@ export default function GameScreen() {
           xpGained: xpReward,
           material: droppedMat,
           dropCount: dropCount > 0 ? dropCount : undefined,
+          npcRarity: npc.rarity,
           victory,
         });
       }
