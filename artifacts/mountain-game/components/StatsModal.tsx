@@ -22,10 +22,10 @@ interface StatsModalProps {
 }
 
 const STAT_CONFIG = [
-  { key: "strength" as const, label: "Strength", icon: "⚔", color: Colors.game.red, desc: "Damage per hit · +0.25 per level", bonus: "+2 dmg" },
-  { key: "health" as const, label: "Health", icon: "♥", color: Colors.game.green, desc: "Max HP · +1 per level", bonus: "+10 HP" },
+  { key: "strength" as const, label: "Strength", icon: "⚔", color: Colors.game.red, desc: "Damage per hit · +0.25 per level", bonus: "+1 STR" },
+  { key: "health" as const, label: "Health", icon: "♥", color: Colors.game.green, desc: "HP points · +0.1 per level · max HP = pts × 10", bonus: "+10 HP" },
   { key: "defence" as const, label: "Defence", icon: "🛡", color: Colors.game.blue, desc: "Increases block chance", bonus: "+1 def" },
-  { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Higher speed = more turns · +0.1 per level", bonus: "+2 spd" },
+  { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Higher speed = more turns · +0.1 per level", bonus: "+1 SPD" },
 ];
 
 const RARITY_DESC: Record<string, string> = {
@@ -214,7 +214,7 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                 } else if (s.key === "strength") {
                   derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
                 } else if (s.key === "health") {
-                  derivedLabel = `${Math.floor(val)} max HP`;
+                  derivedLabel = `${Math.floor(val * 10)} max HP`;
                 }
                 return (
                   <View key={s.key} style={styles.statCard}>

@@ -214,7 +214,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     if (visible && npc) {
       clearPending();
       stopPulse();
-      const maxHp = Math.max(1, Math.floor(playerStats.health));
+      const maxHp = Math.max(1, Math.floor(playerStats.health * 10));
       playerHpRef.current = maxHp;
       npcHpRef.current    = npc.hp;
       // Both start with their first action cost — whoever is lower goes first
@@ -264,7 +264,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   // ── Render ───────────────────────────────────────────────────────────────
   if (!npc) return null;
 
-  const maxHp        = Math.max(1, Math.floor(playerStats.health));
+  const maxHp        = Math.max(1, Math.floor(playerStats.health * 10));
   const pHpPct       = Math.max(0, (playerHp / maxHp) * 100);
   const nHpPct       = Math.max(0, (npcHp / npc.maxHp) * 100);
   const rarityColor  = RARITY_COLORS[npc.rarity];
