@@ -193,13 +193,13 @@ const MATERIAL_TYPES_DROP: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
 // How many items drop per rarity [min, max]
 const DROP_COUNT_RANGE: Record<RarityName, [number, number]> = {
   Common:    [1, 1],
-  Uncommon:  [1, 2],
-  Rare:      [1, 2],
-  Epic:      [1, 3],
-  Elite:     [2, 3],
-  Legendary: [2, 4],
-  Superior:  [2, 4],
-  Cosmic:    [3, 5],
+  Uncommon:  [1, 1],
+  Rare:      [1, 1],
+  Epic:      [1, 1],
+  Elite:     [1, 1],
+  Legendary: [1, 1],
+  Superior:  [1, 1],
+  Cosmic:    [1, 1],
 };
 
 export function rollNpcDrop(npc: NpcBattleStats): { material: Material; count: number } | null {
