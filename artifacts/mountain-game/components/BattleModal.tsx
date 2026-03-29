@@ -37,7 +37,7 @@ const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
 const MAX_SYNC_TURNS = 50;
 
 function actionCost(speed: number): number {
-  return 1 / (1 + Math.max(0, speed));
+  return 15000 / (100 + 0.1 * Math.max(0, speed));
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -347,9 +347,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
               <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} spd</Text>
             </View>
             <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>{pCost.toFixed(3)} cost</Text>
+              <Text style={styles.calcVal}>{Math.round(pCost)} cost</Text>
               <Text style={styles.calcKey}>COST</Text>
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nCost.toFixed(3)} cost</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{Math.round(nCost)} cost</Text>
             </View>
             <View style={styles.calcRow}>
               <Text style={[styles.calcVal, { flex: 3, textAlign: "center", color: Colors.game.textMuted }]}>{ratioTxt}</Text>

@@ -211,8 +211,8 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                   const blockPct = (val / (val + 15000)) * 100;
                   derivedLabel = `${blockPct.toFixed(2)}% block chance`;
                 } else if (s.key === "speed") {
-                  const cost = 1 / (1 + Math.max(0, val));
-                  derivedLabel = `action cost ${cost.toFixed(3)}  ·  lower = faster`;
+                  const cost = Math.round(15000 / (100 + 0.1 * Math.max(0, val)));
+                  derivedLabel = `action cost ${cost}  ·  lower = faster`;
                 } else if (s.key === "strength") {
                   derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
                 } else if (s.key === "health") {
