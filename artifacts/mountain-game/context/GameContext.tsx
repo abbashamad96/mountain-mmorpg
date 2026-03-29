@@ -248,8 +248,8 @@ export function applyXpGold(
     newXpToNext = calcXpToNext(newLevel);
     if (newLevel % 2 === 0) newPending++;
     newStats.health += 1;
-    newStats.strength += 0.5;
-    newStats.speed += 0.5;
+    newStats.strength += 0.25;
+    newStats.speed += 0.1;
   }
 
   return {
