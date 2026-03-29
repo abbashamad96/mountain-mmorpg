@@ -124,24 +124,36 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         )}
 
         {/* Gather event */}
-        {entry.type === "gather" && mat && (
-          <View style={logStackStyles.inlineRow}>
-            <Text style={logStackStyles.dimLabel}>Gathered</Text>
-            <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
-              {mat.type}
-            </Text>
-            {mat.version > 0 && (
-              <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[mat.version] ?? Colors.game.border }]}>
-                <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[mat.version] ?? Colors.game.text }]}>
-                  T{mat.version}
+        {entry.type === "gather" && mat && (() => {
+          const countMatch = entry.summary.match(/×(\d+)/);
+          const count = countMatch ? parseInt(countMatch[1]) : 1;
+          return (
+            <View style={logStackStyles.battleBlock}>
+              <View style={logStackStyles.inlineRow}>
+                <Text style={logStackStyles.dimLabel}>Gathered</Text>
+                <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+                  {mat.type}
                 </Text>
+                {mat.version > 0 && (
+                  <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[mat.version] ?? Colors.game.border }]}>
+                    <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[mat.version] ?? Colors.game.text }]}>
+                      T{mat.version}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+                  {mat.rarity}
+                </Text>
+                {count > 1 && <Text style={logStackStyles.dimLabel}>×{count}</Text>}
               </View>
-            )}
-            <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
-              {mat.rarity}
-            </Text>
-          </View>
-        )}
+              {entry.xpGained > 0 && (
+                <View style={logStackStyles.inlineRow}>
+                  <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Battle event */}
         {entry.type === "battle" && (
@@ -186,7 +198,8 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
 }
 
 function EventLogStack({ logs }: { logs: LogEntry[] }) {
-  const recent = logs.slice(-MAX_LOG_VISIBLE);
+  // eventLog is stored newest-first; take the most recent N then reverse for oldest-top display
+  const recent = logs.slice(0, MAX_LOG_VISIBLE).reverse();
   const animMapRef = useRef<Map<string, Animated.Value>>(new Map());
   const [, forceUpdate] = useState(0);
 
@@ -290,6 +303,8 @@ export default function GameScreen() {
   const [cooldownDuration, setCooldownDuration] = useState(2500);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+
+  const gatherXpRef = useRef(0);
 
   const [artIndex, setArtIndex] = useState(0);
   const artTriggerRef = useRef(0);
@@ -408,6 +423,7 @@ export default function GameScreen() {
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     } else if (roll.type === "gather" && roll.material) {
+      gatherXpRef.current = 0;
       setGatherMaterial(roll.material);
       setGatherAttempts(roll.gatherAttempts);
       setShowGather(true);
@@ -423,13 +439,14 @@ export default function GameScreen() {
       if (gathered.length > 0) {
         addMaterials(gathered);
         const mat = gathered[0];
+        const totalXp = gatherXpRef.current;
         addLogEntry({
           id: `g-${Date.now()}`,
           timestamp: Date.now(),
           type: "gather",
           summary: `Gathered ${mat.type} ×${gathered.length}`,
           goldGained: 0,
-          xpGained: 0,
+          xpGained: totalXp,
           material: mat,
         });
       }
@@ -598,7 +615,7 @@ export default function GameScreen() {
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
         onComplete={handleGatherComplete}
-        onAttemptXp={(xp) => applyGoldXp(0, xp)}
+        onAttemptXp={(xp) => { gatherXpRef.current += xp; applyGoldXp(0, xp); }}
       />
       <BattleModal
         visible={showBattle}
