@@ -18,7 +18,7 @@ const OPTIONS: {
   color: string;
   bonus: string;
 }[] = [
-  { key: "strength", label: "Strength", icon: "⚔", color: Colors.game.red, bonus: "+1" },
+  { key: "strength", label: "Strength", icon: "⚔", color: Colors.game.red, bonus: "+2" },
   { key: "health", label: "Health", icon: "♥", color: Colors.game.green, bonus: "+5" },
   { key: "defence", label: "Defence", icon: "🛡", color: Colors.game.blue, bonus: "+1" },
   { key: "speed", label: "Speed", icon: "⚡", color: Colors.game.gold, bonus: "+1" },
