@@ -129,7 +129,8 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     const npcData = npcRef.current;
     if (!npcData) { npcActingRef.current = false; return; }
 
-    const rawDmg = npcData.atk + Math.floor(Math.random() * Math.max(1, npcData.atk * 0.35));
+    // NPC damage: 90–110% of atk stat
+    const rawDmg = Math.max(1, Math.round(npcData.atk * (0.9 + Math.random() * 0.2)));
     const blocked = tryBlock(playerStats.defence);
     const dmg = blocked ? 0 : Math.max(1, rawDmg);
     const newHp = Math.max(0, playerHpRef.current - dmg);
@@ -163,23 +164,23 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     tickRef.current = setInterval(() => {
       if (phaseRef.current !== "fighting") return;
 
-      // Accumulate action points
-      playerApRef.current = Math.min(ACTION_THRESHOLD, playerApRef.current + playerStats.speed);
+      // Both player and NPC accumulate AP at their own speed each tick
+      playerApRef.current += playerStats.speed;
       npcApRef.current += (npcRef.current?.spd ?? 1);
 
-      // Update yellow bar display
-      setPlayerApPct((playerApRef.current / ACTION_THRESHOLD) * 100);
-
-      // Start pulse when player bar is full
-      if (playerApRef.current >= ACTION_THRESHOLD) {
-        startPulse();
-      }
-
-      // NPC auto-acts when ready
+      // NPC acts first if it reaches threshold (auto-attack, reset AP)
       if (npcApRef.current >= ACTION_THRESHOLD && phaseRef.current === "fighting") {
         npcApRef.current -= ACTION_THRESHOLD;
-        stopPulse();
         doNpcAttack();
+      }
+
+      // Player's bar shows their AP progress — caps display at 100%
+      const pct = Math.min(100, (playerApRef.current / ACTION_THRESHOLD) * 100);
+      setPlayerApPct(pct);
+
+      // Pulse when player's turn is ready
+      if (playerApRef.current >= ACTION_THRESHOLD) {
+        startPulse();
       }
     }, TICK_MS);
   }
@@ -214,8 +215,8 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   }, [visible]);
 
   function calcPlayerDmg() {
-    const base = Math.max(1, Math.floor(playerStats.strength));
-    return Math.max(1, base + Math.floor(Math.random() * Math.max(1, base * 0.4)));
+    // 90–110% of strength stat
+    return Math.max(1, Math.round(playerStats.strength * (0.9 + Math.random() * 0.2)));
   }
 
   const handleAttack = useCallback(() => {
@@ -325,9 +326,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             <Text style={styles.hpNum}>{playerHp}/{playerMaxHp}</Text>
           </Animated.View>
 
-          {/* Action bar (yellow) — fills as player's speed accumulates */}
+          {/* Action bar (yellow) — shows progress toward player's next turn */}
           <View style={styles.actionBarRow}>
-            <Text style={styles.actionBarLabel}>ACTION</Text>
+            <Text style={styles.actionBarLabel}>TURN</Text>
             <View style={styles.actionBarTrack}>
               <Animated.View
                 style={[
@@ -346,10 +347,10 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
 
           {/* Combat stats strip */}
           <View style={styles.statsStrip}>
-            <Text style={styles.statChip}>⚔ {Math.floor(playerStats.strength)} STR</Text>
+            <Text style={styles.statChip}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)} dmg</Text>
             <Text style={styles.statChip}>🛡 {blockChance.toFixed(1)}% block</Text>
-            <Text style={styles.statChip}>⚡ {playerStats.speed} SPD</Text>
-            <Text style={[styles.statChipEnemy, { color: rarityColor }]}>👁 {npc.spd} SPD</Text>
+            <Text style={styles.statChip}>⚡ {playerStats.speed} spd</Text>
+            <Text style={[styles.statChipEnemy, { color: rarityColor }]}>👾 {npc.spd} spd</Text>
           </View>
 
           {/* Battle log */}

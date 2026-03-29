@@ -214,7 +214,7 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                   const cost = Math.round(15000 / Math.max(1, val));
                   derivedLabel = `${cost} ticks per action`;
                 } else if (s.key === "strength") {
-                  derivedLabel = `${Math.floor(val)}–${Math.floor(val + Math.max(1, Math.floor(val * 0.4)))} dmg`;
+                  derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
                 } else if (s.key === "health") {
                   derivedLabel = `${Math.floor(val)} max HP`;
                 }

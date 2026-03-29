@@ -191,16 +191,16 @@ const MATERIAL_TYPES_DROP: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
 
 /** Roll a material drop from a defeated NPC. Returns null if no drop this time. */
 export function rollNpcDrop(npc: NpcBattleStats): Material | null {
-  // T3 monsters have 50% drop; others 40%
-  const baseChance = npc.version === 3 ? 50 : 40;
+  // T3 monsters: 45% drop chance; all others: 40%
+  const baseChance = npc.version === 3 ? 45 : 40;
   if (Math.random() * 100 >= baseChance) return null;
 
   const type = MATERIAL_TYPES_DROP[Math.floor(Math.random() * MATERIAL_TYPES_DROP.length)];
   const rarity = npc.rarity;
 
-  // +2% chance per tier step above current version to get a higher tier
+  // Drop matches the NPC's tier; 4% chance to upgrade by 1 tier (capped at T3)
   let version = npc.version as VersionNum;
-  if (version < 3 && Math.random() * 100 < 2) version = (version + 1) as VersionNum;
+  if (version < 3 && Math.random() * 100 < 4) version = (version + 1) as VersionNum;
 
   return { type, rarity, version };
 }
