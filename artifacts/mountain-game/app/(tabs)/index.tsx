@@ -13,14 +13,12 @@ import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
-import { EventNotification } from "@/components/EventNotification";
 import { GatheringModal } from "@/components/GatheringModal";
 import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
 import { TimerBar } from "@/components/TimerBar";
 import Colors from "@/constants/colors";
 import {
-  EventRoll,
   LogEntry,
   Material,
   MaterialEntry,
@@ -70,6 +68,78 @@ const toastStyles = StyleSheet.create({
   },
 });
 
+// ─── Event log stack (above scene image) ─────────────────────────────────────
+
+const MAX_LOG_VISIBLE = 4;
+
+function EventLogStack({ logs }: { logs: LogEntry[] }) {
+  const recent = logs.slice(-MAX_LOG_VISIBLE);
+  const animMapRef = useRef<Map<string, Animated.Value>>(new Map());
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const map = animMapRef.current;
+    let changed = false;
+    for (const entry of recent) {
+      if (!map.has(entry.id)) {
+        const anim = new Animated.Value(0);
+        map.set(entry.id, anim);
+        Animated.timing(anim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
+        changed = true;
+      }
+    }
+    for (const key of Array.from(map.keys())) {
+      if (!recent.find((e) => e.id === key)) {
+        map.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) forceUpdate((n) => n + 1);
+  }, [logs]);
+
+  if (recent.length === 0) return null;
+  const map = animMapRef.current;
+
+  return (
+    <View style={logStackStyles.container}>
+      {recent.map((entry) => {
+        const anim = map.get(entry.id);
+        if (!anim) return null;
+        const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
+        return (
+          <Animated.View
+            key={entry.id}
+            style={[logStackStyles.row, { opacity: anim, transform: [{ translateY }] }]}
+          >
+            <Text style={logStackStyles.text} numberOfLines={1}>
+              {entry.summary}
+            </Text>
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+}
+
+const logStackStyles = StyleSheet.create({
+  container: { gap: 4 },
+  row: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(13,10,20,0.82)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+  },
+  text: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.text,
+  },
+});
+
 export default function GameScreen() {
   const {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
@@ -85,7 +155,6 @@ export default function GameScreen() {
   const [cooldownDuration, setCooldownDuration] = useState(2500);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [lastRoll, setLastRoll] = useState<EventRoll | null>(null);
 
   const [artIndex, setArtIndex] = useState(0);
   const artTriggerRef = useRef(0);
@@ -191,13 +260,7 @@ export default function GameScreen() {
     }
 
     if (roll.type === "gold_xp") {
-      const result = applyGoldXp(roll.goldGained, roll.xpGained);
-      const finalRoll: EventRoll = {
-        ...roll,
-        levelsAfter: result.updatedChar.level,
-        statPointsGained: result.statPointsGained,
-      };
-      setLastRoll(finalRoll);
+      applyGoldXp(roll.goldGained, roll.xpGained);
       addLogEntry({
         id: roll.id,
         timestamp: roll.timestamp,
@@ -210,12 +273,10 @@ export default function GameScreen() {
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     } else if (roll.type === "gather" && roll.material) {
-      setLastRoll(roll);
       setGatherMaterial(roll.material);
       setGatherAttempts(roll.gatherAttempts);
       setShowGather(true);
     } else if (roll.type === "battle" && roll.npc) {
-      setLastRoll(roll);
       setBattleNpc(roll.npc);
       setShowBattle(true);
     }
@@ -373,13 +434,12 @@ export default function GameScreen() {
       {/* ── Bottom: notification + scene + timer ──────────────────────── */}
       <View style={[styles.bottomSection, { paddingBottom: bottomPad + 16 }]}>
         {ahToasts.map((t) => <AhToast key={t.id} toast={t} />)}
-        {lastRoll && <EventNotification roll={lastRoll} />}
+        <EventLogStack logs={gameState.eventLog} />
         <SceneView
           scene={gameState.currentScene}
           artIndex={artIndex}
           onPress={handleScenePress}
           disabled={isInteracting}
-          recentLogs={gameState.eventLog.slice(-3).reverse()}
         />
         <TimerBar isActive={isInteracting} duration={cooldownDuration} />
       </View>

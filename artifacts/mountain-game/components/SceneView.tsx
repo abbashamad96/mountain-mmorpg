@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { LogEntry, SceneType } from "@/context/GameContext";
+import { SceneType } from "@/context/GameContext";
 
 // ── Full background image pool ────────────────────────────────────────────────
 const BG_IMAGES: ImageSourcePropType[] = [
@@ -92,10 +92,9 @@ interface SceneViewProps {
   artIndex: number;
   onPress: () => void;
   disabled: boolean;
-  recentLogs: LogEntry[];
 }
 
-export function SceneView({ scene, artIndex, onPress, disabled, recentLogs }: SceneViewProps) {
+export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const dimAnim  = useRef(new Animated.Value(0)).current;
   const dimRef   = useRef<Animated.CompositeAnimation | null>(null);
@@ -148,21 +147,6 @@ export function SceneView({ scene, artIndex, onPress, disabled, recentLogs }: Sc
             style={[StyleSheet.absoluteFill, styles.dimOverlay, { opacity: dimAnim }]}
           />
 
-          {/* Recent event log — top of image */}
-          {recentLogs.length > 0 && (
-            <View style={styles.logOverlay}>
-              {recentLogs.map((entry, i) => (
-                <Text
-                  key={entry.id}
-                  style={[styles.logLine, { opacity: i === 0 ? 0.95 : i === 1 ? 0.6 : 0.35 }]}
-                  numberOfLines={1}
-                >
-                  {entry.summary}
-                </Text>
-              ))}
-            </View>
-          )}
-
           {/* Bottom scene label */}
           <View style={styles.labelArea}>
             <View style={styles.labelBadge}>
@@ -212,21 +196,6 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   dimOverlay: { backgroundColor: "#000" },
-  logOverlay: {
-    position: "absolute",
-    top: 0, left: 0, right: 0,
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom: 6,
-    gap: 3,
-    backgroundColor: "rgba(8,6,16,0.55)",
-  },
-  logLine: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.text,
-    letterSpacing: 0.2,
-  },
   labelArea: {
     position: "absolute",
     bottom: 0, left: 0, right: 0,
