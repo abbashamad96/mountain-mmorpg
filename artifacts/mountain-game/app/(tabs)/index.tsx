@@ -21,6 +21,7 @@ import Colors from "@/constants/colors";
 import {
   LogEntry,
   Material,
+  RARITY_COLORS,
   MaterialEntry,
   NpcBattleStats,
   rollEvent,
@@ -72,6 +73,118 @@ const toastStyles = StyleSheet.create({
 
 const MAX_LOG_VISIBLE = 4;
 
+const TIER_COLORS: Record<number, string> = {
+  1: "#A78BFA",
+  2: "#34D399",
+  3: "#FCD34D",
+};
+
+function LogEntryRow({ entry }: { entry: LogEntry }) {
+  const mat = entry.material;
+  const isVictory = entry.victory === true;
+
+  // Extract NPC name from summary for battle entries
+  let npcName = "";
+  if (entry.type === "battle") {
+    const m = isVictory
+      ? entry.summary.match(/^Defeated (.+?) \+/)
+      : entry.summary.match(/^Fled from (.+)$/);
+    npcName = m ? m[1] : "";
+  }
+
+  return (
+    <View style={logStackStyles.row}>
+      {/* Left icon */}
+      <View style={logStackStyles.iconWrap}>
+        {entry.type === "gold_xp" && (
+          <View style={logStackStyles.gCoin}>
+            <Text style={logStackStyles.gCoinTxt}>G</Text>
+          </View>
+        )}
+        {entry.type === "gather" && (
+          <Text style={logStackStyles.emoji}>📦</Text>
+        )}
+        {entry.type === "battle" && (
+          <Text style={logStackStyles.emoji}>{isVictory ? "⚔" : "🏃"}</Text>
+        )}
+      </View>
+
+      {/* Content */}
+      <View style={logStackStyles.content}>
+        {/* Gold / XP event */}
+        {entry.type === "gold_xp" && (
+          <View style={logStackStyles.inlineRow}>
+            {entry.goldGained > 0 && (
+              <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+            )}
+            {entry.xpGained > 0 && (
+              <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+            )}
+          </View>
+        )}
+
+        {/* Gather event */}
+        {entry.type === "gather" && mat && (
+          <View style={logStackStyles.inlineRow}>
+            <Text style={logStackStyles.dimLabel}>Gathered</Text>
+            <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+              {mat.type}
+            </Text>
+            {mat.version > 0 && (
+              <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[mat.version] ?? Colors.game.border }]}>
+                <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[mat.version] ?? Colors.game.text }]}>
+                  T{mat.version}
+                </Text>
+              </View>
+            )}
+            <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+              {mat.rarity}
+            </Text>
+          </View>
+        )}
+
+        {/* Battle event */}
+        {entry.type === "battle" && (
+          <View style={logStackStyles.battleBlock}>
+            <View style={logStackStyles.inlineRow}>
+              <Text style={logStackStyles.dimLabel}>{isVictory ? "Defeated" : "Fled from"}</Text>
+              <Text style={logStackStyles.npcName} numberOfLines={1}>{npcName}</Text>
+            </View>
+            {isVictory && (entry.goldGained > 0 || entry.xpGained > 0) && (
+              <View style={logStackStyles.inlineRow}>
+                {entry.goldGained > 0 && (
+                  <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+                )}
+                {entry.xpGained > 0 && (
+                  <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                )}
+              </View>
+            )}
+            {mat && (
+              <View style={logStackStyles.inlineRow}>
+                <Text style={logStackStyles.dimLabel}>drop:</Text>
+                <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+                  {mat.type}
+                </Text>
+                {mat.version > 0 && (
+                  <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[mat.version] ?? Colors.game.border }]}>
+                    <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[mat.version] ?? Colors.game.text }]}>
+                      T{mat.version}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+                  {mat.rarity}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
 function EventLogStack({ logs }: { logs: LogEntry[] }) {
   const recent = logs.slice(-MAX_LOG_VISIBLE);
   const animMapRef = useRef<Map<string, Animated.Value>>(new Map());
@@ -84,7 +197,7 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
       if (!map.has(entry.id)) {
         const anim = new Animated.Value(0);
         map.set(entry.id, anim);
-        Animated.timing(anim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
+        Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
         changed = true;
       }
     }
@@ -105,15 +218,13 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
       {recent.map((entry) => {
         const anim = map.get(entry.id);
         if (!anim) return null;
-        const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
+        const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] });
         return (
           <Animated.View
             key={entry.id}
-            style={[logStackStyles.row, { opacity: anim, transform: [{ translateY }] }]}
+            style={{ opacity: anim, transform: [{ translateY }] }}
           >
-            <Text style={logStackStyles.text} numberOfLines={1}>
-              {entry.summary}
-            </Text>
+            <LogEntryRow entry={entry} />
           </Animated.View>
         );
       })}
@@ -122,22 +233,46 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
 }
 
 const logStackStyles = StyleSheet.create({
-  container: { gap: 4 },
+  container: { gap: 5 },
   row: {
     flexDirection: "row",
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(13,10,20,0.82)",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "rgba(10,7,18,0.88)",
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: Colors.game.border,
+    borderColor: "rgba(201,168,76,0.5)",
   },
-  text: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.text,
+  iconWrap: {
+    width: 22,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 1,
   },
+  gCoin: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: Colors.game.gold,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#a07820",
+  },
+  gCoinTxt: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#3d2e00" },
+  emoji: { fontSize: 14 },
+  content: { flex: 1, gap: 3 },
+  battleBlock: { gap: 3 },
+  inlineRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 5 },
+  dimLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  matName: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  rarityLabel: { fontSize: 11, fontFamily: "Inter_500Medium", opacity: 0.85 },
+  npcName: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
+  gold: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  xp: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.purpleLight },
+  tierBadge: {
+    borderWidth: 1, borderRadius: 5,
+    paddingHorizontal: 4, paddingVertical: 1,
+  },
+  tierTxt: { fontSize: 10, fontFamily: "Inter_700Bold" },
 });
 
 export default function GameScreen() {
