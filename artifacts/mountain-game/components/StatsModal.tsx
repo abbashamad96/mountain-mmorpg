@@ -25,7 +25,7 @@ const STAT_CONFIG = [
   { key: "strength" as const, label: "Strength", icon: "⚔", color: Colors.game.red, desc: "Damage per hit · +0.5 per level", bonus: "+2 dmg" },
   { key: "health" as const, label: "Health", icon: "♥", color: Colors.game.green, desc: "Max HP · +1 per level", bonus: "+10 HP" },
   { key: "defence" as const, label: "Defence", icon: "🛡", color: Colors.game.blue, desc: "Block chance: def/(def+15000)×100%", bonus: "+1 def" },
-  { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Action bar fill rate · faster = more turns", bonus: "+1 spd" },
+  { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Turn order · higher speed = more turns · +0.5 per level", bonus: "+2 spd" },
 ];
 
 const RARITY_DESC: Record<string, string> = {
@@ -211,9 +211,8 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                   const blockPct = (val / (val + 15000)) * 100;
                   derivedLabel = `${blockPct.toFixed(2)}% block chance`;
                 } else if (s.key === "speed") {
-                  const cost = Math.round(15000 / (100 + 0.1 * Math.max(0, val)));
-                  const sec  = (cost * 10 / 1000).toFixed(2);
-                  derivedLabel = `${cost} tks / turn  ·  ${sec}s`;
+                  const cost = 1 / (1 + Math.max(0, val));
+                  derivedLabel = `action cost ${cost.toFixed(3)}  ·  lower = faster`;
                 } else if (s.key === "strength") {
                   derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
                 } else if (s.key === "health") {

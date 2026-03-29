@@ -26,17 +26,18 @@ const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
   Cosmic:    require("@/assets/images/npcs/npc_cosmic.png"),
 };
 
-// ─── Turn formula ─────────────────────────────────────────────────────────────
-// Action cost (ticks) = 15000 / (100 + 0.1 × speed)
-// 1 tick = TICK_MS real milliseconds
-const TRACK = 15000;
-const TICK_MS = 10; // ms per virtual tick
+// ─── Timeline combat engine ───────────────────────────────────────────────────
+// Each actor has a monotonically-increasing `timeline` value.
+// Action cost  = 1 / (1 + speed)  — lower speed → higher cost → acts less often.
+// Whoever has the LOWER timeline value acts next.
+// After acting, their timeline advances by their action cost.
+// No real-time delays. No ticks. No AP race-track.
+// Max iterations per call is capped at MAX_SYNC_TURNS to prevent blocking;
+// if hit, we yield via a single zero-delay timeout and continue.
+const MAX_SYNC_TURNS = 50;
 
-function actionCostTicks(speed: number): number {
-  return TRACK / (100 + 0.1 * Math.max(0, speed));
-}
-function turnMs(speed: number): number {
-  return actionCostTicks(speed) * TICK_MS;
+function actionCost(speed: number): number {
+  return 1 / (1 + Math.max(0, speed));
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -61,23 +62,22 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   const [playerHp, setPlayerHp] = useState(0);
   const [npcHp, setNpcHp]       = useState(0);
   const [log, setLog]           = useState<LogLine[]>([]);
-  // Instant bar: just a number 0-100, set immediately on each event — no animation
+  // Bar: 0 = NPC acting / 100 = player's turn ready
   const [barPct, setBarPct]     = useState(0);
 
-  // Refs for combat state (no re-render cost)
-  const playerHpRef = useRef(0);
-  const npcHpRef    = useRef(0);
-  const playerAP    = useRef(0); // current position on the 0–TRACK race
-  const npcAP       = useRef(0);
-  const phaseRef    = useRef<BattlePhase>("intro");
-  const npcRef      = useRef(npc);
+  // Timeline refs — the only combat state that matters
+  const playerHpRef      = useRef(0);
+  const npcHpRef         = useRef(0);
+  const playerTimeline   = useRef(0); // time until player's NEXT action
+  const npcTimeline      = useRef(0); // time until NPC's NEXT action
+  const phaseRef         = useRef<BattlePhase>("intro");
+  const npcRef           = useRef(npc);
   npcRef.current = npc;
 
-  // Pending timeout — used only for cancellation on flee/close
+  // Cancellation handle for the single yield timeout (safety cap only)
   const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-
-  // Animations (entry/exit + hit shakes only — not the bar)
+  // Animations
   const fadeAnim    = useRef(new Animated.Value(0)).current;
   const scaleAnim   = useRef(new Animated.Value(0.85)).current;
   const npcShake    = useRef(new Animated.Value(0)).current;
@@ -115,56 +115,53 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   }
   function stopPulse() { pulseLoop.current?.stop(); pulseAnim.setValue(1); }
 
-  // ── Core turn resolution ─────────────────────────────────────────────────
-  // Resolves ONE turn per call. NPC turns chain via setTimeout(fn, 0) —
-  // zero perceived delay but yields to the event loop between each turn,
-  // preventing thread-blocking crashes. Player turns stop and wait for input.
+  // ── Timeline combat resolution ────────────────────────────────────────────
+  // Resolves NPC turns synchronously in a bounded loop, then stops when it
+  // is the player's turn. If MAX_SYNC_TURNS is hit, yields once via a
+  // zero-delay timeout and picks up again — preventing any UI freeze.
   function resolveNextTurn() {
-    if (phaseRef.current !== "fighting") return;
     const n = npcRef.current;
-    if (!n) return;
+    if (!n || phaseRef.current !== "fighting") return;
 
-    const pSpd = Math.max(0, playerStats.speed);
-    const nSpd = Math.max(0, n.spd);
-    const pCostFull = actionCostTicks(pSpd);
-    const nCostFull = actionCostTicks(nSpd);
+    const pCost = actionCost(playerStats.speed);
+    const nCost = actionCost(n.spd);
 
-    const pTicksLeft = ((TRACK - playerAP.current) / TRACK) * pCostFull;
-    const nTicksLeft = ((TRACK - npcAP.current)    / TRACK) * nCostFull;
+    let iters = 0;
 
-    if (pTicksLeft <= nTicksLeft) {
-      // ── Player's turn ────────────────────────────────────────────────────
-      const npcAdvanceFrac = nCostFull === 0 ? 0 : pTicksLeft / nCostFull;
-      npcAP.current = Math.min(TRACK - 1, npcAP.current + Math.floor(npcAdvanceFrac * TRACK));
-      playerAP.current = TRACK;
-      setBarPct(100);
-      phaseRef.current = "player_turn";
-      setPhase("player_turn");
-      startPulse();
-      // Stop here — wait for player to press ATTACK
+    while (phaseRef.current === "fighting" && iters < MAX_SYNC_TURNS) {
+      iters++;
 
-    } else {
-      // ── NPC's turn — fire instantly, then schedule next resolution ───────
-      const playerAdvanceFrac = pCostFull === 0 ? 0 : nTicksLeft / pCostFull;
-      playerAP.current = Math.min(TRACK - 1, playerAP.current + Math.floor(playerAdvanceFrac * TRACK));
-      npcAP.current = 0;
-      setBarPct(Math.round((playerAP.current / TRACK) * 100));
+      if (playerTimeline.current <= npcTimeline.current) {
+        // ── Player's turn ──────────────────────────────────────────────────
+        setBarPct(100);
+        phaseRef.current = "player_turn";
+        setPhase("player_turn");
+        startPulse();
+        return; // stop — wait for ATTACK press
 
-      const dmg    = rolled(n.atk);
-      const blocked = Math.random() * 100 < calcBlock(playerStats.defence);
-      const finalDmg = blocked ? 0 : dmg;
-      const newHp  = Math.max(0, playerHpRef.current - finalDmg);
-      playerHpRef.current = newHp;
-      setPlayerHp(newHp);
-      shake(playerShake);
-      addLine(
-        blocked ? `${n.name} attacks — BLOCKED!` : `${n.name} hits you for ${finalDmg}!`,
-        blocked ? Colors.game.blue : Colors.game.red,
-      );
+      } else {
+        // ── NPC's turn ────────────────────────────────────────────────────
+        npcTimeline.current += nCost;
+        setBarPct(0);
 
-      if (newHp <= 0) { endBattle("defeat"); return; }
+        const dmg     = rolled(n.atk);
+        const blocked = Math.random() * 100 < calcBlock(playerStats.defence);
+        const finalDmg = blocked ? 0 : dmg;
+        const newHp   = Math.max(0, playerHpRef.current - finalDmg);
+        playerHpRef.current = newHp;
+        setPlayerHp(newHp);
+        shake(playerShake);
+        addLine(
+          blocked ? `${n.name} attacks — BLOCKED!` : `${n.name} hits you for ${finalDmg}!`,
+          blocked ? Colors.game.blue : Colors.game.red,
+        );
 
-      // Chain immediately — zero delay, next event-loop tick
+        if (newHp <= 0) { endBattle("defeat"); return; }
+      }
+    }
+
+    // Safety yield — only reached if the speed ratio is extreme
+    if (phaseRef.current === "fighting") {
       pendingRef.current = setTimeout(resolveNextTurn, 0);
     }
   }
@@ -173,7 +170,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     const n = npcRef.current;
     if (!n) return;
 
-    const dmg = rolled(playerStats.strength);
+    const dmg   = rolled(playerStats.strength);
     const newHp = Math.max(0, npcHpRef.current - dmg);
     npcHpRef.current = newHp;
     setNpcHp(newHp);
@@ -181,10 +178,11 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     addLine(`You strike for ${dmg}!`, Colors.game.gold);
 
     if (newHp <= 0) { endBattle("victory"); return; }
-    playerAP.current = 0;
+
+    // Advance player's timeline by their action cost, then resolve again
+    playerTimeline.current += actionCost(playerStats.speed);
     setBarPct(0);
-    // Schedule first post-attack resolution (0ms = next event-loop tick)
-    pendingRef.current = setTimeout(resolveNextTurn, 0);
+    resolveNextTurn();
   }
 
   function endBattle(result: "victory" | "defeat") {
@@ -218,9 +216,10 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
       stopPulse();
       const maxHp = Math.max(1, Math.floor(playerStats.health));
       playerHpRef.current = maxHp;
-      npcHpRef.current = npc.hp;
-      playerAP.current = 0;
-      npcAP.current = 0;
+      npcHpRef.current    = npc.hp;
+      // Both start with their first action cost — whoever is lower goes first
+      playerTimeline.current = actionCost(playerStats.speed);
+      npcTimeline.current    = actionCost(npc.spd);
       phaseRef.current = "intro";
       setPhase("intro");
       setPlayerHp(maxHp);
@@ -237,7 +236,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
         phaseRef.current = "fighting";
         setPhase("fighting");
         addLine("Battle started!", Colors.game.gold);
-        pendingRef.current = setTimeout(resolveNextTurn, 0);
+        resolveNextTurn();
       });
     }
     return () => { clearPending(); stopPulse(); };
@@ -265,21 +264,27 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   // ── Render ───────────────────────────────────────────────────────────────
   if (!npc) return null;
 
-  const maxHp       = Math.max(1, Math.floor(playerStats.health));
-  const pHpPct      = Math.max(0, (playerHp / maxHp) * 100);
-  const nHpPct      = Math.max(0, (npcHp / npc.maxHp) * 100);
-  const rarityColor = RARITY_COLORS[npc.rarity];
+  const maxHp        = Math.max(1, Math.floor(playerStats.health));
+  const pHpPct       = Math.max(0, (playerHp / maxHp) * 100);
+  const nHpPct       = Math.max(0, (npcHp / npc.maxHp) * 100);
+  const rarityColor  = RARITY_COLORS[npc.rarity];
   const isPlayerTurn = phase === "player_turn";
   const isFighting   = phase === "fighting" || phase === "player_turn";
   const blockPct     = calcBlock(playerStats.defence);
 
-  // Derived turn calculations (shown in card)
-  const pSpd     = Math.max(0, playerStats.speed);
-  const nSpd     = Math.max(0, npc.spd);
-  const pCost    = actionCostTicks(pSpd);
-  const nCost    = actionCostTicks(nSpd);
-  const pTurnSec = (pCost * TICK_MS / 1000).toFixed(2);
-  const nTurnSec = (nCost * TICK_MS / 1000).toFixed(2);
+  // Derived turn info for the calc card
+  const pSpd  = Math.max(0, playerStats.speed);
+  const nSpd  = Math.max(0, npc.spd);
+  const pCost = actionCost(pSpd);
+  const nCost = actionCost(nSpd);
+  // How many NPC turns per 1 player turn (or vice versa)
+  const ratio = pCost / nCost; // > 1 → NPC is faster
+  const ratioTxt =
+    ratio > 1.05
+      ? `Enemy ${ratio.toFixed(1)}× faster`
+      : ratio < 0.95
+      ? `You ${(1 / ratio).toFixed(1)}× faster`
+      : "Same speed";
 
   return (
     <Modal transparent visible={visible} animationType="none">
@@ -316,7 +321,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             <Text style={styles.hpNum}>{playerHp}/{maxHp}</Text>
           </Animated.View>
 
-          {/* Instant turn bar — no animation, plain View width */}
+          {/* Turn readiness bar */}
           <View style={styles.barRow}>
             <Text style={[styles.barLabel, isPlayerTurn && styles.barLabelReady]}>
               {isPlayerTurn ? "YOUR TURN" : "NEXT TURN"}
@@ -329,7 +334,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             </View>
           </View>
 
-          {/* Turn calculations card */}
+          {/* Combat info card */}
           <View style={styles.calcCard}>
             <View style={styles.calcHeader}>
               <Text style={styles.calcHeaderTxt}>YOU</Text>
@@ -337,19 +342,17 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
               <Text style={[styles.calcHeaderTxt, { color: rarityColor, textAlign: "right" }]}>ENEMY</Text>
             </View>
             <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>⚡ {pSpd} pts</Text>
+              <Text style={styles.calcVal}>⚡ {pSpd} spd</Text>
               <Text style={styles.calcKey}>SPEED</Text>
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} pts</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} spd</Text>
             </View>
             <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>{Math.round(pCost)} tks</Text>
+              <Text style={styles.calcVal}>{pCost.toFixed(3)} cost</Text>
               <Text style={styles.calcKey}>COST</Text>
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{Math.round(nCost)} tks</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nCost.toFixed(3)} cost</Text>
             </View>
             <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>{pTurnSec}s / turn</Text>
-              <Text style={styles.calcKey}>TIME</Text>
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nTurnSec}s / turn</Text>
+              <Text style={[styles.calcVal, { flex: 3, textAlign: "center", color: Colors.game.textMuted }]}>{ratioTxt}</Text>
             </View>
             <View style={styles.calcRow}>
               <Text style={styles.calcVal}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)}</Text>
@@ -440,7 +443,6 @@ const styles = StyleSheet.create({
   hpFill: { height: "100%", borderRadius: 4 },
   hpNum: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim, width: 55, textAlign: "right" },
 
-  // ── Turn bar — instant, no animation ─────────────────────────────────────
   barRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   barLabel: { fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 1, width: 58 },
   barLabelReady: { color: Colors.game.gold },
@@ -452,7 +454,6 @@ const styles = StyleSheet.create({
   },
   barFill: { height: "100%", borderRadius: 4 },
 
-  // ── Calc card ─────────────────────────────────────────────────────────────
   calcCard: {
     backgroundColor: Colors.game.surface,
     borderRadius: 10, padding: 10, gap: 5,

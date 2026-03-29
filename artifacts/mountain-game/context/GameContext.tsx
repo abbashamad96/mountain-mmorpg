@@ -249,6 +249,7 @@ export function applyXpGold(
     if (newLevel % 2 === 0) newPending++;
     newStats.health += 1;
     newStats.strength += 0.5;
+    newStats.speed += 0.5;
   }
 
   return {
@@ -338,7 +339,7 @@ const defaultCharacter: Character = {
   level: 0,
   xp: 0,
   xpToNext: 987,
-  stats: { strength: 5, health: 10, defence: 1, speed: 1 },
+  stats: { strength: 5, health: 10, defence: 1, speed: 5 },
   gold: 0,
   pendingStatPoints: 0,
   materials: [],
@@ -432,7 +433,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState((prev) => {
       if (prev.character.pendingStatPoints <= 0) return prev;
       const newStats = { ...prev.character.stats };
-      newStats[stat] += stat === "health" ? 10 : stat === "strength" ? 2 : 1;
+      newStats[stat] += stat === "health" ? 10 : (stat === "strength" || stat === "speed") ? 2 : 1;
       return {
         ...prev,
         character: { ...prev.character, stats: newStats, pendingStatPoints: prev.character.pendingStatPoints - 1 },
