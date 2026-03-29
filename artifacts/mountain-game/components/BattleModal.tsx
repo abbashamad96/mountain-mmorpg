@@ -73,8 +73,6 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   const npcRef      = useRef(npc);
   npcRef.current = npc;
 
-  // Single pending timeout handle
-  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Animations (entry/exit + hit shakes only — not the bar)
   const fadeAnim    = useRef(new Animated.Value(0)).current;
@@ -87,10 +85,6 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   const logRef = useRef<ScrollView>(null);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
-  function clearPending() {
-    if (pendingRef.current) { clearTimeout(pendingRef.current); pendingRef.current = null; }
-  }
-
   function addLine(text: string, color: string) {
     setLog(prev => [...prev, { id: lineId++, text, color }].slice(-20));
     setTimeout(() => logRef.current?.scrollToEnd({ animated: false }), 30);
@@ -114,80 +108,57 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   }
   function stopPulse() { pulseLoop.current?.stop(); pulseAnim.setValue(1); }
 
-  // ── Core scheduler ───────────────────────────────────────────────────────
-  // Everything is calculated synchronously here.
-  // Only real-time delay = one setTimeout per event. Zero ongoing traffic.
-  function scheduleNextTurn() {
-    if (phaseRef.current !== "fighting") return;
+  // ── Core turn resolution — fully synchronous, zero wait times ───────────
+  // Resolves NPC turns instantly in a loop until it's the player's turn.
+  // No setTimeout, no delays between turns.
+  function resolveTurns() {
     const n = npcRef.current;
     if (!n) return;
 
     const pSpd = Math.max(0, playerStats.speed);
     const nSpd = Math.max(0, n.spd);
-
-    // Ticks until each reaches the finish line from their current position
-    const pCostFull = actionCostTicks(pSpd);   // ticks for a full lap
+    const pCostFull = actionCostTicks(pSpd);
     const nCostFull = actionCostTicks(nSpd);
 
-    // Ticks remaining = fraction of lap left × full cost
-    const pTicksLeft = ((TRACK - playerAP.current) / TRACK) * pCostFull;
-    const nTicksLeft = ((TRACK - npcAP.current)    / TRACK) * nCostFull;
+    // Loop: keep resolving NPC turns until it's the player's turn
+    while (phaseRef.current === "fighting") {
+      const pTicksLeft = ((TRACK - playerAP.current) / TRACK) * pCostFull;
+      const nTicksLeft = ((TRACK - npcAP.current)    / TRACK) * nCostFull;
 
-    if (pTicksLeft <= nTicksLeft) {
-      // Player acts next
-      // Advance NPC's position during those ticks (won't cross — guaranteed by ≤)
-      const npcAdvanceFrac = nTicksLeft === 0 ? 0 : pTicksLeft / nCostFull;
-      npcAP.current = Math.min(TRACK - 1, npcAP.current + Math.floor(npcAdvanceFrac * TRACK));
-
-      const delayMs = Math.max(60, pTicksLeft * TICK_MS);
-      // Bar snaps to 100 now so the player can see their turn is imminent
-      setBarPct(99); // show near-full immediately; jumps to 100 when phase flips
-
-      pendingRef.current = setTimeout(() => {
-        if (phaseRef.current !== "fighting") return;
+      if (pTicksLeft <= nTicksLeft) {
+        // Player's turn next — advance NPC, flip phase, stop loop
+        const npcAdvanceFrac = nCostFull === 0 ? 0 : pTicksLeft / nCostFull;
+        npcAP.current = Math.min(TRACK - 1, npcAP.current + Math.floor(npcAdvanceFrac * TRACK));
         playerAP.current = TRACK;
         setBarPct(100);
         phaseRef.current = "player_turn";
         setPhase("player_turn");
         startPulse();
-      }, delayMs);
-
-    } else {
-      // NPC acts next — instantly advance player bar to their new position
-      const playerAdvanceFrac = pCostFull === 0 ? 0 : nTicksLeft / pCostFull;
-      const newPlayerAP = Math.min(TRACK - 1, playerAP.current + Math.floor(playerAdvanceFrac * TRACK));
-      playerAP.current = newPlayerAP;
-      // Snap bar to new position immediately — no animation
-      setBarPct(Math.round((newPlayerAP / TRACK) * 100));
-
-      const delayMs = Math.max(60, nTicksLeft * TICK_MS);
-      pendingRef.current = setTimeout(() => {
-        if (phaseRef.current !== "fighting") return;
+        break;
+      } else {
+        // NPC's turn — resolve immediately, advance player, reset NPC
+        const playerAdvanceFrac = pCostFull === 0 ? 0 : nTicksLeft / pCostFull;
+        playerAP.current = Math.min(TRACK - 1, playerAP.current + Math.floor(playerAdvanceFrac * TRACK));
         npcAP.current = 0;
-        doNpcAttack();
-      }, delayMs);
+        setBarPct(Math.round((playerAP.current / TRACK) * 100));
+
+        // Resolve NPC attack inline
+        const dmg = rolled(n.atk);
+        const blocked = Math.random() * 100 < calcBlock(playerStats.defence);
+        const finalDmg = blocked ? 0 : dmg;
+        const newHp = Math.max(0, playerHpRef.current - finalDmg);
+        playerHpRef.current = newHp;
+        setPlayerHp(newHp);
+        shake(playerShake);
+        addLine(
+          blocked ? `${n.name} attacks — BLOCKED!` : `${n.name} hits you for ${finalDmg}!`,
+          blocked ? Colors.game.blue : Colors.game.red,
+        );
+
+        if (newHp <= 0) { endBattle("defeat"); return; }
+        // Continue loop for next turn
+      }
     }
-  }
-
-  function doNpcAttack() {
-    const n = npcRef.current;
-    if (!n || phaseRef.current !== "fighting") return;
-
-    const dmg = rolled(n.atk);
-    const blocked = Math.random() * 100 < calcBlock(playerStats.defence);
-    const finalDmg = blocked ? 0 : dmg;
-    const newHp = Math.max(0, playerHpRef.current - finalDmg);
-    playerHpRef.current = newHp;
-    setPlayerHp(newHp);
-    shake(playerShake);
-
-    addLine(
-      blocked ? `${n.name} attacks — BLOCKED!` : `${n.name} hits you for ${finalDmg}!`,
-      blocked ? Colors.game.blue : Colors.game.red,
-    );
-
-    if (newHp <= 0) { endBattle("defeat"); return; }
-    scheduleNextTurn();
   }
 
   function doPlayerAttack() {
@@ -202,13 +173,13 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     addLine(`You strike for ${dmg}!`, Colors.game.gold);
 
     if (newHp <= 0) { endBattle("victory"); return; }
+    // Reset player position, continue resolving
     playerAP.current = 0;
     setBarPct(0);
-    scheduleNextTurn();
+    resolveTurns();
   }
 
   function endBattle(result: "victory" | "defeat") {
-    clearPending();
     stopPulse();
     phaseRef.current = result;
     setPhase(result);
@@ -218,7 +189,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     } else {
       addLine("You retreat safely.", Colors.game.red);
     }
-    setTimeout(() => closeModal(result === "victory"), 1100);
+    setTimeout(() => closeModal(result === "victory"), 900);
   }
 
   function closeModal(victory: boolean) {
@@ -257,15 +228,14 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
         phaseRef.current = "fighting";
         setPhase("fighting");
         addLine("Battle started!", Colors.game.gold);
-        scheduleNextTurn();
+        resolveTurns();
       });
     }
-    return () => { clearPending(); stopPulse(); };
+    return () => { stopPulse(); };
   }, [visible]);
 
   const handleAttack = useCallback(() => {
     if (phaseRef.current !== "player_turn") return;
-    clearPending();
     stopPulse();
     phaseRef.current = "fighting";
     setPhase("fighting");
@@ -274,7 +244,6 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
 
   const handleFlee = useCallback(() => {
     if (phaseRef.current !== "fighting" && phaseRef.current !== "player_turn") return;
-    clearPending();
     stopPulse();
     phaseRef.current = "fled";
     setPhase("fled");
