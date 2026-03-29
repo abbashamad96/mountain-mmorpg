@@ -96,14 +96,6 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
     <View style={logStackStyles.row}>
       {/* Left icon */}
       <View style={logStackStyles.iconWrap}>
-        {entry.type === "gold_xp" && entry.goldGained > 0 && (
-          <View style={logStackStyles.gCoin}>
-            <Text style={logStackStyles.gCoinTxt}>G</Text>
-          </View>
-        )}
-        {entry.type === "gold_xp" && entry.goldGained === 0 && (
-          <Text style={logStackStyles.xpStar}>✦</Text>
-        )}
         {entry.type === "gather" && (
           <Text style={logStackStyles.emoji}>📦</Text>
         )}
