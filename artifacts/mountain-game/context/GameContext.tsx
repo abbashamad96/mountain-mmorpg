@@ -389,6 +389,7 @@ const GameContext = createContext<GameContextType | null>(null);
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [gameState, setGameState] = useState<GameState>(defaultGameState);
   const stateRef = useRef(gameState);
+  const didLoadRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = gameState;
@@ -396,6 +397,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+      didLoadRef.current = true;
       if (!raw) return;
       try {
         const saved = JSON.parse(raw) as GameState;
@@ -406,11 +408,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           materials: saved.character?.materials ?? [],
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
-      } catch {}
+      } catch {
+        // Corrupt data — still mark as loaded so saves proceed
+      }
     });
   }, []);
 
   useEffect(() => {
+    if (!didLoadRef.current) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
   }, [gameState]);
 
@@ -477,6 +482,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       stats: { ...defaultCharacter.stats, ...saved.character?.stats },
       materials: saved.character?.materials ?? [],
     };
+    didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
   }, []);
 
