@@ -361,13 +361,49 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             </View>
           </View>
 
-          {/* Quick stats */}
-          <View style={styles.statsRow}>
-            <Text style={styles.chip}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)}</Text>
-            <Text style={styles.chip}>🛡 {blockPct.toFixed(1)}%</Text>
-            <Text style={styles.chip}>⚡ {playerStats.speed} spd</Text>
-            <Text style={[styles.chip, { color: rarityColor }]}>👾 {npc.spd} spd</Text>
-          </View>
+          {/* Speed & turn breakdown */}
+          {(() => {
+            const pSpd = Math.max(1, playerStats.speed);
+            const nSpd = Math.max(1, npc.spd);
+            const pCost = Math.round(TRACK / pSpd);
+            const nCost = Math.round(TRACK / nSpd);
+            const pSec  = ((TRACK / pSpd) * UNIT_MS / 1000).toFixed(2);
+            const nSec  = ((TRACK / nSpd) * UNIT_MS / 1000).toFixed(2);
+            return (
+              <View style={styles.calcCard}>
+                {/* Column headers */}
+                <View style={styles.calcHeader}>
+                  <Text style={styles.calcHeaderTxt}>YOU</Text>
+                  <Text style={styles.calcHeaderSep} />
+                  <Text style={[styles.calcHeaderTxt, { color: rarityColor }]}>ENEMY</Text>
+                </View>
+                {/* Speed */}
+                <View style={styles.calcRow}>
+                  <Text style={styles.calcVal}>⚡ {pSpd} spd</Text>
+                  <Text style={styles.calcKey}>SPEED</Text>
+                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} spd</Text>
+                </View>
+                {/* Action cost */}
+                <View style={styles.calcRow}>
+                  <Text style={styles.calcVal}>{pCost.toLocaleString()} tks</Text>
+                  <Text style={styles.calcKey}>COST</Text>
+                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nCost.toLocaleString()} tks</Text>
+                </View>
+                {/* Turn time */}
+                <View style={styles.calcRow}>
+                  <Text style={styles.calcVal}>{pSec}s / turn</Text>
+                  <Text style={styles.calcKey}>TIME</Text>
+                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nSec}s / turn</Text>
+                </View>
+                {/* Damage / block */}
+                <View style={styles.calcRow}>
+                  <Text style={styles.calcVal}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)} dmg</Text>
+                  <Text style={styles.calcKey} />
+                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>🛡 {blockPct.toFixed(1)}% blk</Text>
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Log */}
           <ScrollView ref={logRef} style={styles.log} showsVerticalScrollIndicator={false}>
@@ -462,8 +498,17 @@ const styles = StyleSheet.create({
   },
   barFill: { height: "100%", borderRadius: 4 },
 
-  statsRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
-  chip: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
+  calcCard: {
+    backgroundColor: Colors.game.surface,
+    borderRadius: 10, padding: 10, gap: 6,
+    borderWidth: 1, borderColor: Colors.game.border,
+  },
+  calcHeader: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
+  calcHeaderTxt: { flex: 1, fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
+  calcHeaderSep: { width: 50 },
+  calcRow: { flexDirection: "row", alignItems: "center" },
+  calcKey: { width: 50, fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, textAlign: "center", letterSpacing: 1 },
+  calcVal: { flex: 1, fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
 
   log: { maxHeight: 80, backgroundColor: Colors.game.surface, borderRadius: 10, padding: 10 },
   logEmpty: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted, fontStyle: "italic", textAlign: "center" },
