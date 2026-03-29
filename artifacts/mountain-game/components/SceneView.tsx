@@ -3,15 +3,16 @@ import {
   Animated,
   Image,
   ImageSourcePropType,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { SceneType } from "@/context/GameContext";
+import { LogEntry, SceneType } from "@/context/GameContext";
 
-// ── Full background image pool (30 images) ────────────────────────────────────
+// ── Full background image pool ────────────────────────────────────────────────
 const BG_IMAGES: ImageSourcePropType[] = [
   require("@/assets/images/road_default.png"),
   require("@/assets/images/road_storm.png"),
@@ -47,7 +48,6 @@ const BG_IMAGES: ImageSourcePropType[] = [
 
 export const BG_IMAGES_COUNT = BG_IMAGES.length;
 
-// ── Scene overlay tints (for mood/gameplay feedback) ─────────────────────────
 const SCENE_TINT: Record<SceneType, string> = {
   default: "transparent",
   storm: "rgba(30,60,140,0.3)",
@@ -92,18 +92,16 @@ interface SceneViewProps {
   artIndex: number;
   onPress: () => void;
   disabled: boolean;
-  isAnimating: boolean;
+  recentLogs: LogEntry[];
 }
 
-export function SceneView({ scene, artIndex, onPress, disabled, isAnimating }: SceneViewProps) {
+export function SceneView({ scene, artIndex, onPress, disabled, recentLogs }: SceneViewProps) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
+  const dimAnim  = useRef(new Animated.Value(0)).current;
+  const dimRef   = useRef<Animated.CompositeAnimation | null>(null);
   const prevArtIndex = useRef(artIndex);
-  const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Fade transition when the background image changes
+  // Crossfade when the background image cycles
   useEffect(() => {
     if (prevArtIndex.current !== artIndex) {
       prevArtIndex.current = artIndex;
@@ -114,72 +112,58 @@ export function SceneView({ scene, artIndex, onPress, disabled, isAnimating }: S
     }
   }, [artIndex]);
 
-  useEffect(() => {
-    if (isAnimating) {
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(shakeAnim, { toValue: 9, duration: 55, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -9, duration: 55, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 6, duration: 55, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -4, duration: 55, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 0, duration: 55, useNativeDriver: true }),
-        ]),
-        Animated.sequence([
-          Animated.timing(glowAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0.2, duration: 120, useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0.8, duration: 120, useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
-        ]),
-      ]).start();
-    }
-  }, [isAnimating]);
+  const handlePress = () => {
+    if (disabled) return;
+    dimRef.current?.stop();
+    dimAnim.setValue(0.28);
+    dimRef.current = Animated.timing(dimAnim, {
+      toValue: 0,
+      duration: 1400,
+      useNativeDriver: true,
+    });
+    dimRef.current.start();
+    onPress();
+  };
 
-  useEffect(() => {
-    pulseLoop.current?.stop();
-    if (!disabled) {
-      pulseLoop.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.04, duration: 1100, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
-        ])
-      );
-      pulseLoop.current.start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-    return () => pulseLoop.current?.stop();
-  }, [disabled]);
-
-  const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] });
   const bgImage = BG_IMAGES[artIndex % BG_IMAGES_COUNT];
 
   return (
     <View style={styles.wrapper}>
-      <Animated.View
-        style={[
-          styles.sceneContainer,
-          { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] },
-        ]}
-      >
+      <Animated.View style={[styles.sceneContainer, { opacity: fadeAnim }]}>
         <Pressable
-          onPress={onPress}
+          onPress={handlePress}
           disabled={disabled}
-          style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+          style={styles.pressable}
           testID="scene-press-button"
         >
           <Image source={bgImage} style={styles.img} resizeMode="cover" />
 
-          {/* Scene color tint for mood/event feedback */}
+          {/* Mood tint */}
           {SCENE_TINT[scene] !== "transparent" && (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: SCENE_TINT[scene] }]} />
           )}
 
-          {/* Gold press glow */}
+          {/* Press dim — fades out slowly */}
           <Animated.View
-            style={[StyleSheet.absoluteFill, styles.glowOverlay, { opacity: glowOpacity }]}
+            style={[StyleSheet.absoluteFill, styles.dimOverlay, { opacity: dimAnim }]}
           />
 
-          {/* Bottom label */}
+          {/* Recent event log — top of image */}
+          {recentLogs.length > 0 && (
+            <View style={styles.logOverlay}>
+              {recentLogs.map((entry, i) => (
+                <Text
+                  key={entry.id}
+                  style={[styles.logLine, { opacity: i === 0 ? 0.95 : i === 1 ? 0.6 : 0.35 }]}
+                  numberOfLines={1}
+                >
+                  {entry.summary}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {/* Bottom scene label */}
           <View style={styles.labelArea}>
             <View style={styles.labelBadge}>
               <Text style={styles.labelText}>{SCENE_LABELS[scene]}</Text>
@@ -187,14 +171,12 @@ export function SceneView({ scene, artIndex, onPress, disabled, isAnimating }: S
             <Text style={styles.subtitleText}>{SCENE_SUBTITLES[scene]}</Text>
           </View>
 
-          {/* Ready indicator */}
-          {!disabled && (
-            <Animated.View style={[styles.tapBtn, { transform: [{ scale: pulseAnim }] }]}>
+          {/* Fixed tap / cooldown badge */}
+          {!disabled ? (
+            <View style={styles.tapBtn}>
               <Text style={styles.tapText}>TAP TO EXPLORE</Text>
-            </Animated.View>
-          )}
-
-          {disabled && (
+            </View>
+          ) : (
             <View style={styles.cooldownBadge}>
               <Text style={styles.cooldownText}>EXPLORING...</Text>
             </View>
@@ -204,6 +186,9 @@ export function SceneView({ scene, artIndex, onPress, disabled, isAnimating }: S
     </View>
   );
 }
+
+const IMG_HEIGHT = Platform.OS === "web" ? 200 : undefined;
+const IMG_ASPECT = Platform.OS === "web" ? undefined : (16 / 9 as any);
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -215,13 +200,33 @@ const styles = StyleSheet.create({
   sceneContainer: { width: "100%" },
   pressable: {
     width: "100%",
-    aspectRatio: 16 / 9,
+    height: IMG_HEIGHT,
+    aspectRatio: IMG_ASPECT,
     position: "relative",
     overflow: "hidden",
   },
-  pressed: { opacity: 0.88 },
-  img: { width: "100%", height: "100%" },
-  glowOverlay: { backgroundColor: Colors.game.gold },
+  img: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
+  dimOverlay: { backgroundColor: "#000" },
+  logOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 6,
+    gap: 3,
+    backgroundColor: "rgba(8,6,16,0.55)",
+  },
+  logLine: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.text,
+    letterSpacing: 0.2,
+  },
   labelArea: {
     position: "absolute",
     bottom: 0, left: 0, right: 0,

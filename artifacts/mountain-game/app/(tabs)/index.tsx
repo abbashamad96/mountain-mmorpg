@@ -82,7 +82,6 @@ export default function GameScreen() {
   } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [cooldownDuration, setCooldownDuration] = useState(2500);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -179,7 +178,6 @@ export default function GameScreen() {
     const duration = Math.floor(2500 + Math.random() * 1500);
     setCooldownDuration(duration);
     setIsInteracting(true);
-    setIsAnimating(true);
 
     const roll = rollEvent(char);
     setScene(roll.sceneType);
@@ -191,8 +189,6 @@ export default function GameScreen() {
       artThresholdRef.current = Math.floor(10 + Math.random() * 11);
       setArtIndex((prev) => prev + 1);
     }
-
-    setTimeout(() => setIsAnimating(false), 500);
 
     if (roll.type === "gold_xp") {
       const result = applyGoldXp(roll.goldGained, roll.xpGained);
@@ -383,7 +379,7 @@ export default function GameScreen() {
           artIndex={artIndex}
           onPress={handleScenePress}
           disabled={isInteracting}
-          isAnimating={isAnimating}
+          recentLogs={gameState.eventLog.slice(-3).reverse()}
         />
         <TimerBar isActive={isInteracting} duration={cooldownDuration} />
       </View>

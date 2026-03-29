@@ -342,9 +342,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
               <Text style={[styles.calcHeaderTxt, { color: rarityColor, textAlign: "right" }]}>ENEMY</Text>
             </View>
             <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>⚡ {pSpd} spd</Text>
+              <Text style={styles.calcVal}>⚡ {Math.round(pSpd)} spd</Text>
               <Text style={styles.calcKey}>SPEED</Text>
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} spd</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {Math.round(nSpd)} spd</Text>
             </View>
             <View style={styles.calcRow}>
               <Text style={[styles.calcVal, { flex: 3, textAlign: "center", color: Colors.game.textMuted }]}>{ratioTxt}</Text>
