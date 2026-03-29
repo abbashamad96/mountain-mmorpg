@@ -14,6 +14,7 @@ import Colors from "@/constants/colors";
 import { CharacterStats, NpcBattleStats, RARITY_COLORS, RarityName } from "@/context/GameContext";
 import { RarityText } from "./RarityText";
 
+// ─── NPC images ───────────────────────────────────────────────────────────────
 const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
   Common:    require("@/assets/images/npcs/npc_common.png"),
   Uncommon:  require("@/assets/images/npcs/npc_uncommon.png"),
@@ -25,15 +26,17 @@ const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
   Cosmic:    require("@/assets/images/npcs/npc_cosmic.png"),
 };
 
-// ─── Race-track constants ─────────────────────────────────────────────────────
-// Track is 15 000 units long. Each speed point = 1 unit/tick.
-// At speed=1 a full track takes BASE_TURN_MS real milliseconds.
+// ─── Turn formula ─────────────────────────────────────────────────────────────
+// Action cost (ticks) = 15000 / (100 + 0.1 × speed)
+// 1 tick = TICK_MS real milliseconds
 const TRACK = 15000;
-const BASE_TURN_MS = 2000; // speed=1 → 2 s per full lap
-const UNIT_MS = BASE_TURN_MS / TRACK; // ~0.1333 ms per track unit
+const TICK_MS = 10; // ms per virtual tick
 
-function lapMs(remainingUnits: number, speed: number): number {
-  return Math.max(60, (remainingUnits / Math.max(1, speed)) * UNIT_MS);
+function actionCostTicks(speed: number): number {
+  return TRACK / (100 + 0.1 * Math.max(0, speed));
+}
+function turnMs(speed: number): number {
+  return actionCostTicks(speed) * TICK_MS;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -46,40 +49,38 @@ interface BattleModalProps {
 }
 
 type BattlePhase = "intro" | "fighting" | "player_turn" | "victory" | "defeat" | "fled";
-
 interface LogLine { id: number; text: string; color: string }
 let lineId = 0;
 
-function calcBlock(def: number): number { return def / (def + 15000) * 100; }
-function rolled(base: number): number {
-  return Math.max(1, Math.round(base * (0.9 + Math.random() * 0.2)));
-}
+function calcBlock(def: number) { return def / (def + 15000) * 100; }
+function rolled(base: number)   { return Math.max(1, Math.round(base * (0.9 + Math.random() * 0.2))); }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete }: BattleModalProps) {
-  const [phase, setPhase] = useState<BattlePhase>("intro");
+  const [phase, setPhase]       = useState<BattlePhase>("intro");
   const [playerHp, setPlayerHp] = useState(0);
-  const [npcHp, setNpcHp] = useState(0);
-  const [log, setLog] = useState<LogLine[]>([]);
+  const [npcHp, setNpcHp]       = useState(0);
+  const [log, setLog]           = useState<LogLine[]>([]);
+  // Instant bar: just a number 0-100, set immediately on each event — no animation
+  const [barPct, setBarPct]     = useState(0);
 
-  // Internal combat state (refs = no re-render cost)
-  const playerHpRef  = useRef(0);
-  const npcHpRef     = useRef(0);
-  const playerAP     = useRef(0); // 0–TRACK
-  const npcAP        = useRef(0); // 0–TRACK
-  const phaseRef     = useRef<BattlePhase>("intro");
-  const npcRef       = useRef(npc);
+  // Refs for combat state (no re-render cost)
+  const playerHpRef = useRef(0);
+  const npcHpRef    = useRef(0);
+  const playerAP    = useRef(0); // current position on the 0–TRACK race
+  const npcAP       = useRef(0);
+  const phaseRef    = useRef<BattlePhase>("intro");
+  const npcRef      = useRef(npc);
   npcRef.current = npc;
 
-  // Scheduling
+  // Single pending timeout handle
   const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Animations
+  // Animations (entry/exit + hit shakes only — not the bar)
   const fadeAnim    = useRef(new Animated.Value(0)).current;
   const scaleAnim   = useRef(new Animated.Value(0.85)).current;
   const npcShake    = useRef(new Animated.Value(0)).current;
   const playerShake = useRef(new Animated.Value(0)).current;
-  const barAnim     = useRef(new Animated.Value(0)).current; // 0-100 player track %
   const pulseAnim   = useRef(new Animated.Value(1)).current;
   const pulseLoop   = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -92,7 +93,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
 
   function addLine(text: string, color: string) {
     setLog(prev => [...prev, { id: lineId++, text, color }].slice(-20));
-    setTimeout(() => logRef.current?.scrollToEnd({ animated: false }), 40);
+    setTimeout(() => logRef.current?.scrollToEnd({ animated: false }), 30);
   }
 
   function shake(anim: Animated.Value) {
@@ -106,104 +107,92 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   function startPulse() {
     pulseLoop.current?.stop();
     pulseLoop.current = Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.07, duration: 440, useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 0.96, duration: 440, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.06, duration: 420, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 0.96, duration: 420, useNativeDriver: true }),
     ]));
     pulseLoop.current.start();
   }
-
   function stopPulse() { pulseLoop.current?.stop(); pulseAnim.setValue(1); }
 
-  // Smoothly animate the yellow bar to targetPct over durationMs
-  function animateBar(targetPct: number, durationMs: number) {
-    Animated.timing(barAnim, {
-      toValue: Math.min(100, Math.max(0, targetPct)),
-      duration: Math.max(60, durationMs),
-      useNativeDriver: false,
-    }).start();
-  }
-
-  // ── Core turn scheduler ───────────────────────────────────────────────────
-  // Called after every action to determine what happens next.
-  // All game logic is calculated here synchronously; only the visual delay
-  // (setTimeout + Animated.timing) is asynchronous.
+  // ── Core scheduler ───────────────────────────────────────────────────────
+  // Everything is calculated synchronously here.
+  // Only real-time delay = one setTimeout per event. Zero ongoing traffic.
   function scheduleNextTurn() {
     if (phaseRef.current !== "fighting") return;
-    const npc = npcRef.current;
-    if (!npc) return;
+    const n = npcRef.current;
+    if (!n) return;
 
-    const pSpeed = Math.max(1, playerStats.speed);
-    const nSpeed = Math.max(1, npc.spd);
+    const pSpd = Math.max(0, playerStats.speed);
+    const nSpd = Math.max(0, n.spd);
 
-    // Units remaining until each crosses the finish line
-    const pRemaining = TRACK - playerAP.current;
-    const nRemaining = TRACK - npcAP.current;
+    // Ticks until each reaches the finish line from their current position
+    const pCostFull = actionCostTicks(pSpd);   // ticks for a full lap
+    const nCostFull = actionCostTicks(nSpd);
 
-    // "Ticks" (virtual) until each finishes their lap
-    const pTicks = pRemaining / pSpeed;
-    const nTicks = nRemaining / nSpeed;
+    // Ticks remaining = fraction of lap left × full cost
+    const pTicksLeft = ((TRACK - playerAP.current) / TRACK) * pCostFull;
+    const nTicksLeft = ((TRACK - npcAP.current)    / TRACK) * nCostFull;
 
-    // Real ms for each
-    const pMs = Math.max(60, pTicks * UNIT_MS);
-    const nMs = Math.max(60, nTicks * UNIT_MS);
+    if (pTicksLeft <= nTicksLeft) {
+      // Player acts next
+      // Advance NPC's position during those ticks (won't cross — guaranteed by ≤)
+      const npcAdvanceFrac = nTicksLeft === 0 ? 0 : pTicksLeft / nCostFull;
+      npcAP.current = Math.min(TRACK - 1, npcAP.current + Math.floor(npcAdvanceFrac * TRACK));
 
-    if (pTicks <= nTicks) {
-      // ── Player's turn next ────────────────────────────────────────────────
-      // During pTicks, NPC advances: pTicks × nSpeed — guaranteed < TRACK
-      npcAP.current = Math.min(TRACK - 1, npcAP.current + Math.floor(pTicks * nSpeed));
+      const delayMs = Math.max(60, pTicksLeft * TICK_MS);
+      // Bar snaps to 100 now so the player can see their turn is imminent
+      setBarPct(99); // show near-full immediately; jumps to 100 when phase flips
 
-      animateBar(100, pMs);
       pendingRef.current = setTimeout(() => {
         if (phaseRef.current !== "fighting") return;
         playerAP.current = TRACK;
+        setBarPct(100);
         phaseRef.current = "player_turn";
         setPhase("player_turn");
         startPulse();
-      }, pMs);
+      }, delayMs);
 
     } else {
-      // ── NPC's turn next ───────────────────────────────────────────────────
-      // During nTicks, player advances: nTicks × pSpeed — guaranteed < TRACK
-      const newPlayerAP = Math.min(TRACK - 1, playerAP.current + Math.floor(nTicks * pSpeed));
+      // NPC acts next — instantly advance player bar to their new position
+      const playerAdvanceFrac = pCostFull === 0 ? 0 : nTicksLeft / pCostFull;
+      const newPlayerAP = Math.min(TRACK - 1, playerAP.current + Math.floor(playerAdvanceFrac * TRACK));
       playerAP.current = newPlayerAP;
-      const newBarPct = (newPlayerAP / TRACK) * 100;
+      // Snap bar to new position immediately — no animation
+      setBarPct(Math.round((newPlayerAP / TRACK) * 100));
 
-      animateBar(newBarPct, nMs);
+      const delayMs = Math.max(60, nTicksLeft * TICK_MS);
       pendingRef.current = setTimeout(() => {
         if (phaseRef.current !== "fighting") return;
         npcAP.current = 0;
         doNpcAttack();
-      }, nMs);
+      }, delayMs);
     }
   }
 
   function doNpcAttack() {
-    const npc = npcRef.current;
-    if (!npc || phaseRef.current !== "fighting") return;
+    const n = npcRef.current;
+    if (!n || phaseRef.current !== "fighting") return;
 
-    const dmgRaw = rolled(npc.atk);
+    const dmg = rolled(n.atk);
     const blocked = Math.random() * 100 < calcBlock(playerStats.defence);
-    const dmg = blocked ? 0 : dmgRaw;
-    const newHp = Math.max(0, playerHpRef.current - dmg);
+    const finalDmg = blocked ? 0 : dmg;
+    const newHp = Math.max(0, playerHpRef.current - finalDmg);
     playerHpRef.current = newHp;
     setPlayerHp(newHp);
     shake(playerShake);
 
-    addLine(blocked
-      ? `${npc.name} attacks — BLOCKED!`
-      : `${npc.name} hits you for ${dmg}!`,
-      blocked ? Colors.game.blue : Colors.game.red);
+    addLine(
+      blocked ? `${n.name} attacks — BLOCKED!` : `${n.name} hits you for ${finalDmg}!`,
+      blocked ? Colors.game.blue : Colors.game.red,
+    );
 
-    if (newHp <= 0) {
-      endBattle("defeat");
-      return;
-    }
+    if (newHp <= 0) { endBattle("defeat"); return; }
     scheduleNextTurn();
   }
 
   function doPlayerAttack() {
-    const npc = npcRef.current;
-    if (!npc) return;
+    const n = npcRef.current;
+    if (!n) return;
 
     const dmg = rolled(playerStats.strength);
     const newHp = Math.max(0, npcHpRef.current - dmg);
@@ -212,11 +201,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     shake(npcShake);
     addLine(`You strike for ${dmg}!`, Colors.game.gold);
 
-    if (newHp <= 0) {
-      endBattle("victory");
-      return;
-    }
+    if (newHp <= 0) { endBattle("victory"); return; }
     playerAP.current = 0;
+    setBarPct(0);
     scheduleNextTurn();
   }
 
@@ -225,21 +212,19 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     stopPulse();
     phaseRef.current = result;
     setPhase(result);
-    barAnim.stopAnimation();
-
-    const npc = npcRef.current;
-    if (result === "victory" && npc) {
-      addLine(`${npc.name} defeated! +${npc.goldReward}g  ✦+${npc.xpReward} XP`, Colors.game.green);
+    const n = npcRef.current;
+    if (result === "victory" && n) {
+      addLine(`${n.name} defeated! +${n.goldReward}g  ✦+${n.xpReward} XP`, Colors.game.green);
     } else {
       addLine("You retreat safely.", Colors.game.red);
     }
-    setTimeout(() => closeModal(result === "victory"), 1200);
+    setTimeout(() => closeModal(result === "victory"), 1100);
   }
 
   function closeModal(victory: boolean) {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 0.88, duration: 240, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 0.88, duration: 220, useNativeDriver: true }),
     ]).start(() => {
       const n = npcRef.current;
       onComplete(victory, victory && n ? n.goldReward : 0, victory && n ? n.xpReward : 0);
@@ -261,12 +246,12 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
       setPlayerHp(maxHp);
       setNpcHp(npc.hp);
       setLog([]);
-      barAnim.setValue(0);
+      setBarPct(0);
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.85);
 
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
         Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 90, friction: 8 }),
       ]).start(() => {
         phaseRef.current = "fighting";
@@ -275,13 +260,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
         scheduleNextTurn();
       });
     }
-    return () => {
-      clearPending();
-      stopPulse();
-    };
+    return () => { clearPending(); stopPulse(); };
   }, [visible]);
 
-  // ── Player action handlers ────────────────────────────────────────────────
   const handleAttack = useCallback(() => {
     if (phaseRef.current !== "player_turn") return;
     clearPending();
@@ -297,21 +278,28 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     stopPulse();
     phaseRef.current = "fled";
     setPhase("fled");
-    barAnim.stopAnimation();
     addLine("You flee from battle!", Colors.game.textMuted);
-    setTimeout(() => closeModal(false), 700);
+    setTimeout(() => closeModal(false), 600);
   }, []);
 
-  // ── Derived display values ────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────
   if (!npc) return null;
 
-  const maxHp = Math.max(1, Math.floor(playerStats.health));
-  const pHpPct = Math.max(0, (playerHp / maxHp) * 100);
-  const nHpPct = Math.max(0, (npcHp / npc.maxHp) * 100);
+  const maxHp       = Math.max(1, Math.floor(playerStats.health));
+  const pHpPct      = Math.max(0, (playerHp / maxHp) * 100);
+  const nHpPct      = Math.max(0, (npcHp / npc.maxHp) * 100);
   const rarityColor = RARITY_COLORS[npc.rarity];
   const isPlayerTurn = phase === "player_turn";
-  const isFighting = phase === "fighting" || phase === "player_turn";
-  const blockPct = calcBlock(playerStats.defence);
+  const isFighting   = phase === "fighting" || phase === "player_turn";
+  const blockPct     = calcBlock(playerStats.defence);
+
+  // Derived turn calculations (shown in card)
+  const pSpd     = Math.max(0, playerStats.speed);
+  const nSpd     = Math.max(0, npc.spd);
+  const pCost    = actionCostTicks(pSpd);
+  const nCost    = actionCostTicks(nSpd);
+  const pTurnSec = (pCost * TICK_MS / 1000).toFixed(2);
+  const nTurnSec = (nCost * TICK_MS / 1000).toFixed(2);
 
   return (
     <Modal transparent visible={visible} animationType="none">
@@ -348,64 +336,49 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             <Text style={styles.hpNum}>{playerHp}/{maxHp}</Text>
           </Animated.View>
 
-          {/* Yellow turn bar */}
+          {/* Instant turn bar — no animation, plain View width */}
           <View style={styles.barRow}>
             <Text style={[styles.barLabel, isPlayerTurn && styles.barLabelReady]}>
               {isPlayerTurn ? "YOUR TURN" : "NEXT TURN"}
             </Text>
             <View style={styles.barTrack}>
-              <Animated.View style={[styles.barFill, {
-                width: barAnim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }),
+              <View style={[styles.barFill, {
+                width: `${barPct}%` as any,
                 backgroundColor: isPlayerTurn ? Colors.game.gold : "#5a4a08",
               }]} />
             </View>
           </View>
 
-          {/* Speed & turn breakdown */}
-          {(() => {
-            const pSpd = Math.max(1, playerStats.speed);
-            const nSpd = Math.max(1, npc.spd);
-            const pCost = Math.round(TRACK / pSpd);
-            const nCost = Math.round(TRACK / nSpd);
-            const pSec  = ((TRACK / pSpd) * UNIT_MS / 1000).toFixed(2);
-            const nSec  = ((TRACK / nSpd) * UNIT_MS / 1000).toFixed(2);
-            return (
-              <View style={styles.calcCard}>
-                {/* Column headers */}
-                <View style={styles.calcHeader}>
-                  <Text style={styles.calcHeaderTxt}>YOU</Text>
-                  <Text style={styles.calcHeaderSep} />
-                  <Text style={[styles.calcHeaderTxt, { color: rarityColor }]}>ENEMY</Text>
-                </View>
-                {/* Speed */}
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcVal}>⚡ {pSpd} spd</Text>
-                  <Text style={styles.calcKey}>SPEED</Text>
-                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} spd</Text>
-                </View>
-                {/* Action cost */}
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcVal}>{pCost.toLocaleString()} tks</Text>
-                  <Text style={styles.calcKey}>COST</Text>
-                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nCost.toLocaleString()} tks</Text>
-                </View>
-                {/* Turn time */}
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcVal}>{pSec}s / turn</Text>
-                  <Text style={styles.calcKey}>TIME</Text>
-                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nSec}s / turn</Text>
-                </View>
-                {/* Damage / block */}
-                <View style={styles.calcRow}>
-                  <Text style={styles.calcVal}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)} dmg</Text>
-                  <Text style={styles.calcKey} />
-                  <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>🛡 {blockPct.toFixed(1)}% blk</Text>
-                </View>
-              </View>
-            );
-          })()}
+          {/* Turn calculations card */}
+          <View style={styles.calcCard}>
+            <View style={styles.calcHeader}>
+              <Text style={styles.calcHeaderTxt}>YOU</Text>
+              <Text style={styles.calcSpacer} />
+              <Text style={[styles.calcHeaderTxt, { color: rarityColor, textAlign: "right" }]}>ENEMY</Text>
+            </View>
+            <View style={styles.calcRow}>
+              <Text style={styles.calcVal}>⚡ {pSpd} pts</Text>
+              <Text style={styles.calcKey}>SPEED</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {nSpd} pts</Text>
+            </View>
+            <View style={styles.calcRow}>
+              <Text style={styles.calcVal}>{Math.round(pCost)} tks</Text>
+              <Text style={styles.calcKey}>COST</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{Math.round(nCost)} tks</Text>
+            </View>
+            <View style={styles.calcRow}>
+              <Text style={styles.calcVal}>{pTurnSec}s / turn</Text>
+              <Text style={styles.calcKey}>TIME</Text>
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>{nTurnSec}s / turn</Text>
+            </View>
+            <View style={styles.calcRow}>
+              <Text style={styles.calcVal}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)}</Text>
+              <Text style={styles.calcKey} />
+              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>🛡 {blockPct.toFixed(1)}% blk</Text>
+            </View>
+          </View>
 
-          {/* Log */}
+          {/* Battle log */}
           <ScrollView ref={logRef} style={styles.log} showsVerticalScrollIndicator={false}>
             {log.length === 0 && <Text style={styles.logEmpty}>The battle begins...</Text>}
             {log.map(l => (
@@ -487,30 +460,32 @@ const styles = StyleSheet.create({
   hpFill: { height: "100%", borderRadius: 4 },
   hpNum: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim, width: 55, textAlign: "right" },
 
+  // ── Turn bar — instant, no animation ─────────────────────────────────────
   barRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  barLabel: { fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 1.5, width: 56 },
+  barLabel: { fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 1, width: 58 },
   barLabelReady: { color: Colors.game.gold },
   barTrack: {
     flex: 1, height: 8,
-    backgroundColor: "rgba(80,60,0,0.25)",
+    backgroundColor: "rgba(80,60,0,0.2)",
     borderRadius: 4, overflow: "hidden",
-    borderWidth: 1, borderColor: "rgba(80,60,0,0.35)",
+    borderWidth: 1, borderColor: "rgba(80,60,0,0.3)",
   },
   barFill: { height: "100%", borderRadius: 4 },
 
+  // ── Calc card ─────────────────────────────────────────────────────────────
   calcCard: {
     backgroundColor: Colors.game.surface,
-    borderRadius: 10, padding: 10, gap: 6,
+    borderRadius: 10, padding: 10, gap: 5,
     borderWidth: 1, borderColor: Colors.game.border,
   },
-  calcHeader: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
+  calcHeader: { flexDirection: "row", alignItems: "center" },
   calcHeaderTxt: { flex: 1, fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
-  calcHeaderSep: { width: 50 },
+  calcSpacer: { width: 50 },
   calcRow: { flexDirection: "row", alignItems: "center" },
   calcKey: { width: 50, fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, textAlign: "center", letterSpacing: 1 },
   calcVal: { flex: 1, fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
 
-  log: { maxHeight: 80, backgroundColor: Colors.game.surface, borderRadius: 10, padding: 10 },
+  log: { maxHeight: 72, backgroundColor: Colors.game.surface, borderRadius: 10, padding: 10 },
   logEmpty: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted, fontStyle: "italic", textAlign: "center" },
   logLine: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 2, lineHeight: 18 },
 
@@ -527,8 +502,8 @@ const styles = StyleSheet.create({
 
   resultRow: { alignItems: "center", gap: 6 },
   victoryTxt: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.game.gold, letterSpacing: 4 },
-  defeatTxt: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.game.red, letterSpacing: 4 },
+  defeatTxt:  { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.game.red,  letterSpacing: 4 },
   rewardRow: { flexDirection: "row", gap: 16 },
   goldTxt: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.gold },
-  xpTxt: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.purpleLight },
+  xpTxt:   { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.purpleLight },
 });
