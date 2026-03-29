@@ -157,6 +157,8 @@ const NPC_NAMES: Record<RarityName, string[]> = {
 };
 
 // HP scales with player level: starts at 3, grows per rarity multiplier per level
+// All combat stats are 40% weaker; rewards are unchanged.
+const MONSTER_WEAKNESS = 0.6; // 40% weaker
 const NPC_HP_MULT = [2, 4, 8, 16, 28, 45, 70, 120];
 const NPC_BASE_ATK = [1, 2, 4, 8, 14, 22, 35, 55];
 const NPC_BASE_DEF = [0, 0, 1, 2, 4, 7, 12, 20];
@@ -173,14 +175,34 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
   const level = Math.max(1, playerLevel);
   const names = NPC_NAMES[rarity];
   const name = names[Math.floor(Math.random() * names.length)];
-  const maxHp = Math.max(3, Math.floor((3 + level * NPC_HP_MULT[idx]) * (0.85 + Math.random() * 0.3) * vm));
-  const atk = Math.max(1, Math.floor((NPC_BASE_ATK[idx] + level * 0.5 * (idx + 1)) * (0.85 + Math.random() * 0.3) * vm));
-  const def = Math.floor((NPC_BASE_DEF[idx] + level * 0.15 * idx) * vm);
+  const maxHp = Math.max(2, Math.floor((3 + level * NPC_HP_MULT[idx]) * (0.85 + Math.random() * 0.3) * vm * MONSTER_WEAKNESS));
+  const atk = Math.max(1, Math.floor((NPC_BASE_ATK[idx] + level * 0.5 * (idx + 1)) * (0.85 + Math.random() * 0.3) * vm * MONSTER_WEAKNESS));
+  const def = Math.floor((NPC_BASE_DEF[idx] + level * 0.15 * idx) * vm * MONSTER_WEAKNESS);
   const spd = Math.max(1, Math.floor((NPC_BASE_SPD[idx] + level * 0.3) * (0.9 + Math.random() * 0.2) * vm));
   const goldReward = Math.floor((NPC_GOLD_BASE[idx] + Math.random() * NPC_GOLD_RANGE[idx]) * vm * Math.max(1, level * 0.1));
   const xpPct = NPC_XP_PCT[idx] * (0.8 + Math.random() * 0.4) * vm;
   const xpReward = Math.max(1, Math.floor((xpToNextVal * xpPct) / 100));
   return { rarity, version, name, hp: maxHp, maxHp, atk, def, spd, goldReward, xpReward };
+}
+
+// ─── Battle Material Drop ─────────────────────────────────────────────────────
+
+const MATERIAL_TYPES_DROP: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
+
+/** Roll a material drop from a defeated NPC. Returns null if no drop this time. */
+export function rollNpcDrop(npc: NpcBattleStats): Material | null {
+  // T3 monsters have 50% drop; others 40%
+  const baseChance = npc.version === 3 ? 50 : 40;
+  if (Math.random() * 100 >= baseChance) return null;
+
+  const type = MATERIAL_TYPES_DROP[Math.floor(Math.random() * MATERIAL_TYPES_DROP.length)];
+  const rarity = npc.rarity;
+
+  // +2% chance per tier step above current version to get a higher tier
+  let version = npc.version as VersionNum;
+  if (version < 3 && Math.random() * 100 < 2) version = (version + 1) as VersionNum;
+
+  return { type, rarity, version };
 }
 
 // ─── Material Helpers ────────────────────────────────────────────────────────
@@ -226,6 +248,7 @@ export function applyXpGold(
     newXpToNext = calcXpToNext(newLevel);
     if (newLevel % 2 === 0) newPending++;
     newStats.health += 1;
+    newStats.strength += 0.25;
   }
 
   return {
@@ -409,7 +432,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState((prev) => {
       if (prev.character.pendingStatPoints <= 0) return prev;
       const newStats = { ...prev.character.stats };
-      newStats[stat] += stat === "health" ? 5 : 1;
+      newStats[stat] += stat === "health" ? 10 : 1;
       return {
         ...prev,
         character: { ...prev.character, stats: newStats, pendingStatPoints: prev.character.pendingStatPoints - 1 },

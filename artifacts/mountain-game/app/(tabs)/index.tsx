@@ -26,6 +26,7 @@ import {
   MaterialEntry,
   NpcBattleStats,
   rollEvent,
+  rollNpcDrop,
   useGame,
 } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
@@ -254,22 +255,28 @@ export default function GameScreen() {
       }
       const npc = battleNpc;
       if (npc) {
+        // Roll for material drop on victory
+        let droppedMat: Material | null = null;
+        if (victory) {
+          droppedMat = rollNpcDrop(npc);
+          if (droppedMat) addMaterials([droppedMat]);
+        }
         addLogEntry({
           id: `b-${Date.now()}`,
           timestamp: Date.now(),
           type: "battle",
           summary: victory
-            ? `Defeated ${npc.name} +${goldReward}g +${xpReward}xp`
+            ? `Defeated ${npc.name} +${goldReward}g +${xpReward}xp${droppedMat ? ` · dropped ${droppedMat.type}` : ""}`
             : `Fled from ${npc.name}`,
           goldGained: goldReward,
           xpGained: xpReward,
-          material: null,
+          material: droppedMat,
           victory,
         });
       }
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
-    [battleNpc, applyGoldXp, addLogEntry]
+    [battleNpc, applyGoldXp, addLogEntry, addMaterials]
   );
 
   // ── List item from inventory → AH ─────────────────────────────────────────

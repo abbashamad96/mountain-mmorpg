@@ -25,6 +25,10 @@ const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
   Cosmic:    require("@/assets/images/npcs/npc_cosmic.png"),
 };
 
+// ─── Tick-based combat constants ──────────────────────────────────────────────
+const ACTION_THRESHOLD = 1000;  // action points needed to act
+const TICK_MS = 10;             // interval in ms — each tick grants speed action points
+
 interface BattleModalProps {
   visible: boolean;
   npc: NpcBattleStats | null;
@@ -43,19 +47,33 @@ interface LogLine {
 
 let lineId = 0;
 
+function calcBlockChance(def: number): number {
+  return (def / (def + 15000)) * 100;
+}
+
+function tryBlock(def: number): boolean {
+  return Math.random() * 100 < calcBlockChance(def);
+}
+
 export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete }: BattleModalProps) {
   const [phase, setPhase] = useState<BattlePhase>("intro");
   const [playerHp, setPlayerHp] = useState(0);
   const [npcHp, setNpcHp] = useState(0);
   const [log, setLog] = useState<LogLine[]>([]);
-  const [playerTurn, setPlayerTurn] = useState(true);
-  const [cooldown, setCooldown] = useState(false);
+  // Action bar: 0-100 percent filled (yellow bar)
+  const [playerApPct, setPlayerApPct] = useState(0);
 
   const playerHpRef = useRef(0);
   const npcHpRef = useRef(0);
   const phaseRef = useRef<BattlePhase>("intro");
   const npcRef = useRef(npc);
   npcRef.current = npc;
+
+  // Tick engine refs
+  const playerApRef = useRef(0);
+  const npcApRef = useRef(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const npcActingRef = useRef(false); // prevent stacked NPC actions
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -96,16 +114,86 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     attackPulse.setValue(1);
   }
 
+  function stopTicks() {
+    if (tickRef.current) {
+      clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
+  }
+
+  function doNpcAttack() {
+    if (phaseRef.current !== "fighting") return;
+    if (npcActingRef.current) return;
+    npcActingRef.current = true;
+
+    const npcData = npcRef.current;
+    if (!npcData) { npcActingRef.current = false; return; }
+
+    const rawDmg = npcData.atk + Math.floor(Math.random() * Math.max(1, npcData.atk * 0.35));
+    const blocked = tryBlock(playerStats.defence);
+    const dmg = blocked ? 0 : Math.max(1, rawDmg);
+    const newHp = Math.max(0, playerHpRef.current - dmg);
+    playerHpRef.current = newHp;
+    setPlayerHp(newHp);
+    runShake(playerShakeAnim);
+
+    if (blocked) {
+      addLine(`${npcData.name} attacks — BLOCKED!`, Colors.game.blue);
+    } else {
+      addLine(`${npcData.name} hits you for ${dmg} damage!`, Colors.game.red);
+    }
+
+    if (newHp <= 0) {
+      phaseRef.current = "defeat";
+      setPhase("defeat");
+      stopTicks();
+      stopPulse();
+      addLine("You were defeated! Retreating...", Colors.game.red);
+      setTimeout(() => closeModal(false), 1400);
+    }
+    npcActingRef.current = false;
+  }
+
+  function startTicks() {
+    stopTicks();
+    playerApRef.current = 0;
+    npcApRef.current = 0;
+    setPlayerApPct(0);
+
+    tickRef.current = setInterval(() => {
+      if (phaseRef.current !== "fighting") return;
+
+      // Accumulate action points
+      playerApRef.current = Math.min(ACTION_THRESHOLD, playerApRef.current + playerStats.speed);
+      npcApRef.current += (npcRef.current?.spd ?? 1);
+
+      // Update yellow bar display
+      setPlayerApPct((playerApRef.current / ACTION_THRESHOLD) * 100);
+
+      // Start pulse when player bar is full
+      if (playerApRef.current >= ACTION_THRESHOLD) {
+        startPulse();
+      }
+
+      // NPC auto-acts when ready
+      if (npcApRef.current >= ACTION_THRESHOLD && phaseRef.current === "fighting") {
+        npcApRef.current -= ACTION_THRESHOLD;
+        stopPulse();
+        doNpcAttack();
+      }
+    }, TICK_MS);
+  }
+
   useEffect(() => {
     if (visible && npc) {
-      const maxHp = playerStats.health;
+      const maxHp = Math.max(1, Math.floor(playerStats.health));
       playerHpRef.current = maxHp;
       npcHpRef.current = npc.hp;
       phaseRef.current = "intro";
       setPlayerHp(maxHp);
       setNpcHp(npc.hp);
       setLog([]);
-      setCooldown(false);
+      setPlayerApPct(0);
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.85);
 
@@ -115,59 +203,30 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
       ]).start(() => {
         phaseRef.current = "fighting";
         setPhase("fighting");
-        const pFirst = playerStats.speed >= npc.spd;
-        setPlayerTurn(pFirst);
-        if (pFirst) {
-          addLine("You move first — attack!", Colors.game.gold);
-          startPulse();
-        } else {
-          addLine(`${npc.name} strikes first!`, Colors.game.red);
-          setTimeout(() => npcAttackTurn(maxHp), 700);
-        }
+        addLine("Battle started — fill your action bar to attack!", Colors.game.gold);
+        startTicks();
       });
     }
     return () => {
+      stopTicks();
       stopPulse();
     };
   }, [visible]);
 
   function calcPlayerDmg() {
-    const base = playerStats.strength;
+    const base = Math.max(1, Math.floor(playerStats.strength));
     return Math.max(1, base + Math.floor(Math.random() * Math.max(1, base * 0.4)));
   }
 
-  function calcNpcDmg() {
-    if (!npcRef.current) return 1;
-    const raw = npcRef.current.atk + Math.floor(Math.random() * Math.max(1, npcRef.current.atk * 0.35));
-    return Math.max(1, raw - Math.floor(playerStats.defence * 0.4));
-  }
-
-  function npcAttackTurn(currentPlayerHp: number) {
-    if (phaseRef.current !== "fighting") return;
-    const dmg = calcNpcDmg();
-    const newHp = Math.max(0, currentPlayerHp - dmg);
-    playerHpRef.current = newHp;
-    setPlayerHp(newHp);
-    runShake(playerShakeAnim);
-    const name = npcRef.current?.name ?? "Enemy";
-    addLine(`${name} hits you for ${dmg} damage!`, Colors.game.red);
-
-    if (newHp <= 0) {
-      phaseRef.current = "defeat";
-      setPhase("defeat");
-      addLine("You were defeated! Retreating...", Colors.game.red);
-      setTimeout(() => closeModal(false), 1400);
-    } else {
-      setPlayerTurn(true);
-      startPulse();
-    }
-  }
-
   const handleAttack = useCallback(() => {
-    if (!npcRef.current || cooldown || phaseRef.current !== "fighting" || !playerTurn) return;
+    if (phaseRef.current !== "fighting") return;
+    if (playerApRef.current < ACTION_THRESHOLD) return;
+    if (!npcRef.current) return;
+
+    // Consume action points
+    playerApRef.current = 0;
+    setPlayerApPct(0);
     stopPulse();
-    setCooldown(true);
-    setPlayerTurn(false);
 
     const dmg = calcPlayerDmg();
     const newNpcHp = Math.max(0, npcHpRef.current - dmg);
@@ -179,23 +238,17 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     if (newNpcHp <= 0) {
       phaseRef.current = "victory";
       setPhase("victory");
+      stopTicks();
       const g = npcRef.current.goldReward;
       const x = npcRef.current.xpReward;
       addLine(`${npcRef.current.name} defeated! +${g}g  ✦+${x} XP`, Colors.game.green);
       setTimeout(() => closeModal(true), 1400);
-      setCooldown(false);
-      return;
     }
-
-    setTimeout(() => {
-      if (phaseRef.current !== "fighting") { setCooldown(false); return; }
-      npcAttackTurn(playerHpRef.current);
-      setCooldown(false);
-    }, 650);
-  }, [cooldown, playerTurn]);
+  }, []);
 
   const handleFlee = useCallback(() => {
     if (phaseRef.current !== "fighting") return;
+    stopTicks();
     stopPulse();
     phaseRef.current = "fled";
     setPhase("fled");
@@ -204,6 +257,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   }, []);
 
   function closeModal(victory: boolean) {
+    stopTicks();
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 0.85, duration: 280, useNativeDriver: true }),
@@ -215,9 +269,15 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
 
   if (!npc) return null;
 
-  const pHpPct = Math.max(0, (playerHp / playerStats.health) * 100);
+  const playerMaxHp = Math.max(1, Math.floor(playerStats.health));
+  const pHpPct = Math.max(0, (playerHp / playerMaxHp) * 100);
   const nHpPct = Math.max(0, (npcHp / npc.maxHp) * 100);
   const rarityColor = RARITY_COLORS[npc.rarity];
+  const playerReady = playerApPct >= 100;
+  const canAttack = phase === "fighting" && playerReady;
+
+  // Block chance display
+  const blockChance = (playerStats.defence / (playerStats.defence + 15000)) * 100;
 
   return (
     <Modal transparent visible={visible} animationType="none">
@@ -262,20 +322,34 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
                 ]}
               />
             </View>
-            <Text style={styles.hpNum}>{playerHp}/{playerStats.health}</Text>
+            <Text style={styles.hpNum}>{playerHp}/{playerMaxHp}</Text>
           </Animated.View>
 
-          {/* Speed indicator */}
-          <View style={styles.speedRow}>
-            <Text style={styles.speedChip}>
-              ⚡ {playerStats.speed}{" "}
-              {playerStats.speed >= npc.spd ? (
-                <Text style={{ color: Colors.game.green }}>▲</Text>
-              ) : (
-                <Text style={{ color: Colors.game.red }}>▼</Text>
-              )}{" "}
-              {npc.spd} ⚡
+          {/* Action bar (yellow) — fills as player's speed accumulates */}
+          <View style={styles.actionBarRow}>
+            <Text style={styles.actionBarLabel}>ACTION</Text>
+            <View style={styles.actionBarTrack}>
+              <Animated.View
+                style={[
+                  styles.actionBarFill,
+                  {
+                    width: `${Math.min(100, playerApPct)}%` as any,
+                    backgroundColor: playerReady ? Colors.game.gold : "#7a6010",
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.actionBarPct, playerReady && styles.actionBarPctReady]}>
+              {playerReady ? "READY" : `${Math.floor(playerApPct)}%`}
             </Text>
+          </View>
+
+          {/* Combat stats strip */}
+          <View style={styles.statsStrip}>
+            <Text style={styles.statChip}>⚔ {Math.floor(playerStats.strength)} STR</Text>
+            <Text style={styles.statChip}>🛡 {blockChance.toFixed(1)}% block</Text>
+            <Text style={styles.statChip}>⚡ {playerStats.speed} SPD</Text>
+            <Text style={[styles.statChipEnemy, { color: rarityColor }]}>👁 {npc.spd} SPD</Text>
           </View>
 
           {/* Battle log */}
@@ -291,26 +365,22 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
           </ScrollView>
 
           {/* Action buttons */}
-          {phase === "fighting" && playerTurn && !cooldown && (
+          {phase === "fighting" && (
             <View style={styles.actionRow}>
               <Pressable style={styles.fleeBtn} onPress={handleFlee}>
                 <Text style={styles.fleeBtnText}>FLEE</Text>
               </Pressable>
-              <Animated.View style={[{ flex: 2 }, { transform: [{ scale: attackPulse }] }]}>
-                <Pressable style={styles.atkBtn} onPress={handleAttack}>
-                  <Text style={styles.atkBtnText}>⚔  ATTACK</Text>
+              <Animated.View style={[{ flex: 2 }, canAttack && { transform: [{ scale: attackPulse }] }]}>
+                <Pressable
+                  style={[styles.atkBtn, !canAttack && styles.atkBtnDisabled]}
+                  onPress={handleAttack}
+                  disabled={!canAttack}
+                >
+                  <Text style={[styles.atkBtnText, !canAttack && styles.atkBtnTextDisabled]}>
+                    {canAttack ? "⚔  ATTACK" : "• • •"}
+                  </Text>
                 </Pressable>
               </Animated.View>
-            </View>
-          )}
-          {phase === "fighting" && (!playerTurn || cooldown) && (
-            <View style={styles.actionRow}>
-              <View style={[styles.fleeBtn, styles.fleeBtnDisabled]}>
-                <Text style={[styles.fleeBtnText, { opacity: 0.3 }]}>FLEE</Text>
-              </View>
-              <View style={[styles.waitBtn, { flex: 2 }]}>
-                <Text style={styles.waitText}>• • •</Text>
-              </View>
             </View>
           )}
           {phase === "victory" && (
@@ -357,7 +427,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: Colors.game.border,
-    gap: 12,
+    gap: 10,
   },
   titleRow: { alignItems: "center", gap: 4 },
   battleLabel: {
@@ -369,7 +439,7 @@ const styles = StyleSheet.create({
   npcName: { fontSize: 22, fontFamily: "Inter_700Bold" },
   npcImageWrap: {
     width: "100%",
-    height: 160,
+    height: 150,
     borderRadius: 14,
     overflow: "hidden",
     position: "relative",
@@ -428,13 +498,45 @@ const styles = StyleSheet.create({
     fontSize: 11, fontFamily: "Inter_500Medium",
     color: Colors.game.textDim, width: 55, textAlign: "right",
   },
-  speedRow: { alignItems: "center" },
-  speedChip: {
-    fontSize: 12, fontFamily: "Inter_600SemiBold",
+  // ── Action bar ────────────────────────────────────────────────────────────
+  actionBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionBarLabel: {
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 1.5, width: 42,
+  },
+  actionBarTrack: {
+    flex: 1, height: 10,
+    backgroundColor: "rgba(120,90,0,0.25)",
+    borderRadius: 5, overflow: "hidden",
+    borderWidth: 1, borderColor: "rgba(120,90,0,0.4)",
+  },
+  actionBarFill: { height: "100%", borderRadius: 5 },
+  actionBarPct: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, width: 40, textAlign: "right",
+  },
+  actionBarPctReady: {
+    color: Colors.game.gold,
+  },
+  // ── Stats strip ───────────────────────────────────────────────────────────
+  statsStrip: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  statChip: {
+    fontSize: 10, fontFamily: "Inter_500Medium",
     color: Colors.game.textDim,
   },
+  statChipEnemy: {
+    fontSize: 10, fontFamily: "Inter_500Medium",
+  },
   log: {
-    maxHeight: 90, backgroundColor: Colors.game.surface,
+    maxHeight: 80, backgroundColor: Colors.game.surface,
     borderRadius: 10, padding: 10,
   },
   logEmpty: {
@@ -453,9 +555,18 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 14,
     alignItems: "center",
   },
+  atkBtnDisabled: {
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+  },
   atkBtnText: {
     fontSize: 17, fontFamily: "Inter_700Bold",
     color: "#fff", letterSpacing: 2,
+  },
+  atkBtnTextDisabled: {
+    color: Colors.game.textMuted,
+    fontSize: 17, letterSpacing: 4,
   },
   fleeBtn: {
     flex: 1,
@@ -465,21 +576,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.game.border,
     backgroundColor: Colors.game.surface,
   },
-  fleeBtnDisabled: {
-    opacity: 0.5,
-  },
   fleeBtnText: {
     fontSize: 14, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 2,
-  },
-  waitBtn: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 14, paddingVertical: 14,
-    alignItems: "center", borderWidth: 1, borderColor: Colors.game.border,
-  },
-  waitText: {
-    fontSize: 17, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 4,
   },
   resultRow: { alignItems: "center", gap: 8 },
   victoryText: {

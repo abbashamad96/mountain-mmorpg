@@ -1,16 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { Material } from "./GameContext";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export interface ChatMessage {
   id: string;
@@ -25,10 +20,10 @@ export interface AuctionListing {
   id: string;
   sellerId: string;
   sellerName: string;
-  material: Material;
+  material: Material & { version: number };
   count: number;
   price: number;
-  ts: number;
+  listedAt: number;
 }
 
 export interface BuyOrder {
@@ -39,34 +34,16 @@ export interface BuyOrder {
   count: number;
   filled: number;
   pricePerUnit: number;
-  ts: number;
+  createdAt: number;
 }
 
-export interface IncomingChallenge {
-  fromId: string;
-  fromName: string;
-  fromLevel: number;
-  fromStats: { strength: number; health: number; defence: number; speed: number };
-  ts: number;
-}
-
-export type AhEventType = "bought" | "sale" | "cancelled" | "bo_received" | "bo_sold" | "bo_cancelled";
-
-export interface AhEvent {
-  id: string;
-  kind: AhEventType;
-  listing?: AuctionListing;
-  buyerName?: string;
-  boOrderId?: string;
-  boCount?: number;
-  boGoldEarned?: number;
-  boGoldReturn?: number;
-  boMaterial?: { type: string; rarity: string; version: number };
-}
-
-type ConnectionStatus = "disconnected" | "connecting" | "connected";
-
-// ─── Context type ───────────────────────────────────────────────────────────────
+export type AhEvent =
+  | { id: string; kind: "sale"; listing: AuctionListing; buyerName?: string }
+  | { id: string; kind: "bought"; listing: AuctionListing }
+  | { id: string; kind: "cancelled"; listing: AuctionListing }
+  | { id: string; kind: "bo_sold"; boOrderId: string; boCount: number; boGoldEarned: number }
+  | { id: string; kind: "bo_received"; boOrderId: string; boCount: number; boMaterial: AuctionListing["material"] }
+  | { id: string; kind: "bo_cancelled"; boOrderId: string; boGoldReturn: number };
 
 interface MultiplayerContextType {
   status: ConnectionStatus;
@@ -75,21 +52,17 @@ interface MultiplayerContextType {
   setPlayerName: (name: string) => void;
   messages: ChatMessage[];
   sendChat: (text: string) => void;
-  // Auction House – Sell
   listings: AuctionListing[];
   listAhItem: (material: Material, count: number, price: number) => void;
   buyAhItem: (listingId: string) => void;
   cancelAhListing: (listingId: string) => void;
   refreshListings: () => void;
-  // Auction House – Buy Orders
   buyOrders: BuyOrder[];
   createBuyOrder: (material: { type: string; rarity: string; version: number | null }, count: number, pricePerUnit: number) => void;
   cancelBuyOrder: (orderId: string) => void;
   fillBuyOrder: (orderId: string, count: number, version: number) => void;
-  // AH events queue
   ahEvents: AhEvent[];
   consumeAhEvent: (id: string) => void;
-  // Auth
   isAuthenticated: boolean;
   authUsername: string | null;
   authError: string | null;
@@ -122,7 +95,7 @@ function generateGuestName(): string {
 export function MultiplayerProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [yourId, setYourId] = useState<string | null>(null);
-  const [playerName, setPlayerNameState] = useState("Wanderer");
+  const [playerName, setPlayerNameState] = useState("...");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [listings, setListings] = useState<AuctionListing[]>([]);
   const [buyOrders, setBuyOrders] = useState<BuyOrder[]>([]);
@@ -139,19 +112,36 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const authTokenRef = useRef<string | null>(null);
+  const connectRef = useRef<() => void>(() => {});
 
+  // ── Load from storage, then connect ────────────────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem(NAME_KEY).then((saved) => {
-      const usable = saved && saved !== "Wanderer" ? saved : null;
+    let cancelled = false;
+    async function init() {
+      const [savedName, savedToken] = await Promise.all([
+        AsyncStorage.getItem(NAME_KEY),
+        AsyncStorage.getItem(AUTH_TOKEN_KEY),
+      ]);
+      if (cancelled) return;
+
+      // Resolve player name
+      const usable = savedName && savedName !== "Wanderer" ? savedName : null;
       const name = usable ?? generateGuestName();
       setPlayerNameState(name);
       nameRef.current = name;
       if (!usable) AsyncStorage.setItem(NAME_KEY, name);
-    });
-    AsyncStorage.getItem(AUTH_TOKEN_KEY).then((tok) => {
-      if (tok) authTokenRef.current = tok;
-    });
-    return () => { mountedRef.current = false; };
+
+      // Store auth token before connecting so onopen can send it
+      if (savedToken) authTokenRef.current = savedToken;
+
+      // Now connect — token is ready
+      connectRef.current();
+    }
+    init();
+    return () => {
+      cancelled = true;
+      mountedRef.current = false;
+    };
   }, []);
 
   const sendWs = useCallback((data: object) => {
@@ -244,6 +234,9 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       } else if (msg.type === "auth_fail") {
         setAuthError(msg.reason ?? "Authentication failed.");
         setAuthPending(false);
+        // Clear bad token
+        authTokenRef.current = null;
+        AsyncStorage.removeItem(AUTH_TOKEN_KEY);
       }
     };
 
@@ -257,14 +250,16 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     ws.onerror = () => { ws.close(); };
   }, []);
 
+  // Store connect in ref so init() can call it without adding it as dep
+  connectRef.current = connect;
+
   useEffect(() => {
-    connect();
     return () => {
       mountedRef.current = false;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, []);
 
   const setPlayerName = useCallback((name: string) => {
     const trimmed = name.trim().slice(0, 20) || "Wanderer";

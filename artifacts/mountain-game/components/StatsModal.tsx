@@ -22,10 +22,10 @@ interface StatsModalProps {
 }
 
 const STAT_CONFIG = [
-  { key: "strength" as const, label: "Strength", icon: "⚔", color: Colors.game.red, desc: "Attack power", bonus: "+1" },
-  { key: "health" as const, label: "Health", icon: "♥", color: Colors.game.green, desc: "Max HP", bonus: "+5 HP" },
-  { key: "defence" as const, label: "Defence", icon: "🛡", color: Colors.game.blue, desc: "Damage reduction", bonus: "+1" },
-  { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Turn order", bonus: "+1" },
+  { key: "strength" as const, label: "Strength", icon: "⚔", color: Colors.game.red, desc: "Damage per hit · +0.25 per level", bonus: "+1 dmg" },
+  { key: "health" as const, label: "Health", icon: "♥", color: Colors.game.green, desc: "Max HP · +1 per level", bonus: "+10 HP" },
+  { key: "defence" as const, label: "Defence", icon: "🛡", color: Colors.game.blue, desc: "Block chance: def/(def+15000)×100%", bonus: "+1 def" },
+  { key: "speed" as const, label: "Speed", icon: "⚡", color: Colors.game.gold, desc: "Action bar fill rate · faster = more turns", bonus: "+1 spd" },
 ];
 
 const RARITY_DESC: Record<string, string> = {
@@ -205,6 +205,19 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
             <View style={styles.statGrid}>
               {STAT_CONFIG.map((s) => {
                 const val = char.stats[s.key];
+                // Derived display values
+                let derivedLabel: string | null = null;
+                if (s.key === "defence") {
+                  const blockPct = (val / (val + 15000)) * 100;
+                  derivedLabel = `${blockPct.toFixed(2)}% block chance`;
+                } else if (s.key === "speed") {
+                  const cost = Math.round(15000 / Math.max(1, val));
+                  derivedLabel = `${cost} ticks per action`;
+                } else if (s.key === "strength") {
+                  derivedLabel = `${Math.floor(val)}–${Math.floor(val + Math.max(1, Math.floor(val * 0.4)))} dmg`;
+                } else if (s.key === "health") {
+                  derivedLabel = `${Math.floor(val)} max HP`;
+                }
                 return (
                   <View key={s.key} style={styles.statCard}>
                     <View style={styles.statCardTop}>
@@ -212,8 +225,13 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                       <View style={styles.statInfo}>
                         <Text style={[styles.statName, { color: s.color }]}>{s.label}</Text>
                         <Text style={styles.statDesc}>{s.desc}</Text>
+                        {derivedLabel && (
+                          <Text style={[styles.statDerived, { color: s.color }]}>{derivedLabel}</Text>
+                        )}
                       </View>
-                      <Text style={[styles.statVal, { color: s.color }]}>{val}</Text>
+                      <Text style={[styles.statVal, { color: s.color }]}>
+                        {s.key === "strength" ? val.toFixed(2) : Math.floor(val)}
+                      </Text>
                     </View>
                     {hasPending && (
                       <Pressable
@@ -370,6 +388,7 @@ const styles = StyleSheet.create({
   statInfo: { flex: 1 },
   statName: { fontSize: 13, fontFamily: "Inter_700Bold" },
   statDesc: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
+  statDerived: { fontSize: 10, fontFamily: "Inter_500Medium", opacity: 0.75, marginTop: 2 },
   statVal: { fontSize: 26, fontFamily: "Inter_700Bold" },
   allocBtn: {
     borderWidth: 1, borderRadius: 8,
