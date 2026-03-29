@@ -153,11 +153,14 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         {/* Battle event */}
         {entry.type === "battle" && (
           <View style={logStackStyles.battleBlock}>
+            {/* Row 1: verb + NPC name */}
             <View style={logStackStyles.inlineRow}>
               <Text style={logStackStyles.dimLabel}>{isVictory ? "Defeated" : "Fled from"}</Text>
               <Text style={logStackStyles.npcName} numberOfLines={1}>{npcName}</Text>
             </View>
-            {isVictory && (entry.goldGained > 0 || entry.xpGained > 0) && (
+
+            {/* Row 2: gold + xp rewards (show whenever values exist, not gated on isVictory flag) */}
+            {(entry.goldGained > 0 || entry.xpGained > 0) && (
               <View style={logStackStyles.inlineRow}>
                 {entry.goldGained > 0 && (
                   <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
@@ -167,6 +170,8 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                 )}
               </View>
             )}
+
+            {/* Row 3: material drop */}
             {mat && (
               <View style={logStackStyles.inlineRow}>
                 <Text style={logStackStyles.dimLabel}>drop:</Text>
@@ -183,10 +188,10 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                 <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
                   {mat.rarity}
                 </Text>
-                {(entry.dropCount ?? 1) > 1 && (
-                  <Text style={logStackStyles.dimLabel}>×{entry.dropCount}</Text>
-                )}
               </View>
+            )}
+            {!mat && isVictory && (
+              <Text style={logStackStyles.dimLabel}>no drop</Text>
             )}
           </View>
         )}
@@ -317,6 +322,7 @@ export default function GameScreen() {
   const [gatherAttempts, setGatherAttempts] = useState(1);
   const [showGather, setShowGather] = useState(false);
   const [battleNpc, setBattleNpc] = useState<NpcBattleStats | null>(null);
+  const battleNpcRef = useRef<NpcBattleStats | null>(null);
   const [showBattle, setShowBattle] = useState(false);
   const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
@@ -427,6 +433,7 @@ export default function GameScreen() {
       setGatherAttempts(roll.gatherAttempts);
       setShowGather(true);
     } else if (roll.type === "battle" && roll.npc) {
+      battleNpcRef.current = roll.npc;
       setBattleNpc(roll.npc);
       setShowBattle(true);
     }
@@ -461,7 +468,7 @@ export default function GameScreen() {
       if (victory && (goldReward > 0 || xpReward > 0)) {
         applyGoldXp(goldReward, xpReward);
       }
-      const npc = battleNpc;
+      const npc = battleNpcRef.current;
       if (npc) {
         // Roll for material drop on victory
         let droppedMat: Material | null = null;
@@ -491,7 +498,7 @@ export default function GameScreen() {
       }
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
-    [battleNpc, applyGoldXp, addLogEntry, addMaterials]
+    [applyGoldXp, addLogEntry, addMaterials]
   );
 
   // ── List item from inventory → AH ─────────────────────────────────────────
