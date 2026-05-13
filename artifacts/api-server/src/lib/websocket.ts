@@ -158,12 +158,8 @@ function clampGameState(incoming: unknown, stored: unknown): unknown {
 
   const { level, xp, xpToNext } = levelFromTotalXp(Math.max(0, clampedTotal));
 
-  // ── Stat points: max allocatable = floor(level / 2) ──────────────────────
-  const maxStatPoints = Math.floor(level / 2);
-  const pendingStatPoints = Math.min(
-    Math.max(0, Number(inChar.pendingStatPoints ?? 0)),
-    maxStatPoints,
-  );
+  // ── Stat points: not clamped here — items will grant bonus stat points ────
+  const pendingStatPoints = Math.max(0, Number(inChar.pendingStatPoints ?? 0));
 
   return {
     ...inc,
