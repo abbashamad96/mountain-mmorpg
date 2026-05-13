@@ -71,6 +71,8 @@ interface MultiplayerContextType {
   clearServerGameState: () => void;
   accountSwitched: boolean;
   consumeAccountSwitch: () => void;
+  sessionExpired: boolean;
+  clearSessionExpired: () => void;
   forgotPasswordSent: boolean;
   forgotPasswordError: string | null;
   register: (username: string, password: string, gameState: unknown, email: string) => void;
@@ -103,6 +105,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const [authPending, setAuthPending] = useState(false);
   const [serverGameState, setServerGameState] = useState<unknown | null>(null);
   const [accountSwitched, setAccountSwitched] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
 
@@ -114,6 +117,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const authTokenRef = useRef<string | null>(null);
   const connectRef = useRef<() => void>(() => {});
   const prevAuthUsernameRef = useRef<string | null>(null);
+  const restoringSessionRef = useRef(false);
 
   // ── Load from storage, then connect ────────────────────────────────────────
   useEffect(() => {
@@ -168,6 +172,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       setStatus("connected");
       ws.send(JSON.stringify({ type: "join", name: nameRef.current }));
       if (authTokenRef.current) {
+        restoringSessionRef.current = true;
         ws.send(JSON.stringify({ type: "auth", token: authTokenRef.current }));
       }
     };
@@ -227,6 +232,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
                          prevAuthUsernameRef.current !== newUserLower;
         prevAuthUsernameRef.current = newUserLower;
 
+        restoringSessionRef.current = false;
         setIsAuthenticated(true);
         setAuthUsername(msg.username);
         setAuthError(null);
@@ -247,10 +253,14 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           setServerGameState({}); // trigger fresh-start reset
         }
       } else if (msg.type === "auth_fail") {
+        const wasRestoring = restoringSessionRef.current;
+        restoringSessionRef.current = false;
         setAuthError(msg.reason ?? "Authentication failed.");
         setAuthPending(false);
         authTokenRef.current = null;
         AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+        AsyncStorage.removeItem("@mountain_auth_user_v1");
+        if (wasRestoring) setSessionExpired(true);
       }
     };
 
@@ -308,6 +318,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
   const consumeAccountSwitch = useCallback(() => {
     setAccountSwitched(false);
+  }, []);
+
+  const clearSessionExpired = useCallback(() => {
+    setSessionExpired(false);
   }, []);
 
   const register = useCallback((username: string, password: string, gameState: unknown, email: string) => {
@@ -382,6 +396,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       isAuthenticated, authUsername, authError, authPending,
       serverGameState, clearServerGameState,
       accountSwitched, consumeAccountSwitch,
+      sessionExpired, clearSessionExpired,
       forgotPasswordSent, forgotPasswordError,
       register, login, logout, saveGameState,
       forgotPassword, clearForgotState,

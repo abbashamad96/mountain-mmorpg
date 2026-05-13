@@ -306,6 +306,7 @@ export default function GameScreen() {
     ahEvents, consumeAhEvent,
     isAuthenticated, authUsername, serverGameState, clearServerGameState,
     saveGameState, accountSwitched, consumeAccountSwitch,
+    sessionExpired, clearSessionExpired,
   } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
@@ -337,6 +338,14 @@ export default function GameScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   const char = gameState.character;
+
+  // ── Wipe local state when saved session is rejected by server ────────────
+  useEffect(() => {
+    if (sessionExpired) {
+      resetGameState();
+      clearSessionExpired();
+    }
+  }, [sessionExpired, resetGameState, clearSessionExpired]);
 
   // ── Load server state on login (handles account switching) ───────────────
   useEffect(() => {
