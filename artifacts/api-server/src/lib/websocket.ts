@@ -19,6 +19,7 @@ interface Player {
   name: string;
   username: string | null;
   ws: WebSocket;
+  cachedGameState: unknown;
 }
 
 interface AuctionListing {
@@ -101,6 +102,73 @@ function getPlayerByStableId(id: string): Player | undefined {
   if (direct) return direct;
   const pid = userIdMap.get(id.toLowerCase());
   return pid ? players.get(pid) : undefined;
+}
+
+// ─── Anti-cheat: server-side game state validation ────────────────────────────
+
+function calcXpToNext(level: number): number {
+  return 987 + level * 223;
+}
+
+function totalXpFromState(level: number, xp: number): number {
+  const l = Math.max(0, level);
+  return 987 * l + (223 * l * (l - 1)) / 2 + Math.max(0, xp);
+}
+
+function levelFromTotalXp(totalXp: number): { level: number; xp: number; xpToNext: number } {
+  let level = 0;
+  let remaining = Math.max(0, totalXp);
+  while (remaining >= calcXpToNext(level)) {
+    remaining -= calcXpToNext(level);
+    level++;
+    if (level > 99999) break;
+  }
+  return { level, xp: Math.floor(remaining), xpToNext: calcXpToNext(level) };
+}
+
+const MAX_GOLD_DELTA_PER_SAVE = 5_000_000;
+const MAX_XP_DELTA_PER_SAVE   = 50_000_000;
+
+function clampGameState(incoming: unknown, stored: unknown): unknown {
+  if (!incoming || typeof incoming !== "object") return incoming;
+  const inc = incoming as Record<string, unknown>;
+  const inChar = (inc.character ?? {}) as Record<string, unknown>;
+  const old = (stored && typeof stored === "object" ? stored : {}) as Record<string, unknown>;
+  const oldChar = (old.character ?? {}) as Record<string, unknown>;
+
+  // ── Gold ──────────────────────────────────────────────────────────────────
+  const oldGold = Math.max(0, Number(oldChar.gold ?? 0));
+  const rawGold = Math.max(0, Number(inChar.gold ?? 0));
+  const newGold = rawGold - oldGold > MAX_GOLD_DELTA_PER_SAVE
+    ? oldGold + MAX_GOLD_DELTA_PER_SAVE
+    : rawGold;
+
+  // ── XP / Level ────────────────────────────────────────────────────────────
+  const oldLevel = Math.max(0, Number(oldChar.level ?? 0));
+  const oldXp    = Math.max(0, Number(oldChar.xp    ?? 0));
+  const oldTotal = totalXpFromState(oldLevel, oldXp);
+
+  const inLevel = Math.max(0, Number(inChar.level ?? 0));
+  const inXp    = Math.max(0, Number(inChar.xp    ?? 0));
+  const inTotal = totalXpFromState(inLevel, inXp);
+
+  const clampedTotal = inTotal - oldTotal > MAX_XP_DELTA_PER_SAVE
+    ? oldTotal + MAX_XP_DELTA_PER_SAVE
+    : inTotal;
+
+  const { level, xp, xpToNext } = levelFromTotalXp(Math.max(0, clampedTotal));
+
+  // ── Stat points: max allocatable = floor(level / 2) ──────────────────────
+  const maxStatPoints = Math.floor(level / 2);
+  const pendingStatPoints = Math.min(
+    Math.max(0, Number(inChar.pendingStatPoints ?? 0)),
+    maxStatPoints,
+  );
+
+  return {
+    ...inc,
+    character: { ...inChar, gold: newGold, level, xp, xpToNext, pendingStatPoints },
+  };
 }
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -315,6 +383,7 @@ async function handleMessage(player: Player, raw: string) {
     player.name = username;
     userIdMap.set(username.toLowerCase(), player.id);
 
+    player.cachedGameState = msg.gameState ?? null;
     send(player.ws, { type: "auth_ok", username, token, gameState: msg.gameState ?? null, yourId: username });
     logger.info({ username, email }, "User registered and logged in");
 
@@ -337,6 +406,7 @@ async function handleMessage(player: Player, raw: string) {
     player.name = user.username;
     userIdMap.set(uname, player.id);
 
+    player.cachedGameState = user.gameState;
     const pending = await dbFlushDeliveries(uname);
     const ws = player.ws;
     send(ws, { type: "auth_ok", username: user.username, token, gameState: user.gameState, yourId: user.username });
@@ -366,6 +436,7 @@ async function handleMessage(player: Player, raw: string) {
     player.name = user.username;
     userIdMap.set(session.usernameLower, player.id);
 
+    player.cachedGameState = user.gameState;
     const pending = await dbFlushDeliveries(session.usernameLower);
     const ws = player.ws;
     send(ws, { type: "auth_ok", username: user.username, token: newToken, gameState: user.gameState, yourId: user.username });
@@ -399,7 +470,9 @@ async function handleMessage(player: Player, raw: string) {
   // ── save_state ──────────────────────────────────────────────────────────────
   } else if (msg.type === "save_state") {
     if (!player.username) return;
-    await dbUpdateGameState(player.username.toLowerCase(), msg.gameState);
+    const validated = clampGameState(msg.gameState, player.cachedGameState);
+    player.cachedGameState = validated;
+    await dbUpdateGameState(player.username.toLowerCase(), validated);
     send(player.ws, { type: "state_saved" });
 
   // ── chat ────────────────────────────────────────────────────────────────────
@@ -565,7 +638,7 @@ export function attachWebSocketServer(server: Server) {
 
   wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
     counter++;
-    const player: Player = { id: `p${counter}`, name: "", username: null, ws };
+    const player: Player = { id: `p${counter}`, name: "", username: null, ws, cachedGameState: null };
     players.set(player.id, player);
     logger.info({ playerId: player.id }, "WebSocket client connected");
 

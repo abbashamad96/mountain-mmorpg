@@ -347,17 +347,15 @@ export default function GameScreen() {
     }
   }, [sessionExpired, resetGameState, clearSessionExpired]);
 
-  // ── Load server state on login (handles account switching) ───────────────
+  // ── Load server state on login — always reset local first so server wins ──
   useEffect(() => {
-    if (serverGameState) {
-      if (accountSwitched) {
-        resetGameState();
-        consumeAccountSwitch();
-      }
+    if (serverGameState !== null) {
+      resetGameState();
+      consumeAccountSwitch();
       loadState(serverGameState as any);
       clearServerGameState();
     }
-  }, [serverGameState, accountSwitched, loadState, clearServerGameState, resetGameState, consumeAccountSwitch]);
+  }, [serverGameState, resetGameState, consumeAccountSwitch, loadState, clearServerGameState]);
 
   // ── Auto-save game state when authenticated ───────────────────────────────
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

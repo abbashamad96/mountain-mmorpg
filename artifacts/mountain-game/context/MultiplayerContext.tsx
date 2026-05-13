@@ -246,12 +246,8 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
         if (switched) setAccountSwitched(true);
 
-        // Always push server state on auth — use {} sentinel for new accounts on switch
-        if (msg.gameState) {
-          setServerGameState(msg.gameState);
-        } else if (switched) {
-          setServerGameState({}); // trigger fresh-start reset
-        }
+        // Always push server state — overwrites any stale local data
+        setServerGameState(msg.gameState ?? {});
       } else if (msg.type === "auth_fail") {
         const wasRestoring = restoringSessionRef.current;
         restoringSessionRef.current = false;
