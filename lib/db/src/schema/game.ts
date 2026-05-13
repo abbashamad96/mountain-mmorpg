@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   integer,
   jsonb,
   pgTable,
@@ -12,6 +13,12 @@ export const usersTable = pgTable("users", {
   usernameLower: text("username_lower").primaryKey(),
   username: text("username").notNull(),
   passwordHash: text("password_hash").notNull(),
+  email: text("email").unique(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  verificationToken: text("verification_token"),
+  verificationTokenExpires: bigint("verification_token_expires", { mode: "number" }),
+  resetToken: text("reset_token"),
+  resetTokenExpires: bigint("reset_token_expires", { mode: "number" }),
   gameState: jsonb("game_state"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

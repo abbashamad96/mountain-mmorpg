@@ -14,6 +14,7 @@ import {
 import Colors from "@/constants/colors";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
+type Screen = "auth" | "awaiting" | "forgot" | "forgot-sent";
 type Tab = "login" | "register";
 
 interface AuthModalProps {
@@ -25,51 +26,96 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
   const mp = useMultiplayer();
 
   const [tab, setTab] = useState<Tab>("login");
+  const [screen, setScreen] = useState<Screen>("auth");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [forgotPending, setForgotPending] = useState(false);
 
+  // Sync awaiting-verification state from context
   useEffect(() => {
-    if (mp.isAuthenticated && visible) {
-      // don't auto-close — let user see their account info
+    if (mp.awaitingVerification) {
+      setScreen("awaiting");
     }
-  }, [mp.isAuthenticated, visible]);
+  }, [mp.awaitingVerification]);
+
+  // Sync forgot-password sent state
+  useEffect(() => {
+    if (mp.forgotPasswordSent) setScreen("forgot-sent");
+  }, [mp.forgotPasswordSent]);
+
+  // Reset on open
+  useEffect(() => {
+    if (visible && !mp.awaitingVerification) {
+      setScreen("auth");
+      setLocalError(null);
+    }
+  }, [visible]);
 
   useEffect(() => {
     setLocalError(null);
-  }, [tab, visible]);
+  }, [tab, screen]);
 
   const handleSubmit = () => {
     setLocalError(null);
-
     if (!username.trim()) { setLocalError("Username is required."); return; }
     if (!password) { setLocalError("Password is required."); return; }
 
     if (tab === "register") {
+      if (!email.trim()) { setLocalError("Email address is required."); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setLocalError("Enter a valid email address."); return; }
       if (password !== confirmPw) { setLocalError("Passwords do not match."); return; }
-      if (password.length < 4) { setLocalError("Password must be at least 4 characters."); return; }
-      mp.register(username.trim(), password, null);
+      if (password.length < 6) { setLocalError("Password must be at least 6 characters."); return; }
+      mp.register(username.trim(), password, null, email.trim());
     } else {
       mp.login(username.trim(), password);
     }
   };
 
+  const handleForgot = async () => {
+    setLocalError(null);
+    if (!forgotEmail.trim()) { setLocalError("Email address is required."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail.trim())) { setLocalError("Enter a valid email address."); return; }
+    setForgotPending(true);
+    await mp.forgotPassword(forgotEmail.trim());
+    setForgotPending(false);
+    if (mp.forgotPasswordError) setLocalError(mp.forgotPasswordError);
+  };
+
   const handleLogout = () => {
     mp.logout();
+    setScreen("auth");
+    setTab("login");
+    setUsername(""); setEmail(""); setPassword(""); setConfirmPw("");
     onClose();
+  };
+
+  const goBack = () => {
+    setScreen("auth");
+    setTab("login");
+    setLocalError(null);
+    mp.clearVerificationState();
   };
 
   const displayError = localError || mp.authError;
 
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.handle} />
+  const mandatory = !mp.isAuthenticated;
 
-          {/* Logged-in view */}
-          {mp.isAuthenticated ? (
+  const handleOverlayPress = () => {
+    if (mandatory) return;
+    onClose();
+  };
+
+  // ── Logged-in view ─────────────────────────────────────────────────────────
+  if (mp.isAuthenticated) {
+    return (
+      <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.handle} />
             <View style={styles.loggedInView}>
               <View style={styles.avatarRow}>
                 <View style={styles.avatar}>
@@ -91,11 +137,131 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                 <Text style={styles.closeBtnTxt}>CLOSE</Text>
               </Pressable>
             </View>
-          ) : (
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={mandatory ? undefined : onClose}>
+      <Pressable style={styles.overlay} onPress={handleOverlayPress}>
+        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.handle} />
+
+          {/* ── Awaiting email verification ───────────────────────────── */}
+          {screen === "awaiting" && (
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Header */}
+              <View style={styles.iconRow}>
+                <Feather name="mail" size={32} color={Colors.game.gold} />
+              </View>
+              <Text style={styles.title}>CHECK YOUR EMAIL</Text>
+              <Text style={styles.subtitle}>
+                We sent a verification link to{"\n"}
+                <Text style={{ color: Colors.game.gold }}>{mp.awaitingVerification}</Text>
+              </Text>
+              <Text style={styles.hint}>
+                Click the link in the email to verify your account, then come back and log in.
+              </Text>
+              {displayError && (
+                <View style={styles.errorBox}>
+                  <Feather name="alert-circle" size={13} color={Colors.game.red} />
+                  <Text style={styles.errorTxt}>{displayError}</Text>
+                </View>
+              )}
+              {mp.verificationResent && (
+                <View style={styles.successBox}>
+                  <Feather name="check-circle" size={13} color={Colors.game.green} />
+                  <Text style={styles.successTxt}>Verification email resent!</Text>
+                </View>
+              )}
+              <Pressable
+                style={styles.secondaryBtn}
+                onPress={() => mp.resendVerification(mp.awaitingVerification!)}
+              >
+                <Feather name="refresh-cw" size={13} color={Colors.game.gold} />
+                <Text style={styles.secondaryBtnTxt}>RESEND EMAIL</Text>
+              </Pressable>
+              <Pressable style={[styles.closeBtn, { marginTop: 10 }]} onPress={goBack}>
+                <Text style={styles.closeBtnTxt}>BACK TO LOGIN</Text>
+              </Pressable>
+            </ScrollView>
+          )}
+
+          {/* ── Forgot password form ──────────────────────────────────── */}
+          {screen === "forgot" && (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.iconRow}>
+                <Feather name="unlock" size={28} color={Colors.game.gold} />
+              </View>
+              <Text style={styles.title}>FORGOT PASSWORD</Text>
+              <Text style={styles.subtitle}>Enter your email and we'll send a reset link.</Text>
+              {displayError && (
+                <View style={styles.errorBox}>
+                  <Feather name="alert-circle" size={13} color={Colors.game.red} />
+                  <Text style={styles.errorTxt}>{displayError}</Text>
+                </View>
+              )}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <TextInput
+                  style={styles.input}
+                  value={forgotEmail}
+                  onChangeText={setForgotEmail}
+                  placeholder="your@email.com"
+                  placeholderTextColor={Colors.game.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  selectionColor={Colors.game.gold}
+                  {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
+                />
+              </View>
+              <Pressable
+                style={[styles.submitBtn, forgotPending && styles.submitBtnDisabled]}
+                onPress={handleForgot}
+                disabled={forgotPending}
+              >
+                {forgotPending ? (
+                  <ActivityIndicator size="small" color={Colors.game.background} />
+                ) : (
+                  <Text style={styles.submitBtnTxt}>SEND RESET LINK</Text>
+                )}
+              </Pressable>
+              <Pressable style={styles.closeBtn} onPress={goBack}>
+                <Text style={styles.closeBtnTxt}>BACK TO LOGIN</Text>
+              </Pressable>
+            </ScrollView>
+          )}
+
+          {/* ── Forgot password sent ──────────────────────────────────── */}
+          {screen === "forgot-sent" && (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.iconRow}>
+                <Feather name="mail" size={32} color={Colors.game.green} />
+              </View>
+              <Text style={styles.title}>CHECK YOUR EMAIL</Text>
+              <Text style={styles.subtitle}>
+                If an account with that email exists, we've sent a password reset link.
+              </Text>
+              <Text style={styles.hint}>
+                The link expires in 1 hour. Check your spam folder if you don't see it.
+              </Text>
+              <Pressable style={[styles.submitBtn, { marginTop: 8 }]} onPress={goBack}>
+                <Text style={styles.submitBtnTxt}>BACK TO LOGIN</Text>
+              </Pressable>
+            </ScrollView>
+          )}
+
+          {/* ── Main auth form ────────────────────────────────────────── */}
+          {screen === "auth" && (
+            <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.title}>MOUNTAIN ACCOUNT</Text>
-              <Text style={styles.subtitle}>Save your progress & play from any device</Text>
+              <Text style={styles.subtitle}>
+                {mandatory
+                  ? "Create an account or sign in to play"
+                  : "Save your progress & play from any device"}
+              </Text>
 
               {/* Tabs */}
               <View style={styles.tabs}>
@@ -121,7 +287,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                 </View>
               )}
 
-              {/* Inputs */}
+              {/* Username */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Username</Text>
                 <TextInput
@@ -138,13 +304,34 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                 />
               </View>
 
+              {/* Email (register only) */}
+              {tab === "register" && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    placeholderTextColor={Colors.game.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    maxLength={100}
+                    selectionColor={Colors.game.gold}
+                    {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
+                  />
+                </View>
+              )}
+
+              {/* Password */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Password</Text>
                 <TextInput
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Min. 4 characters"
+                  placeholder={tab === "register" ? "Min. 6 characters" : "Your password"}
                   placeholderTextColor={Colors.game.textMuted}
                   secureTextEntry
                   autoCapitalize="none"
@@ -155,6 +342,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                 />
               </View>
 
+              {/* Confirm password (register only) */}
               {tab === "register" && (
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Confirm Password</Text>
@@ -174,6 +362,16 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                 </View>
               )}
 
+              {/* Forgot password (login only) */}
+              {tab === "login" && (
+                <Pressable
+                  style={styles.forgotLink}
+                  onPress={() => { setLocalError(null); setScreen("forgot"); }}
+                >
+                  <Text style={styles.forgotLinkTxt}>Forgot password?</Text>
+                </Pressable>
+              )}
+
               {/* Submit */}
               <Pressable
                 style={[styles.submitBtn, mp.authPending && styles.submitBtnDisabled]}
@@ -191,13 +389,16 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
 
               {tab === "register" && (
                 <Text style={styles.hint}>
-                  Usernames: 3-20 chars, letters/numbers/underscores only.
+                  Usernames: 3-20 chars, letters/numbers/underscores.{"\n"}
+                  A verification email will be sent after registration.
                 </Text>
               )}
 
-              <Pressable style={styles.closeBtn} onPress={onClose}>
-                <Text style={styles.closeBtnTxt}>CANCEL</Text>
-              </Pressable>
+              {!mandatory && (
+                <Pressable style={styles.closeBtn} onPress={onClose}>
+                  <Text style={styles.closeBtnTxt}>CANCEL</Text>
+                </Pressable>
+              )}
             </ScrollView>
           )}
         </Pressable>
@@ -209,7 +410,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -222,6 +423,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: Colors.game.border,
+    maxHeight: "90%",
   },
   handle: {
     width: 36, height: 4,
@@ -229,6 +431,16 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: 20,
+  },
+  iconRow: {
+    alignItems: "center",
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: "rgba(201,168,76,0.1)",
+    borderRadius: 50,
+    alignSelf: "center",
+    width: 64, height: 64,
+    justifyContent: "center",
   },
   title: {
     fontSize: 14, fontFamily: "Inter_700Bold",
@@ -238,7 +450,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12, fontFamily: "Inter_400Regular",
     color: Colors.game.textMuted, textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 20, lineHeight: 18,
   },
   tabs: { flexDirection: "row", gap: 8, marginBottom: 16 },
   tabBtn: {
@@ -263,6 +475,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.red,
   },
   errorTxt: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.red, flex: 1 },
+  successBox: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "rgba(34,197,94,0.10)",
+    borderRadius: 8, padding: 10, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.game.green,
+  },
+  successTxt: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.green, flex: 1 },
   inputGroup: { marginBottom: 12 },
   inputLabel: {
     fontSize: 10, fontFamily: "Inter_700Bold",
@@ -275,6 +494,15 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: "Inter_400Regular",
     color: Colors.game.text,
   },
+  forgotLink: {
+    alignSelf: "flex-end",
+    marginBottom: 12,
+    marginTop: -4,
+  },
+  forgotLinkTxt: {
+    fontSize: 11, fontFamily: "Inter_500Medium",
+    color: Colors.game.gold, opacity: 0.8,
+  },
   submitBtn: {
     backgroundColor: Colors.game.gold,
     borderRadius: 12, paddingVertical: 14,
@@ -285,15 +513,26 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: "Inter_700Bold",
     color: Colors.game.background, letterSpacing: 2,
   },
+  secondaryBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: "rgba(201,168,76,0.1)", borderRadius: 12,
+    paddingVertical: 12, borderWidth: 1, borderColor: Colors.game.gold + "55",
+    marginBottom: 10,
+  },
+  secondaryBtnTxt: {
+    fontSize: 12, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 1.5,
+  },
   hint: {
     fontSize: 10, fontFamily: "Inter_400Regular",
     color: Colors.game.textMuted, textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 10, lineHeight: 15,
   },
   closeBtn: {
     backgroundColor: Colors.game.surface, borderRadius: 12,
     paddingVertical: 12, alignItems: "center",
     borderWidth: 1, borderColor: Colors.game.border,
+    marginBottom: 4,
   },
   closeBtnTxt: {
     fontSize: 12, fontFamily: "Inter_700Bold",

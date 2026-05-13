@@ -382,6 +382,7 @@ interface GameContextType {
   addLogEntry: (entry: LogEntry) => void;
   incrementEvents: () => void;
   loadState: (state: Partial<GameState>) => void;
+  resetGameState: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -486,9 +487,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState({ ...defaultGameState, ...saved, character: char });
   }, []);
 
+  const resetGameState = useCallback(() => {
+    didLoadRef.current = true;
+    setGameState(defaultGameState);
+    AsyncStorage.removeItem(STORAGE_KEY);
+  }, []);
+
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState }}
     >
       {children}
     </GameContext.Provider>

@@ -69,10 +69,19 @@ interface MultiplayerContextType {
   authPending: boolean;
   serverGameState: unknown | null;
   clearServerGameState: () => void;
-  register: (username: string, password: string, gameState: unknown) => void;
+  accountSwitched: boolean;
+  consumeAccountSwitch: () => void;
+  awaitingVerification: string | null;
+  verificationResent: boolean;
+  forgotPasswordSent: boolean;
+  forgotPasswordError: string | null;
+  register: (username: string, password: string, gameState: unknown, email: string) => void;
   login: (username: string, password: string) => void;
   logout: () => void;
   saveGameState: (state: unknown) => void;
+  resendVerification: (email: string) => void;
+  forgotPassword: (email: string) => Promise<void>;
+  clearVerificationState: () => void;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | null>(null);
@@ -80,15 +89,6 @@ const MultiplayerContext = createContext<MultiplayerContextType | null>(null);
 const NAME_KEY = "@mountain_player_name";
 const AUTH_TOKEN_KEY = "@mountain_auth_token_v1";
 const AUTH_USER_KEY = "@mountain_auth_user_v1";
-
-const GUEST_ADJ = ["Swift", "Iron", "Dark", "Stone", "Wild", "Frost", "Brave", "Shadow", "Silver", "Ember", "Ash", "Storm"];
-const GUEST_NOUN = ["Walker", "Seeker", "Hunter", "Climber", "Ranger", "Scout", "Blade", "Shield", "Arrow", "Drifter", "Pilgrim", "Warden"];
-function generateGuestName(): string {
-  const adj = GUEST_ADJ[Math.floor(Math.random() * GUEST_ADJ.length)];
-  const noun = GUEST_NOUN[Math.floor(Math.random() * GUEST_NOUN.length)];
-  const num = Math.floor(10 + Math.random() * 90);
-  return `${adj}${noun}${num}`;
-}
 
 // ─── Provider ───────────────────────────────────────────────────────────────────
 
@@ -105,6 +105,11 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const [authError, setAuthError] = useState<string | null>(null);
   const [authPending, setAuthPending] = useState(false);
   const [serverGameState, setServerGameState] = useState<unknown | null>(null);
+  const [accountSwitched, setAccountSwitched] = useState(false);
+  const [awaitingVerification, setAwaitingVerification] = useState<string | null>(null);
+  const [verificationResent, setVerificationResent] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const nameRef = useRef(playerName);
@@ -113,28 +118,30 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const mountedRef = useRef(true);
   const authTokenRef = useRef<string | null>(null);
   const connectRef = useRef<() => void>(() => {});
+  const prevAuthUsernameRef = useRef<string | null>(null);
 
   // ── Load from storage, then connect ────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      const [savedName, savedToken] = await Promise.all([
+      const [savedName, savedToken, savedUser] = await Promise.all([
         AsyncStorage.getItem(NAME_KEY),
         AsyncStorage.getItem(AUTH_TOKEN_KEY),
+        AsyncStorage.getItem(AUTH_USER_KEY),
       ]);
       if (cancelled) return;
 
+      // Track the last known authenticated user for account-switch detection
+      if (savedUser) prevAuthUsernameRef.current = savedUser.toLowerCase();
+
       // Resolve player name
       const usable = savedName && savedName !== "Wanderer" ? savedName : null;
-      const name = usable ?? generateGuestName();
+      const name = usable ?? "Traveler";
       setPlayerNameState(name);
       nameRef.current = name;
-      if (!usable) AsyncStorage.setItem(NAME_KEY, name);
 
-      // Store auth token before connecting so onopen can send it
       if (savedToken) authTokenRef.current = savedToken;
 
-      // Now connect — token is ready
       connectRef.current();
     }
     init();
@@ -219,24 +226,48 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           boOrderId: msg.orderId,
           boGoldReturn: msg.goldReturn,
         }]);
+      } else if (msg.type === "verify_pending") {
+        setAwaitingVerification(msg.email ?? null);
+        setAuthPending(false);
+        setAuthError(null);
+      } else if (msg.type === "verification_resent") {
+        setVerificationResent(true);
+        setTimeout(() => setVerificationResent(false), 3000);
       } else if (msg.type === "auth_ok") {
+        const newUserLower = msg.username.toLowerCase();
+        const switched = prevAuthUsernameRef.current !== null &&
+                         prevAuthUsernameRef.current !== newUserLower;
+        prevAuthUsernameRef.current = newUserLower;
+
         setIsAuthenticated(true);
         setAuthUsername(msg.username);
         setAuthError(null);
         setAuthPending(false);
+        setAwaitingVerification(null);
         setPlayerNameState(msg.username);
         nameRef.current = msg.username;
         AsyncStorage.setItem(AUTH_TOKEN_KEY, msg.token);
         AsyncStorage.setItem(AUTH_USER_KEY, msg.username);
         authTokenRef.current = msg.token;
         if (msg.yourId) setYourId(msg.yourId);
-        if (msg.gameState) setServerGameState(msg.gameState);
+
+        if (switched) setAccountSwitched(true);
+
+        // Always push server state on auth — use {} sentinel for new accounts on switch
+        if (msg.gameState) {
+          setServerGameState(msg.gameState);
+        } else if (switched) {
+          setServerGameState({}); // trigger fresh-start reset
+        }
       } else if (msg.type === "auth_fail") {
         setAuthError(msg.reason ?? "Authentication failed.");
         setAuthPending(false);
-        // Clear bad token
         authTokenRef.current = null;
         AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+        // If the account exists but email is unverified, show the verification screen
+        if (msg.unverified && msg.email) {
+          setAwaitingVerification(msg.email);
+        }
       }
     };
 
@@ -250,7 +281,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     ws.onerror = () => { ws.close(); };
   }, []);
 
-  // Store connect in ref so init() can call it without adding it as dep
   connectRef.current = connect;
 
   useEffect(() => {
@@ -262,7 +292,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const setPlayerName = useCallback((name: string) => {
-    const trimmed = name.trim().slice(0, 20) || "Wanderer";
+    const trimmed = name.trim().slice(0, 20) || "Traveler";
     setPlayerNameState(trimmed);
     nameRef.current = trimmed;
     AsyncStorage.setItem(NAME_KEY, trimmed);
@@ -293,22 +323,29 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     setAhEvents((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
-  const register = useCallback((username: string, password: string, gameState: unknown) => {
+  const consumeAccountSwitch = useCallback(() => {
+    setAccountSwitched(false);
+  }, []);
+
+  const register = useCallback((username: string, password: string, gameState: unknown, email: string) => {
     setAuthPending(true);
     setAuthError(null);
-    sendWs({ type: "register", username, password, gameState });
+    sendWs({ type: "register", username, password, email, gameState });
   }, [sendWs]);
 
   const login = useCallback((username: string, password: string) => {
     setAuthPending(true);
     setAuthError(null);
+    setAwaitingVerification(null);
     sendWs({ type: "login", username, password });
   }, [sendWs]);
 
   const logout = useCallback(() => {
     setIsAuthenticated(false);
     setAuthUsername(null);
+    setAwaitingVerification(null);
     authTokenRef.current = null;
+    prevAuthUsernameRef.current = null;
     AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     AsyncStorage.removeItem(AUTH_USER_KEY);
   }, []);
@@ -321,6 +358,45 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     setServerGameState(null);
   }, []);
 
+  const resendVerification = useCallback((email: string) => {
+    sendWs({ type: "resend_verification", email });
+  }, [sendWs]);
+
+  const forgotPassword = useCallback(async (email: string) => {
+    setForgotPasswordSent(false);
+    setForgotPasswordError(null);
+    try {
+      let domain: string;
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        domain = window.location.host;
+      } else {
+        domain = process.env.EXPO_PUBLIC_DOMAIN ?? "localhost";
+      }
+      const protocol = Platform.OS === "web" ? window.location.protocol : "https:";
+      const res = await fetch(`${protocol}//${domain}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setForgotPasswordSent(true);
+      } else {
+        setForgotPasswordError(data.reason ?? "Failed to send reset email.");
+      }
+    } catch {
+      setForgotPasswordError("Network error. Please try again.");
+    }
+  }, []);
+
+  const clearVerificationState = useCallback(() => {
+    setAwaitingVerification(null);
+    setVerificationResent(false);
+    setForgotPasswordSent(false);
+    setForgotPasswordError(null);
+    setAuthError(null);
+  }, []);
+
   return (
     <MultiplayerContext.Provider value={{
       status, yourId, playerName, setPlayerName,
@@ -330,7 +406,11 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       ahEvents, consumeAhEvent,
       isAuthenticated, authUsername, authError, authPending,
       serverGameState, clearServerGameState,
+      accountSwitched, consumeAccountSwitch,
+      awaitingVerification, verificationResent,
+      forgotPasswordSent, forgotPasswordError,
       register, login, logout, saveGameState,
+      resendVerification, forgotPassword, clearVerificationState,
     }}>
       {children}
     </MultiplayerContext.Provider>

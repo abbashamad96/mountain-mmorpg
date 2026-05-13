@@ -300,12 +300,12 @@ const logStackStyles = StyleSheet.create({
 export default function GameScreen() {
   const {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
-    incrementEvents, loadState,
+    incrementEvents, loadState, resetGameState,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
     isAuthenticated, authUsername, serverGameState, clearServerGameState,
-    saveGameState,
+    saveGameState, accountSwitched, consumeAccountSwitch,
   } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
@@ -338,13 +338,17 @@ export default function GameScreen() {
 
   const char = gameState.character;
 
-  // ── Load server state on login ────────────────────────────────────────────
+  // ── Load server state on login (handles account switching) ───────────────
   useEffect(() => {
     if (serverGameState) {
+      if (accountSwitched) {
+        resetGameState();
+        consumeAccountSwitch();
+      }
       loadState(serverGameState as any);
       clearServerGameState();
     }
-  }, [serverGameState, loadState, clearServerGameState]);
+  }, [serverGameState, accountSwitched, loadState, clearServerGameState, resetGameState, consumeAccountSwitch]);
 
   // ── Auto-save game state when authenticated ───────────────────────────────
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -621,7 +625,7 @@ export default function GameScreen() {
         onClose={handleAhClose}
         preSelectedEntry={preSelectForAh}
       />
-      <AuthModal visible={showAuth} onClose={() => setShowAuth(false)} />
+      <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal
         visible={showStats}

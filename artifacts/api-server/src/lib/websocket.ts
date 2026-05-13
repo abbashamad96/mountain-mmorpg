@@ -11,6 +11,7 @@ import {
   pendingDeliveriesTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { sendVerificationEmail } from "./email";
 
 // ─── Server-side types ────────────────────────────────────────────────────────
 
@@ -97,10 +98,8 @@ function reassignOwnedEntries(oldId: string, newId: string) {
 
 /** Find a connected player by their stable ID (username or ephemeral id). */
 function getPlayerByStableId(id: string): Player | undefined {
-  // Try direct lookup (ephemeral id)
   const direct = players.get(id);
   if (direct) return direct;
-  // Try username lookup
   const pid = userIdMap.get(id.toLowerCase());
   return pid ? players.get(pid) : undefined;
 }
@@ -112,18 +111,45 @@ async function dbGetUser(usernameLower: string) {
   return rows[0] ?? null;
 }
 
+async function dbGetUserByEmail(email: string) {
+  const rows = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  return rows[0] ?? null;
+}
+
 async function dbUserExists(usernameLower: string): Promise<boolean> {
   const rows = await db.select({ u: usersTable.usernameLower }).from(usersTable).where(eq(usersTable.usernameLower, usernameLower));
   return rows.length > 0;
 }
 
-async function dbCreateUser(username: string, passwordHash: string, gameState: unknown) {
+async function dbEmailExists(email: string): Promise<boolean> {
+  const rows = await db.select({ u: usersTable.usernameLower }).from(usersTable).where(eq(usersTable.email, email));
+  return rows.length > 0;
+}
+
+async function dbCreateUser(
+  username: string,
+  passwordHash: string,
+  gameState: unknown,
+  email: string,
+  verificationToken: string,
+  verificationTokenExpires: number,
+) {
   await db.insert(usersTable).values({
     usernameLower: username.toLowerCase(),
     username,
     passwordHash,
+    email,
+    emailVerified: false,
+    verificationToken,
+    verificationTokenExpires,
     gameState: gameState ?? null,
   });
+}
+
+async function dbUpdateVerificationToken(usernameLower: string, token: string, expires: number) {
+  await db.update(usersTable)
+    .set({ verificationToken: token, verificationTokenExpires: expires })
+    .where(eq(usersTable.usernameLower, usernameLower));
 }
 
 async function dbUpdateGameState(usernameLower: string, gameState: unknown) {
@@ -258,6 +284,7 @@ async function handleMessage(player: Player, raw: string) {
   } else if (msg.type === "register") {
     const username = String(msg.username || "").trim().slice(0, 20);
     const password = String(msg.password || "");
+    const email = String(msg.email || "").trim().toLowerCase();
 
     if (username.length < 3) {
       send(player.ws, { type: "auth_fail", reason: "Username must be at least 3 characters." }); return;
@@ -265,26 +292,37 @@ async function handleMessage(player: Player, raw: string) {
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       send(player.ws, { type: "auth_fail", reason: "Only letters, numbers, and underscores allowed." }); return;
     }
-    if (password.length < 4) {
-      send(player.ws, { type: "auth_fail", reason: "Password must be at least 4 characters." }); return;
+    if (password.length < 6) {
+      send(player.ws, { type: "auth_fail", reason: "Password must be at least 6 characters." }); return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      send(player.ws, { type: "auth_fail", reason: "A valid email address is required." }); return;
     }
 
-    const exists = await dbUserExists(username.toLowerCase());
+    const [exists, emailExists] = await Promise.all([
+      dbUserExists(username.toLowerCase()),
+      dbEmailExists(email),
+    ]);
     if (exists) {
       send(player.ws, { type: "auth_fail", reason: "Username is already taken." }); return;
     }
+    if (emailExists) {
+      send(player.ws, { type: "auth_fail", reason: "An account with this email already exists." }); return;
+    }
 
-    const token = generateToken();
-    await dbCreateUser(username, hashPassword(password), msg.gameState ?? null);
-    await dbCreateSession(token, username.toLowerCase());
+    const verificationToken = generateToken();
+    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
-    reassignOwnedEntries(player.id, username);
-    player.username = username;
-    player.name = username;
-    userIdMap.set(username.toLowerCase(), player.id);
+    await dbCreateUser(username, hashPassword(password), msg.gameState ?? null, email, verificationToken, verificationTokenExpires);
 
-    send(player.ws, { type: "auth_ok", username, token, gameState: null, yourId: username });
-    sysMsg(`${username} joined the mountain.`);
+    try {
+      await sendVerificationEmail(email, username, verificationToken);
+    } catch (err) {
+      logger.error({ err }, "Failed to send verification email");
+    }
+
+    send(player.ws, { type: "verify_pending", email });
+    logger.info({ username, email }, "User registered — verification pending");
 
   // ── login ───────────────────────────────────────────────────────────────────
   } else if (msg.type === "login") {
@@ -296,6 +334,18 @@ async function handleMessage(player: Player, raw: string) {
       send(player.ws, { type: "auth_fail", reason: "Invalid username or password." }); return;
     }
 
+    // Block login if email was provided but not yet verified.
+    // Legacy accounts (no email) are allowed through.
+    if (user.email && !user.emailVerified) {
+      send(player.ws, {
+        type: "auth_fail",
+        reason: "Please verify your email before logging in. Check your inbox or request a new link.",
+        unverified: true,
+        email: user.email,
+      });
+      return;
+    }
+
     await dbDeleteSessionsByUser(uname);
     const token = generateToken();
     await dbCreateSession(token, uname);
@@ -305,7 +355,6 @@ async function handleMessage(player: Player, raw: string) {
     player.name = user.username;
     userIdMap.set(uname, player.id);
 
-    // Flush pending deliveries for this user
     const pending = await dbFlushDeliveries(uname);
     const ws = player.ws;
     send(ws, { type: "auth_ok", username: user.username, token, gameState: user.gameState, yourId: user.username });
@@ -335,13 +384,35 @@ async function handleMessage(player: Player, raw: string) {
     player.name = user.username;
     userIdMap.set(session.usernameLower, player.id);
 
-    // Flush pending deliveries
     const pending = await dbFlushDeliveries(session.usernameLower);
     const ws = player.ws;
     send(ws, { type: "auth_ok", username: user.username, token: newToken, gameState: user.gameState, yourId: user.username });
     for (const d of pending) {
       send(ws, { type: d.deliveryType, ...d.payload });
     }
+
+  // ── resend_verification ──────────────────────────────────────────────────────
+  } else if (msg.type === "resend_verification") {
+    const email = String(msg.email || "").trim().toLowerCase();
+    if (!email) return;
+
+    const user = await dbGetUserByEmail(email);
+    if (!user || user.emailVerified) return;
+
+    const token = generateToken();
+    const expires = Date.now() + 24 * 60 * 60 * 1000;
+    await dbUpdateVerificationToken(user.usernameLower, token, expires);
+
+    try {
+      await sendVerificationEmail(user.email!, user.username, token);
+    } catch (err) {
+      logger.error({ err }, "Failed to resend verification email");
+      send(player.ws, { type: "auth_fail", reason: "Failed to send email. Please try again." });
+      return;
+    }
+
+    send(player.ws, { type: "verification_resent" });
+    logger.info({ username: user.username, email }, "Verification email resent");
 
   // ── save_state ──────────────────────────────────────────────────────────────
   } else if (msg.type === "save_state") {
@@ -403,12 +474,10 @@ async function handleMessage(player: Player, raw: string) {
     await dbDeleteAhListing(listing.id);
     send(player.ws, { type: "ah_bought", listing });
 
-    // Notify seller (if online) or queue delivery
     const seller = getPlayerByStableId(listing.sellerId);
     if (seller) {
       send(seller.ws, { type: "ah_sale", listing, buyerName: player.name });
     } else {
-      // Queue gold notification for offline seller (authenticated players only)
       const sellerUname = listing.sellerId.toLowerCase();
       const sellerUser = await dbGetUser(sellerUname);
       if (sellerUser) {
@@ -475,7 +544,6 @@ async function handleMessage(player: Player, raw: string) {
 
     send(player.ws, { type: "bo_sold", orderId: order.id, count, goldEarned });
 
-    // Notify buyer (if online) or queue delivery
     const buyerPlayer = getPlayerByStableId(order.buyerId);
     const receivedPayload = {
       orderId: order.id,
@@ -485,7 +553,6 @@ async function handleMessage(player: Player, raw: string) {
     if (buyerPlayer) {
       send(buyerPlayer.ws, { type: "bo_received", ...receivedPayload });
     } else {
-      // Queue for offline buyer (authenticated players only)
       const buyerUname = order.buyerId.toLowerCase();
       const buyerUser = await dbGetUser(buyerUname);
       if (buyerUser) {
@@ -512,7 +579,6 @@ function handleClose(player: Player) {
 export function attachWebSocketServer(server: Server) {
   const wss = new WebSocketServer({ server, path: "/api/ws" });
 
-  // Load persisted AH data before accepting connections
   loadFromDb().catch(err => logger.error({ err }, "Failed to load data from DB"));
 
   wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
