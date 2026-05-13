@@ -11,7 +11,6 @@ import {
   pendingDeliveriesTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { sendVerificationEmail } from "./email";
 
 // ─── Server-side types ────────────────────────────────────────────────────────
 
@@ -131,8 +130,6 @@ async function dbCreateUser(
   passwordHash: string,
   gameState: unknown,
   email: string,
-  verificationToken: string,
-  verificationTokenExpires: number,
 ) {
   await db.insert(usersTable).values({
     usernameLower: username.toLowerCase(),
@@ -140,8 +137,6 @@ async function dbCreateUser(
     passwordHash,
     email,
     emailVerified: false,
-    verificationToken,
-    verificationTokenExpires,
     gameState: gameState ?? null,
   });
 }
@@ -310,19 +305,18 @@ async function handleMessage(player: Player, raw: string) {
       send(player.ws, { type: "auth_fail", reason: "An account with this email already exists." }); return;
     }
 
-    const verificationToken = generateToken();
-    const verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    await dbCreateUser(username, hashPassword(password), msg.gameState ?? null, email);
 
-    await dbCreateUser(username, hashPassword(password), msg.gameState ?? null, email, verificationToken, verificationTokenExpires);
+    const token = generateToken();
+    await dbCreateSession(token, username.toLowerCase());
 
-    try {
-      await sendVerificationEmail(email, username, verificationToken);
-    } catch (err) {
-      logger.error({ err }, "Failed to send verification email");
-    }
+    reassignOwnedEntries(player.id, username);
+    player.username = username;
+    player.name = username;
+    userIdMap.set(username.toLowerCase(), player.id);
 
-    send(player.ws, { type: "verify_pending", email });
-    logger.info({ username, email }, "User registered — verification pending");
+    send(player.ws, { type: "auth_ok", username, token, gameState: msg.gameState ?? null, yourId: username });
+    logger.info({ username, email }, "User registered and logged in");
 
   // ── login ───────────────────────────────────────────────────────────────────
   } else if (msg.type === "login") {
@@ -332,18 +326,6 @@ async function handleMessage(player: Player, raw: string) {
 
     if (!user || user.passwordHash !== hashPassword(password)) {
       send(player.ws, { type: "auth_fail", reason: "Invalid username or password." }); return;
-    }
-
-    // Block login if email was provided but not yet verified.
-    // Legacy accounts (no email) are allowed through.
-    if (user.email && !user.emailVerified) {
-      send(player.ws, {
-        type: "auth_fail",
-        reason: "Please verify your email before logging in. Check your inbox or request a new link.",
-        unverified: true,
-        email: user.email,
-      });
-      return;
     }
 
     await dbDeleteSessionsByUser(uname);

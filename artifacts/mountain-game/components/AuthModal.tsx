@@ -14,7 +14,7 @@ import {
 import Colors from "@/constants/colors";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
-type Screen = "auth" | "awaiting" | "forgot" | "forgot-sent";
+type Screen = "auth" | "forgot" | "forgot-sent";
 type Tab = "login" | "register";
 
 interface AuthModalProps {
@@ -35,13 +35,6 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
   const [localError, setLocalError] = useState<string | null>(null);
   const [forgotPending, setForgotPending] = useState(false);
 
-  // Sync awaiting-verification state from context
-  useEffect(() => {
-    if (mp.awaitingVerification) {
-      setScreen("awaiting");
-    }
-  }, [mp.awaitingVerification]);
-
   // Sync forgot-password sent state
   useEffect(() => {
     if (mp.forgotPasswordSent) setScreen("forgot-sent");
@@ -49,7 +42,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
 
   // Reset on open
   useEffect(() => {
-    if (visible && !mp.awaitingVerification) {
+    if (visible) {
       setScreen("auth");
       setLocalError(null);
     }
@@ -97,7 +90,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
     setScreen("auth");
     setTab("login");
     setLocalError(null);
-    mp.clearVerificationState();
+    mp.clearForgotState();
   };
 
   const displayError = localError || mp.authError;
@@ -148,45 +141,6 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
       <Pressable style={styles.overlay} onPress={handleOverlayPress}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
           <View style={styles.handle} />
-
-          {/* ── Awaiting email verification ───────────────────────────── */}
-          {screen === "awaiting" && (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.iconRow}>
-                <Feather name="mail" size={32} color={Colors.game.gold} />
-              </View>
-              <Text style={styles.title}>CHECK YOUR EMAIL</Text>
-              <Text style={styles.subtitle}>
-                We sent a verification link to{"\n"}
-                <Text style={{ color: Colors.game.gold }}>{mp.awaitingVerification}</Text>
-              </Text>
-              <Text style={styles.hint}>
-                Click the link in the email to verify your account, then come back and log in.
-              </Text>
-              {displayError && (
-                <View style={styles.errorBox}>
-                  <Feather name="alert-circle" size={13} color={Colors.game.red} />
-                  <Text style={styles.errorTxt}>{displayError}</Text>
-                </View>
-              )}
-              {mp.verificationResent && (
-                <View style={styles.successBox}>
-                  <Feather name="check-circle" size={13} color={Colors.game.green} />
-                  <Text style={styles.successTxt}>Verification email resent!</Text>
-                </View>
-              )}
-              <Pressable
-                style={styles.secondaryBtn}
-                onPress={() => mp.resendVerification(mp.awaitingVerification!)}
-              >
-                <Feather name="refresh-cw" size={13} color={Colors.game.gold} />
-                <Text style={styles.secondaryBtnTxt}>RESEND EMAIL</Text>
-              </Pressable>
-              <Pressable style={[styles.closeBtn, { marginTop: 10 }]} onPress={goBack}>
-                <Text style={styles.closeBtnTxt}>BACK TO LOGIN</Text>
-              </Pressable>
-            </ScrollView>
-          )}
 
           {/* ── Forgot password form ──────────────────────────────────── */}
           {screen === "forgot" && (
@@ -390,7 +344,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
               {tab === "register" && (
                 <Text style={styles.hint}>
                   Usernames: 3-20 chars, letters/numbers/underscores.{"\n"}
-                  A verification email will be sent after registration.
+                  Your email is used for password recovery only.
                 </Text>
               )}
 

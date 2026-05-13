@@ -71,17 +71,14 @@ interface MultiplayerContextType {
   clearServerGameState: () => void;
   accountSwitched: boolean;
   consumeAccountSwitch: () => void;
-  awaitingVerification: string | null;
-  verificationResent: boolean;
   forgotPasswordSent: boolean;
   forgotPasswordError: string | null;
   register: (username: string, password: string, gameState: unknown, email: string) => void;
   login: (username: string, password: string) => void;
   logout: () => void;
   saveGameState: (state: unknown) => void;
-  resendVerification: (email: string) => void;
   forgotPassword: (email: string) => Promise<void>;
-  clearVerificationState: () => void;
+  clearForgotState: () => void;
 }
 
 const MultiplayerContext = createContext<MultiplayerContextType | null>(null);
@@ -106,8 +103,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const [authPending, setAuthPending] = useState(false);
   const [serverGameState, setServerGameState] = useState<unknown | null>(null);
   const [accountSwitched, setAccountSwitched] = useState(false);
-  const [awaitingVerification, setAwaitingVerification] = useState<string | null>(null);
-  const [verificationResent, setVerificationResent] = useState(false);
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
 
@@ -226,13 +221,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           boOrderId: msg.orderId,
           boGoldReturn: msg.goldReturn,
         }]);
-      } else if (msg.type === "verify_pending") {
-        setAwaitingVerification(msg.email ?? null);
-        setAuthPending(false);
-        setAuthError(null);
-      } else if (msg.type === "verification_resent") {
-        setVerificationResent(true);
-        setTimeout(() => setVerificationResent(false), 3000);
       } else if (msg.type === "auth_ok") {
         const newUserLower = msg.username.toLowerCase();
         const switched = prevAuthUsernameRef.current !== null &&
@@ -243,7 +231,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         setAuthUsername(msg.username);
         setAuthError(null);
         setAuthPending(false);
-        setAwaitingVerification(null);
         setPlayerNameState(msg.username);
         nameRef.current = msg.username;
         AsyncStorage.setItem(AUTH_TOKEN_KEY, msg.token);
@@ -264,10 +251,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         setAuthPending(false);
         authTokenRef.current = null;
         AsyncStorage.removeItem(AUTH_TOKEN_KEY);
-        // If the account exists but email is unverified, show the verification screen
-        if (msg.unverified && msg.email) {
-          setAwaitingVerification(msg.email);
-        }
       }
     };
 
@@ -336,14 +319,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const login = useCallback((username: string, password: string) => {
     setAuthPending(true);
     setAuthError(null);
-    setAwaitingVerification(null);
     sendWs({ type: "login", username, password });
   }, [sendWs]);
 
   const logout = useCallback(() => {
     setIsAuthenticated(false);
     setAuthUsername(null);
-    setAwaitingVerification(null);
     authTokenRef.current = null;
     prevAuthUsernameRef.current = null;
     AsyncStorage.removeItem(AUTH_TOKEN_KEY);
@@ -357,10 +338,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const clearServerGameState = useCallback(() => {
     setServerGameState(null);
   }, []);
-
-  const resendVerification = useCallback((email: string) => {
-    sendWs({ type: "resend_verification", email });
-  }, [sendWs]);
 
   const forgotPassword = useCallback(async (email: string) => {
     setForgotPasswordSent(false);
@@ -389,9 +366,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  const clearVerificationState = useCallback(() => {
-    setAwaitingVerification(null);
-    setVerificationResent(false);
+  const clearForgotState = useCallback(() => {
     setForgotPasswordSent(false);
     setForgotPasswordError(null);
     setAuthError(null);
@@ -407,10 +382,9 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       isAuthenticated, authUsername, authError, authPending,
       serverGameState, clearServerGameState,
       accountSwitched, consumeAccountSwitch,
-      awaitingVerification, verificationResent,
       forgotPasswordSent, forgotPasswordError,
       register, login, logout, saveGameState,
-      resendVerification, forgotPassword, clearVerificationState,
+      forgotPassword, clearForgotState,
     }}>
       {children}
     </MultiplayerContext.Provider>
