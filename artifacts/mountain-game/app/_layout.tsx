@@ -7,7 +7,6 @@ import {
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
-import { Head } from "expo-router/head";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -24,15 +23,9 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
-    <>
-      <Head>
-        <title>Mountain of Supremacy</title>
-        <meta name="description" content="An online RPG where you explore a mountain road, gather rare materials, battle fearsome creatures, and trade on a global auction house. Create your account and start your journey." />
-      </Head>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    </Stack>
   );
 }
 
