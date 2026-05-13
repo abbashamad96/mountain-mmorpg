@@ -340,7 +340,6 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     setIsAuthenticated(false);
     setAuthUsername(null);
     authTokenRef.current = null;
-    prevAuthUsernameRef.current = null;
     AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     AsyncStorage.removeItem(AUTH_USER_KEY);
   }, []);
