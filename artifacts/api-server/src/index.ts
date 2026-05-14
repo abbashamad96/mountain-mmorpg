@@ -18,12 +18,16 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const server = http.createServer(app);
-attachWebSocketServer(server);
 
-server.listen(port, (err?: Error) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
-  logger.info({ port }, "Server listening");
+attachWebSocketServer(server).then(() => {
+  server.listen(port, (err?: Error) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+    logger.info({ port }, "Server listening");
+  });
+}).catch((err) => {
+  logger.error({ err }, "Failed to attach WebSocket server");
+  process.exit(1);
 });

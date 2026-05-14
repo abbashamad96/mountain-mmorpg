@@ -11,6 +11,7 @@ import {
   pendingDeliveriesTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { sendVerificationEmail } from "./email";
 
 // ─── Server-side types ────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ interface AuctionListing {
   material: { type: string; rarity: string; version: number };
   count: number;
   price: number;
-  ts: number;
+  listedAt: number;
 }
 
 interface BuyOrder {
@@ -40,7 +41,7 @@ interface BuyOrder {
   count: number;
   filled: number;
   pricePerUnit: number;
-  ts: number;
+  createdAt: number;
 }
 
 // ─── Runtime state (connections + caches) ─────────────────────────────────────
@@ -240,7 +241,7 @@ async function dbSaveAhListing(listing: AuctionListing) {
     material: listing.material,
     count: listing.count,
     price: listing.price,
-    createdAt: listing.ts,
+    createdAt: listing.listedAt,
   }).onConflictDoUpdate({
     target: auctionListingsTable.id,
     set: { count: listing.count, price: listing.price },
@@ -260,7 +261,7 @@ async function dbSaveBuyOrder(order: BuyOrder) {
     count: order.count,
     filled: order.filled,
     pricePerUnit: order.pricePerUnit,
-    createdAt: order.ts,
+    createdAt: order.createdAt,
   }).onConflictDoUpdate({
     target: buyOrdersTable.id,
     set: { filled: order.filled },
@@ -299,7 +300,7 @@ async function loadFromDb() {
       material: row.material as { type: string; rarity: string; version: number },
       count: row.count,
       price: row.price,
-      ts: Number(row.createdAt),
+      listedAt: Number(row.createdAt),
     });
   }
 
@@ -312,7 +313,7 @@ async function loadFromDb() {
       count: row.count,
       filled: row.filled,
       pricePerUnit: row.pricePerUnit,
-      ts: Number(row.createdAt),
+      createdAt: Number(row.createdAt),
     });
   }
 
@@ -501,7 +502,7 @@ async function handleMessage(player: Player, raw: string) {
       material: { type: String(mat.type).slice(0, 20), rarity: String(mat.rarity).slice(0, 20), version: parseInt(mat.version) || 0 },
       count,
       price,
-      ts: Date.now(),
+      listedAt: Date.now(),
     };
     auctionListings.set(listing.id, listing);
     await dbSaveAhListing(listing);
@@ -557,7 +558,7 @@ async function handleMessage(player: Player, raw: string) {
       count,
       filled: 0,
       pricePerUnit,
-      ts: Date.now(),
+      createdAt: Date.now(),
     };
     buyOrders.set(order.id, order);
     await dbSaveBuyOrder(order);
@@ -627,10 +628,14 @@ function handleClose(player: Player) {
   }
 }
 
-export function attachWebSocketServer(server: Server) {
+export async function attachWebSocketServer(server: Server) {
   const wss = new WebSocketServer({ server, path: "/api/ws" });
 
-  loadFromDb().catch(err => logger.error({ err }, "Failed to load data from DB"));
+  try {
+    await loadFromDb();
+  } catch (err) {
+    logger.error({ err }, "Failed to load data from DB");
+  }
 
   wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
     counter++;
