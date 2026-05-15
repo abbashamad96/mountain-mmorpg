@@ -307,6 +307,7 @@ export default function GameScreen() {
     isAuthenticated, authUsername, serverGameState, clearServerGameState,
     saveGameState, accountSwitched, consumeAccountSwitch,
     sessionExpired, clearSessionExpired,
+    status,
   } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
@@ -357,16 +358,16 @@ export default function GameScreen() {
     }
   }, [serverGameState, resetGameState, consumeAccountSwitch, loadState, clearServerGameState]);
 
-  // ── Auto-save game state when authenticated ───────────────────────────────
+  // ── Auto-save game state when authenticated and connected ────────────────
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || status !== "connected") return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveGameState(gameState);
     }, 5000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [gameState, isAuthenticated, saveGameState]);
+  }, [gameState, isAuthenticated, status, saveGameState]);
 
   // ── AH toast helper ───────────────────────────────────────────────────────
   const pushToast = useCallback((msg: string, isGold: boolean) => {
