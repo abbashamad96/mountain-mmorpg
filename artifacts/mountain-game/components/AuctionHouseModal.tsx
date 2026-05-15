@@ -203,6 +203,17 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
   // Inventory strip toggle
   const [showInventoryTop, setShowInventoryTop] = useState(false);
 
+  // Section expand/collapse
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const toggleSection = useCallback((key: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   // Buy order creation form state
   const [boType, setBoType] = useState<MaterialType | null>(null);
   const [boRarity, setBoRarity] = useState<RarityName | null>(null);
@@ -412,11 +423,51 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     </ScrollView>
   );
 
-  // ── Sell listings tab ─────────────────────────────────────────────────────
+  // ── Sell listings tab (grouped by type + rarity) ─────────────────────────
 
   const renderListings = () => {
     const filtered = applyTypeFilter(listings) as AuctionListing[];
     const sorted = applySortListings(filtered);
+
+    // Group: type -> rarity -> items
+    const groups = new Map<string, Map<string, AuctionListing[]>>();
+    sorted.forEach((l) => {
+      const typeKey = l.material.type;
+      const rarityKey = l.material.rarity;
+      if (!groups.has(typeKey)) groups.set(typeKey, new Map());
+      const rMap = groups.get(typeKey)!;
+      if (!rMap.has(rarityKey)) rMap.set(rarityKey, []);
+      rMap.get(rarityKey)!.push(l);
+    });
+
+    // Preferred type order, then alpha for the rest
+    const typeOrder = ["Ore", "Wood", "Herb", "Leather"];
+    const sortedTypes = Array.from(groups.keys()).sort(
+      (a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b)
+    );
+
+    const renderSectionHeader = (type: MaterialType, rarity: RarityName, count: number) => {
+      const key = `list-${type}-${rarity}`;
+      const expanded = expandedSections.has(key);
+      const rc = RARITY_COLORS[rarity] ?? "#9CA3AF";
+      return (
+        <Pressable
+          key={key}
+          style={[styles.sectionHeader, { borderLeftColor: rc }]}
+          onPress={() => toggleSection(key)}
+        >
+          <View style={styles.sectionDot}>
+            <View style={[styles.sectionDotInner, { backgroundColor: rc }]} />
+          </View>
+          <Text style={[styles.sectionTitle, { color: rc }]}>
+            {rarity.toUpperCase()} {type.toUpperCase()}
+          </Text>
+          <Text style={styles.sectionCount}>({count})</Text>
+          <Text style={styles.sectionArrow}>{expanded ? " ▼" : " ▶"}</Text>
+        </Pressable>
+      );
+    };
+
     return (
       <View>
         <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
@@ -431,33 +482,75 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
           </View>
         ) : (
           <FlatList
-            data={sorted}
-            keyExtractor={(l) => l.id}
+            data={sortedTypes}
+            keyExtractor={(t) => t}
             style={styles.listScroll}
-            renderItem={({ item }) => (
-              <ListingCard
-                listing={item}
-                isOwn={item.sellerId === yourId}
-                canAfford={char.gold >= item.price}
-                onBuy={() => handleBuy(item)}
-                onCancel={() => handleCancel(item)}
-              />
-            )}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            contentContainerStyle={{ paddingBottom: 4 }}
             showsVerticalScrollIndicator={false}
+            renderItem={({ item: type }) => {
+              const rMap = groups.get(type)!;
+              // Rarity order = same as RARITIES array (Common..Mythic)
+              const rarityEntries = RARITIES.filter((r) => rMap.has(r)).map((r) => ({
+                rarity: r,
+                items: rMap.get(r)!.sort((a, b) => (a.material.version ?? 0) - (b.material.version ?? 0)),
+              }));
+              return (
+                <View style={{ marginBottom: 8 }}>
+                  {rarityEntries.map(({ rarity, items }) => {
+                    const key = `list-${type}-${rarity}`;
+                    const expanded = expandedSections.has(key);
+                    return (
+                      <View key={key}>
+                        {renderSectionHeader(type as MaterialType, rarity as RarityName, items.length)}
+                        {expanded && (
+                          <View style={styles.sectionBody}>
+                            {items.map((l) => (
+                              <ListingCard
+                                key={l.id}
+                                listing={l}
+                                isOwn={l.sellerId === yourId}
+                                canAfford={char.gold >= l.price}
+                                onBuy={() => handleBuy(l)}
+                                onCancel={() => handleCancel(l)}
+                              />
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            }}
+            ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
+            contentContainerStyle={{ paddingBottom: 4 }}
           />
         )}
       </View>
     );
   };
 
-  // ── Buy orders tab ────────────────────────────────────────────────────────
+  // ── Buy orders tab (grouped by type + rarity) ──────────────────────────
 
   const renderOrders = () => {
     const active = buyOrders.filter((o) => o.count - o.filled > 0);
     const filtered = applyTypeFilter(active) as BuyOrder[];
     const sorted = applySortOrders(filtered);
+
+    // Group: type -> rarity -> items
+    const groups = new Map<string, Map<string, BuyOrder[]>>();
+    sorted.forEach((o) => {
+      const typeKey = o.material.type;
+      const rarityKey = o.material.rarity;
+      if (!groups.has(typeKey)) groups.set(typeKey, new Map());
+      const rMap = groups.get(typeKey)!;
+      if (!rMap.has(rarityKey)) rMap.set(rarityKey, []);
+      rMap.get(rarityKey)!.push(o);
+    });
+
+    const typeOrder = ["Ore", "Wood", "Herb", "Leather"];
+    const sortedTypes = Array.from(groups.keys()).sort(
+      (a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b)
+    );
 
     // Inventory items that have matching open buy orders (not own)
     const invMatches = char.materials.filter((entry) =>
@@ -469,6 +562,28 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
         (o.material.version === null || o.material.version === entry.material.version)
       )
     );
+
+    const renderBoSectionHeader = (type: MaterialType, rarity: RarityName, count: number) => {
+      const key = `bo-${type}-${rarity}`;
+      const expanded = expandedSections.has(key);
+      const rc = RARITY_COLORS[rarity] ?? "#9CA3AF";
+      return (
+        <Pressable
+          key={key}
+          style={[styles.sectionHeader, { borderLeftColor: rc }]}
+          onPress={() => toggleSection(key)}
+        >
+          <View style={styles.sectionDot}>
+            <View style={[styles.sectionDotInner, { backgroundColor: rc }]} />
+          </View>
+          <Text style={[styles.sectionTitle, { color: rc }]}>
+            {rarity.toUpperCase()} {type.toUpperCase()}
+          </Text>
+          <Text style={styles.sectionCount}>({count})</Text>
+          <Text style={styles.sectionArrow}>{expanded ? " ▼" : " ▶"}</Text>
+        </Pressable>
+      );
+    };
 
     return (
       <View>
@@ -556,29 +671,56 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
           </View>
         ) : (
           <FlatList
-            data={sorted}
-            keyExtractor={(o) => o.id}
+            data={sortedTypes}
+            keyExtractor={(t) => t}
             style={styles.listScroll}
-            renderItem={({ item }) => {
-              const matchEntry = char.materials.find((e) =>
-                e.material.type === item.material.type &&
-                e.material.rarity === item.material.rarity &&
-                (item.material.version === null || e.material.version === item.material.version) &&
-                e.count > 0
-              );
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item: type }) => {
+              const rMap = groups.get(type)!;
+              const rarityEntries = RARITIES.filter((r) => rMap.has(r)).map((r) => ({
+                rarity: r,
+                items: rMap.get(r)!.sort((a, b) =>
+                  (a.material.version ?? 0) - (b.material.version ?? 0)
+                ),
+              }));
               return (
-                <BuyOrderCard
-                  order={item}
-                  isOwn={item.buyerId === yourId}
-                  matchEntry={matchEntry}
-                  onFill={(qty) => handleFillOrder(item, qty)}
-                  onCancel={() => handleCancelOrder(item)}
-                />
+                <View style={{ marginBottom: 8 }}>
+                  {rarityEntries.map(({ rarity, items }) => {
+                    const key = `bo-${type}-${rarity}`;
+                    const expanded = expandedSections.has(key);
+                    return (
+                      <View key={key}>
+                        {renderBoSectionHeader(type as MaterialType, rarity as RarityName, items.length)}
+                        {expanded && (
+                          <View style={styles.sectionBody}>
+                            {items.map((o) => {
+                              const matchEntry = char.materials.find((e) =>
+                                e.material.type === o.material.type &&
+                                e.material.rarity === o.material.rarity &&
+                                (o.material.version === null || e.material.version === o.material.version) &&
+                                e.count > 0
+                              );
+                              return (
+                                <BuyOrderCard
+                                  key={o.id}
+                                  order={o}
+                                  isOwn={o.buyerId === yourId}
+                                  matchEntry={matchEntry}
+                                  onFill={(qty) => handleFillOrder(o, qty)}
+                                  onCancel={() => handleCancelOrder(o)}
+                                />
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
               );
             }}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
             contentContainerStyle={{ paddingBottom: 4 }}
-            showsVerticalScrollIndicator={false}
           />
         )}
       </View>
@@ -1195,6 +1337,39 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.border,
   },
   closeBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
+  // Collapsible sections
+  sectionHeader: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
+    borderWidth: 1, borderColor: Colors.game.border,
+    borderLeftWidth: 4,
+    marginBottom: 2,
+  },
+  sectionDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center", justifyContent: "center",
+  },
+  sectionDotInner: {
+    width: 6, height: 6, borderRadius: 3,
+  },
+  sectionTitle: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    letterSpacing: 1.2, flex: 1,
+  },
+  sectionCount: {
+    fontSize: 10, fontFamily: "Inter_600SemiBold",
+    color: Colors.game.textMuted,
+  },
+  sectionArrow: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+  },
+  sectionBody: {
+    gap: 8, paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
   // Buy order creation
   boHint: {
     fontSize: 11, fontFamily: "Inter_400Regular",
