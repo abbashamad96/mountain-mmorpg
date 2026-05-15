@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -35,24 +35,20 @@ import { RarityText } from "./RarityText";
 type Tab = "listings" | "orders";
 type Step = "tabs" | "pick" | "price" | "bo-create";
 type FilterType = "All" | MaterialType;
+type SortKey = "price" | "qty" | "time";
+type SortDir = "asc" | "desc";
 
 const FILTER_TYPES: FilterType[] = ["All", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
+const SORT_LABELS: Record<SortKey, string> = { price: "PRICE", qty: "QTY", time: "TIME" };
 
 // ─── Sell listing card ────────────────────────────────────────────────────────
 
 function ListingCard({
-  listing,
-  isOwn,
-  canAfford,
-  onBuy,
-  onCancel,
+  listing, isOwn, canAfford, onBuy, onCancel,
 }: {
-  listing: AuctionListing;
-  isOwn: boolean;
-  canAfford: boolean;
-  onBuy: () => void;
-  onCancel: () => void;
+  listing: AuctionListing; isOwn: boolean; canAfford: boolean;
+  onBuy: () => void; onCancel: () => void;
 }) {
   const rarityColor = RARITY_COLORS[listing.material.rarity as RarityName] ?? "#9CA3AF";
   return (
@@ -62,9 +58,7 @@ function ListingCard({
           type={listing.material.type as MaterialType}
           rarity={listing.material.rarity as RarityName}
           version={listing.material.version as VersionNum}
-          size={54}
-          compact
-          animateParticles={false}
+          size={54} compact animateParticles={false}
         />
       </View>
       <View style={styles.listingInfo}>
@@ -90,8 +84,7 @@ function ListingCard({
         ) : (
           <Pressable
             style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
-            onPress={onBuy}
-            disabled={!canAfford}
+            onPress={onBuy} disabled={!canAfford}
           >
             <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
           </Pressable>
@@ -104,17 +97,10 @@ function ListingCard({
 // ─── Buy order card ───────────────────────────────────────────────────────────
 
 function BuyOrderCard({
-  order,
-  isOwn,
-  matchEntry,
-  onFill,
-  onCancel,
+  order, isOwn, matchEntry, onFill, onCancel,
 }: {
-  order: BuyOrder;
-  isOwn: boolean;
-  matchEntry: MaterialEntry | undefined;
-  onFill: (qty: number) => void;
-  onCancel: () => void;
+  order: BuyOrder; isOwn: boolean; matchEntry: MaterialEntry | undefined;
+  onFill: (qty: number) => void; onCancel: () => void;
 }) {
   const remaining = order.count - order.filled;
   const maxFill = matchEntry ? Math.min(matchEntry.count, remaining) : 0;
@@ -131,9 +117,7 @@ function BuyOrderCard({
           type={order.material.type as MaterialType}
           rarity={order.material.rarity as RarityName}
           version={displayVersion}
-          size={54}
-          compact
-          animateParticles={false}
+          size={54} compact animateParticles={false}
         />
       </View>
       <View style={styles.listingInfo}>
@@ -162,19 +146,11 @@ function BuyOrderCard({
           <View style={styles.fillCol}>
             {maxFill > 1 && (
               <View style={styles.stepperRow}>
-                <Pressable
-                  style={styles.stepBtn}
-                  onPress={() => setQty((q) => Math.max(1, q - 1))}
-                  hitSlop={6}
-                >
+                <Pressable style={styles.stepBtn} onPress={() => setQty((q) => Math.max(1, q - 1))} hitSlop={6}>
                   <Text style={styles.stepBtnTxt}>−</Text>
                 </Pressable>
                 <Text style={styles.stepQty}>×{qty}</Text>
-                <Pressable
-                  style={styles.stepBtn}
-                  onPress={() => setQty((q) => Math.min(maxFill, q + 1))}
-                  hitSlop={6}
-                >
+                <Pressable style={styles.stepBtn} onPress={() => setQty((q) => Math.min(maxFill, q + 1))} hitSlop={6}>
                   <Text style={styles.stepBtnTxt}>+</Text>
                 </Pressable>
               </View>
@@ -220,6 +196,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
   const [typeFilter, setTypeFilter] = useState<FilterType>("All");
   const [feedback, setFeedback] = useState<{ msg: string; ok: boolean } | null>(null);
 
+  // Sort state
+  const [sortBy, setSortBy] = useState<SortKey>("time");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // Inventory strip toggle
+  const [showInventoryTop, setShowInventoryTop] = useState(false);
+
   // Buy order creation form state
   const [boType, setBoType] = useState<MaterialType | null>(null);
   const [boRarity, setBoRarity] = useState<RarityName | null>(null);
@@ -247,10 +230,42 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     setTimeout(() => setFeedback(null), 2500);
   }, []);
 
-  const applyFilter = (list: (AuctionListing | BuyOrder)[]) =>
-    typeFilter === "All" ? list : list.filter((item) => item.material.type === typeFilter);
+  // ── Sort helpers ──────────────────────────────────────────────────────────
 
-  // ── Sell listing actions ───────────────────────────────────────────────────
+  const handleSortPress = useCallback((key: SortKey) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir(key === "time" ? "desc" : "asc");
+    }
+  }, [sortBy]);
+
+  const applySortListings = useCallback((list: AuctionListing[]): AuctionListing[] => {
+    return [...list].sort((a, b) => {
+      const [av, bv] =
+        sortBy === "price" ? [a.price, b.price]
+        : sortBy === "qty" ? [a.count, b.count]
+        : [a.listedAt ?? 0, b.listedAt ?? 0];
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [sortBy, sortDir]);
+
+  const applySortOrders = useCallback((list: BuyOrder[]): BuyOrder[] => {
+    return [...list].sort((a, b) => {
+      const [av, bv] =
+        sortBy === "price" ? [a.pricePerUnit, b.pricePerUnit]
+        : sortBy === "qty" ? [a.count - a.filled, b.count - b.filled]
+        : [a.createdAt ?? 0, b.createdAt ?? 0];
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [sortBy, sortDir]);
+
+  const applyTypeFilter = useCallback((list: (AuctionListing | BuyOrder)[]) =>
+    typeFilter === "All" ? list : list.filter((item) => item.material.type === typeFilter),
+  [typeFilter]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
 
   const handleBuy = useCallback((listing: AuctionListing) => {
     if (char.gold < listing.price) { showFeedback("Not enough gold!", false); return; }
@@ -284,8 +299,6 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     showFeedback("Item listed successfully!");
   };
 
-  // ── Buy order actions ──────────────────────────────────────────────────────
-
   const handleFillOrder = useCallback((order: BuyOrder, qty: number) => {
     const matchEntry = char.materials.find((e) =>
       e.material.type === order.material.type &&
@@ -307,6 +320,26 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     cancelBuyOrder(order.id);
     showFeedback("Buy order cancelled…");
   }, [cancelBuyOrder, showFeedback]);
+
+  // Quick sell: sell inventory item to the best (highest price) matching buy order
+  const handleQuickSell = useCallback((entry: MaterialEntry) => {
+    const activeOrders = buyOrders.filter((o) =>
+      o.count - o.filled > 0 &&
+      o.buyerId !== yourId &&
+      o.material.type === entry.material.type &&
+      o.material.rarity === entry.material.rarity &&
+      (o.material.version === null || o.material.version === entry.material.version)
+    );
+    if (activeOrders.length === 0) { showFeedback("No buy orders for this item.", false); return; }
+    const best = activeOrders.reduce((b, o) => o.pricePerUnit > b.pricePerUnit ? o : b);
+    const remaining = best.count - best.filled;
+    const fillCount = Math.min(entry.count, remaining);
+    if (fillCount <= 0) return;
+    const goldEarned = fillCount * best.pricePerUnit;
+    removeMaterial(entry.key, fillCount);
+    fillBuyOrder(best.id, fillCount, entry.material.version);
+    showFeedback(`Quick sold ×${fillCount} → ${goldEarned.toLocaleString()}G!`);
+  }, [buyOrders, yourId, removeMaterial, fillBuyOrder, showFeedback]);
 
   const handleConfirmBoCreate = () => {
     if (!boType || !boRarity) { showFeedback("Select type and rarity first.", false); return; }
@@ -335,14 +368,35 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     onClose();
   };
 
-  // ── Filter chips ───────────────────────────────────────────────────────────
+  // ── Sort bar ──────────────────────────────────────────────────────────────
+
+  const renderSortBar = () => (
+    <View style={styles.sortBar}>
+      <Text style={styles.sortLabel}>SORT:</Text>
+      {(["price", "qty", "time"] as SortKey[]).map((key) => {
+        const active = sortBy === key;
+        const arrow = active ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+        return (
+          <Pressable
+            key={key}
+            style={[styles.sortBtn, active && styles.sortBtnActive]}
+            onPress={() => handleSortPress(key)}
+          >
+            <Text style={[styles.sortBtnTxt, active && styles.sortBtnTxtActive]}>
+              {SORT_LABELS[key]}{arrow}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  // ── Category filter chips ─────────────────────────────────────────────────
 
   const renderFilters = () => (
     <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.filterScroll}
-      contentContainerStyle={styles.filterRow}
+      horizontal showsHorizontalScrollIndicator={false}
+      style={styles.filterScroll} contentContainerStyle={styles.filterRow}
     >
       {FILTER_TYPES.map((ft) => (
         <Pressable
@@ -358,16 +412,18 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     </ScrollView>
   );
 
-  // ── Sell listings tab ──────────────────────────────────────────────────────
+  // ── Sell listings tab ─────────────────────────────────────────────────────
 
   const renderListings = () => {
-    const filtered = applyFilter(listings) as AuctionListing[];
+    const filtered = applyTypeFilter(listings) as AuctionListing[];
+    const sorted = applySortListings(filtered);
     return (
-      <View style={styles.listArea}>
-        <Pressable style={styles.listItemBtn} onPress={() => setStep("pick")}>
+      <View>
+        <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
           <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
         </Pressable>
-        {filtered.length === 0 ? (
+        {renderSortBar()}
+        {sorted.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
               {listings.length === 0 ? "No listings yet." : "No listings match this filter."}
@@ -375,8 +431,9 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
           </View>
         ) : (
           <FlatList
-            data={filtered}
+            data={sorted}
             keyExtractor={(l) => l.id}
+            style={styles.listScroll}
             renderItem={({ item }) => (
               <ListingCard
                 listing={item}
@@ -386,7 +443,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                 onCancel={() => handleCancel(item)}
               />
             )}
-            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            contentContainerStyle={{ paddingBottom: 4 }}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -394,25 +452,113 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     );
   };
 
-  // ── Buy orders tab ─────────────────────────────────────────────────────────
+  // ── Buy orders tab ────────────────────────────────────────────────────────
 
   const renderOrders = () => {
     const active = buyOrders.filter((o) => o.count - o.filled > 0);
-    const filtered = applyFilter(active) as BuyOrder[];
+    const filtered = applyTypeFilter(active) as BuyOrder[];
+    const sorted = applySortOrders(filtered);
+
+    // Inventory items that have matching open buy orders (not own)
+    const invMatches = char.materials.filter((entry) =>
+      entry.count > 0 &&
+      active.some((o) =>
+        o.buyerId !== yourId &&
+        o.material.type === entry.material.type &&
+        o.material.rarity === entry.material.rarity &&
+        (o.material.version === null || o.material.version === entry.material.version)
+      )
+    );
+
     return (
-      <View style={styles.listArea}>
-        <Pressable style={styles.listItemBtn} onPress={() => setStep("bo-create")}>
-          <Text style={styles.listItemBtnTxt}>+ POST BUY ORDER</Text>
-        </Pressable>
-        {filtered.length === 0 ? (
+      <View>
+        {/* Action row: post button + my items toggle */}
+        <View style={styles.orderBtnRow}>
+          <Pressable style={[styles.listItemBtn, { flex: 1 }]} onPress={() => setStep("bo-create")}>
+            <Text style={styles.listItemBtnTxt}>+ POST BUY ORDER</Text>
+          </Pressable>
+          {invMatches.length > 0 && (
+            <Pressable
+              style={[styles.invToggleBtn, showInventoryTop && styles.invToggleBtnActive]}
+              onPress={() => setShowInventoryTop((v) => !v)}
+            >
+              <Feather
+                name="package"
+                size={12}
+                color={showInventoryTop ? Colors.game.gold : Colors.game.textMuted}
+              />
+              <Text style={[styles.invToggleTxt, showInventoryTop && styles.invToggleTxtActive]}>
+                MY ITEMS ({invMatches.length})
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* Inventory strip */}
+        {showInventoryTop && invMatches.length > 0 && (
+          <View style={styles.invSection}>
+            <Text style={styles.invSectionLabel}>TAP TO QUICK SELL AT BEST PRICE</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.invRow}
+            >
+              {invMatches.map((entry) => {
+                const bestOrder = active
+                  .filter((o) =>
+                    o.buyerId !== yourId &&
+                    o.material.type === entry.material.type &&
+                    o.material.rarity === entry.material.rarity &&
+                    (o.material.version === null || o.material.version === entry.material.version)
+                  )
+                  .reduce<BuyOrder | null>(
+                    (best, o) => (!best || o.pricePerUnit > best.pricePerUnit ? o : best),
+                    null
+                  );
+                if (!bestOrder) return null;
+                const rc = RARITY_COLORS[entry.material.rarity as RarityName] ?? "#9CA3AF";
+                return (
+                  <Pressable
+                    key={entry.key}
+                    style={[styles.invCard, { borderColor: rc + "66" }]}
+                    onPress={() => handleQuickSell(entry)}
+                  >
+                    <MaterialImage
+                      type={entry.material.type}
+                      rarity={entry.material.rarity}
+                      version={entry.material.version}
+                      size={38} compact animateParticles={false}
+                    />
+                    <Text style={[styles.invCardRarity, { color: rc }]} numberOfLines={1}>
+                      {entry.material.rarity}
+                    </Text>
+                    <Text style={styles.invCardQty}>×{entry.count}</Text>
+                    <View style={styles.invCardPriceRow}>
+                      <View style={styles.invCoin}><Text style={styles.invCoinTxt}>G</Text></View>
+                      <Text style={styles.invCardPriceTxt}>{bestOrder.pricePerUnit.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.quickSellChip}>
+                      <Text style={styles.quickSellChipTxt}>SELL</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {renderSortBar()}
+
+        {sorted.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>No buy orders posted.</Text>
             <Text style={styles.emptySubText}>Post one to buy items at your price!</Text>
           </View>
         ) : (
           <FlatList
-            data={filtered}
+            data={sorted}
             keyExtractor={(o) => o.id}
+            style={styles.listScroll}
             renderItem={({ item }) => {
               const matchEntry = char.materials.find((e) =>
                 e.material.type === item.material.type &&
@@ -430,7 +576,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                 />
               );
             }}
-            contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            contentContainerStyle={{ paddingBottom: 4 }}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -459,12 +606,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                   onPress={() => handlePickItem(entry)}
                 >
                   <MaterialImage
-                    type={entry.material.type}
-                    rarity={entry.material.rarity}
-                    version={entry.material.version}
-                    size={56}
-                    compact
-                    animateParticles={false}
+                    type={entry.material.type} rarity={entry.material.rarity}
+                    version={entry.material.version} size={56} compact animateParticles={false}
                   />
                   <Text style={[styles.pickLabel, { color: rc }]}>{entry.material.type}</Text>
                   <Text style={styles.pickCount}>×{entry.count}</Text>
@@ -488,27 +631,20 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
         <Text style={styles.wizardTitle}>SET LISTING DETAILS</Text>
-
         <View style={styles.pricePreview}>
           <MaterialImage
-            type={pickedEntry.material.type}
-            rarity={pickedEntry.material.rarity}
-            version={pickedEntry.material.version}
-            size={64}
-            compact
-            animateParticles={false}
+            type={pickedEntry.material.type} rarity={pickedEntry.material.rarity}
+            version={pickedEntry.material.version} size={64} compact animateParticles={false}
           />
           <View style={{ flex: 1 }}>
             <RarityText
-              rarity={pickedEntry.material.rarity}
-              version={pickedEntry.material.version}
+              rarity={pickedEntry.material.rarity} version={pickedEntry.material.version}
               label={`${pickedEntry.material.rarity} ${pickedEntry.material.type}`}
               style={styles.previewName}
             />
             <Text style={styles.previewSub}>In inventory: ×{pickedEntry.count}</Text>
           </View>
         </View>
-
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Quantity</Text>
           <TextInput
@@ -516,14 +652,11 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
             keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
             value={countStr}
             onChangeText={(v) => setCountStr(v.replace(/[^0-9]/g, ""))}
-            maxLength={4}
-            placeholderTextColor={Colors.game.textMuted}
-            placeholder="1"
-            selectionColor={Colors.game.gold}
+            maxLength={4} placeholderTextColor={Colors.game.textMuted}
+            placeholder="1" selectionColor={Colors.game.gold}
             {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
           />
         </View>
-
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Total Price (G)</Text>
           <TextInput
@@ -531,17 +664,14 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
             keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
             value={priceStr}
             onChangeText={(v) => setPriceStr(v.replace(/[^0-9]/g, ""))}
-            maxLength={9}
-            placeholderTextColor={Colors.game.textMuted}
-            placeholder="100"
-            selectionColor={Colors.game.gold}
+            maxLength={9} placeholderTextColor={Colors.game.textMuted}
+            placeholder="100" selectionColor={Colors.game.gold}
             autoFocus={Platform.OS === "web"}
             {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
           />
         </View>
-
         <View style={styles.wizardBtnRow}>
-          <Pressable style={styles.backBtn} onPress={() => { setStep("pick"); }}>
+          <Pressable style={styles.backBtn} onPress={() => setStep("pick")}>
             <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
             <Text style={styles.backBtnTxt}>BACK</Text>
           </Pressable>
@@ -556,15 +686,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
   // ── Buy order creation wizard ──────────────────────────────────────────────
 
   const renderBoCreate = () => {
-    const total = (parseInt(boCountStr.replace(/[^0-9]/g,""),10)||0) * (parseInt(boPriceStr.replace(/[^0-9]/g,""),10)||0);
+    const total = (parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0) * (parseInt(boPriceStr.replace(/[^0-9]/g, ""), 10) || 0);
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
         <Text style={styles.wizardTitle}>POST BUY ORDER</Text>
         <Text style={styles.boHint}>
           Lock gold to buy specific items. Sellers fill your order and receive payment instantly.
         </Text>
-
-        {/* Material type */}
         <Text style={styles.boSectionLabel}>MATERIAL TYPE</Text>
         <View style={styles.boTypeRow}>
           {MATERIAL_TYPES.map((t) => (
@@ -577,8 +705,6 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
             </Pressable>
           ))}
         </View>
-
-        {/* Rarity */}
         {boType && (
           <>
             <Text style={styles.boSectionLabel}>RARITY</Text>
@@ -592,17 +718,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                     style={[styles.boRarityChip, active && { borderColor: rc, backgroundColor: rc + "22" }]}
                     onPress={() => setBoRarity(r)}
                   >
-                    <Text style={[styles.boRarityTxt, active && { color: rc }]}>
-                      {r.toUpperCase()}
-                    </Text>
+                    <Text style={[styles.boRarityTxt, active && { color: rc }]}>{r.toUpperCase()}</Text>
                   </Pressable>
                 );
               })}
             </View>
           </>
         )}
-
-        {/* Version */}
         {boRarity && (
           <>
             <Text style={styles.boSectionLabel}>TIER (OPTIONAL)</Text>
@@ -621,8 +743,6 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
             </View>
           </>
         )}
-
-        {/* Count + Price */}
         {boRarity && (
           <>
             <View style={styles.inputRow}>
@@ -632,10 +752,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                 keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
                 value={boCountStr}
                 onChangeText={(v) => setBoCountStr(v.replace(/[^0-9]/g, ""))}
-                maxLength={4}
-                placeholderTextColor={Colors.game.textMuted}
-                placeholder="1"
-                selectionColor={Colors.game.gold}
+                maxLength={4} placeholderTextColor={Colors.game.textMuted}
+                placeholder="1" selectionColor={Colors.game.gold}
                 {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
               />
             </View>
@@ -646,24 +764,19 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
                 keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
                 value={boPriceStr}
                 onChangeText={(v) => setBoPriceStr(v.replace(/[^0-9]/g, ""))}
-                maxLength={9}
-                placeholderTextColor={Colors.game.textMuted}
-                placeholder="50"
-                selectionColor={Colors.game.gold}
+                maxLength={9} placeholderTextColor={Colors.game.textMuted}
+                placeholder="50" selectionColor={Colors.game.gold}
                 {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
               />
             </View>
             {total > 0 && (
               <View style={styles.boSummary}>
                 <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
-                <Text style={styles.boSummaryTxt}>
-                  {total.toLocaleString()} gold will be locked
-                </Text>
+                <Text style={styles.boSummaryTxt}>{total.toLocaleString()} gold will be locked</Text>
               </View>
             )}
           </>
         )}
-
         <View style={styles.wizardBtnRow}>
           <Pressable style={styles.backBtn} onPress={() => setStep("tabs")}>
             <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
@@ -679,10 +792,10 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     );
   };
 
-  // ── Tab bar counts ─────────────────────────────────────────────────────────
+  // ── Tab bar counts ────────────────────────────────────────────────────────
 
-  const listingsCount = (applyFilter(listings) as AuctionListing[]).length;
-  const ordersCount = (applyFilter(buyOrders.filter((o) => o.count - o.filled > 0)) as BuyOrder[]).length;
+  const listingsCount = (applyTypeFilter(listings) as AuctionListing[]).length;
+  const ordersCount = (applyTypeFilter(buyOrders.filter((o) => o.count - o.filled > 0)) as BuyOrder[]).length;
 
   const showFilters = step === "tabs";
   const showTabs = step === "tabs";
@@ -739,11 +852,18 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
             </View>
           )}
 
-          {step === "tabs" && tab === "listings" && renderListings()}
-          {step === "tabs" && tab === "orders" && renderOrders()}
-          {step === "pick" && renderPickStep()}
-          {step === "price" && renderPriceStep()}
-          {step === "bo-create" && renderBoCreate()}
+          {/* Scrollable content area */}
+          <ScrollView
+            style={styles.contentScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {step === "tabs" && tab === "listings" && renderListings()}
+            {step === "tabs" && tab === "orders" && renderOrders()}
+            {step === "pick" && renderPickStep()}
+            {step === "price" && renderPriceStep()}
+            {step === "bo-create" && renderBoCreate()}
+          </ScrollView>
 
           <Pressable style={styles.closeBtn} onPress={handleClose}>
             <Text style={styles.closeBtnTxt}>CLOSE</Text>
@@ -847,13 +967,121 @@ const styles = StyleSheet.create({
     color: Colors.game.textMuted, letterSpacing: 1.5,
   },
   tabBtnTxtActive: { color: Colors.game.gold },
-  listArea: { height: 260, marginBottom: 10 },
-  emptyBox: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6 },
+  // Scrollable content area
+  contentScroll: {
+    maxHeight: 420,
+    marginBottom: 10,
+  },
+  listScroll: {
+    maxHeight: 230,
+  },
+  // Sort bar
+  sortBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+  },
+  sortLabel: {
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 1.5,
+  },
+  sortBtn: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 8, borderWidth: 1,
+    borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+  },
+  sortBtnActive: {
+    borderColor: Colors.game.purpleLight,
+    backgroundColor: "rgba(167,139,250,0.12)",
+  },
+  sortBtnTxt: {
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 0.8,
+  },
+  sortBtnTxtActive: { color: Colors.game.purpleLight },
+  // Action row (orders tab)
+  orderBtnRow: {
+    flexDirection: "row", gap: 8,
+    marginBottom: 8, alignItems: "stretch",
+  },
+  // Inventory top section
+  invToggleBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 10, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1.5,
+    borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+  },
+  invToggleBtnActive: {
+    borderColor: Colors.game.gold,
+    backgroundColor: "rgba(201,168,76,0.10)",
+  },
+  invToggleTxt: {
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 1,
+  },
+  invToggleTxtActive: { color: Colors.game.gold },
+  invSection: {
+    borderRadius: 12, borderWidth: 1,
+    borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  invSectionLabel: {
+    fontSize: 8, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 1.5,
+    textAlign: "center", marginBottom: 8,
+  },
+  invRow: {
+    flexDirection: "row", gap: 8,
+    paddingHorizontal: 10, paddingBottom: 2,
+  },
+  invCard: {
+    width: 72, alignItems: "center", gap: 3,
+    backgroundColor: Colors.game.surfaceAlt,
+    borderRadius: 10, padding: 8,
+    borderWidth: 1.5,
+  },
+  invCardRarity: {
+    fontSize: 8, fontFamily: "Inter_700Bold",
+    letterSpacing: 0.3, textAlign: "center",
+  },
+  invCardQty: {
+    fontSize: 9, fontFamily: "Inter_400Regular",
+    color: Colors.game.textMuted,
+  },
+  invCardPriceRow: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+  },
+  invCoin: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: Colors.game.gold,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "#a07820",
+  },
+  invCoinTxt: { fontSize: 5, fontFamily: "Inter_700Bold", color: "#3d2e00" },
+  invCardPriceTxt: {
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
+  },
+  quickSellChip: {
+    backgroundColor: "rgba(34,197,94,0.15)",
+    borderRadius: 5, paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: Colors.game.green,
+  },
+  quickSellChipTxt: {
+    fontSize: 8, fontFamily: "Inter_700Bold",
+    color: Colors.game.green, letterSpacing: 0.5,
+  },
+  emptyBox: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6, paddingVertical: 30 },
   emptyText: { fontSize: 13, fontFamily: "Inter_500Medium", color: Colors.game.textDim, textAlign: "center" },
   emptySubText: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted, textAlign: "center" },
   listItemBtn: {
     backgroundColor: "rgba(201,168,76,0.08)", borderRadius: 12,
-    paddingVertical: 10, alignItems: "center", marginBottom: 10,
+    paddingVertical: 10, alignItems: "center",
     borderWidth: 1, borderColor: Colors.game.gold,
   },
   listItemBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.gold, letterSpacing: 2 },
@@ -907,7 +1135,7 @@ const styles = StyleSheet.create({
   stepBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.text, lineHeight: 16 },
   stepQty: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.text, minWidth: 28, textAlign: "center" },
   // Wizard
-  wizardArea: { height: 340, marginBottom: 10 },
+  wizardArea: { marginBottom: 10 },
   wizardTitle: {
     fontSize: 10, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 3,
