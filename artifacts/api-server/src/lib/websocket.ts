@@ -127,8 +127,23 @@ function levelFromTotalXp(totalXp: number): { level: number; xp: number; xpToNex
   return { level, xp: Math.floor(remaining), xpToNext: calcXpToNext(level) };
 }
 
-const MAX_GOLD_DELTA_PER_SAVE = 5_000_000;
-const MAX_XP_DELTA_PER_SAVE   = 50_000_000;
+const MAX_GOLD_DELTA_PER_SAVE    = 5_000_000;
+const MAX_XP_DELTA_PER_SAVE      = 50_000_000;
+const BASELINE_MISMATCH_TOLERANCE = 1; // allow 1G rounding tolerance
+
+/**
+ * Apply a gold delta to a player's in-memory cachedGameState immediately when
+ * server-side events (AH sale, BO fill, BO cancel refund) credit them gold while
+ * they are connected.  This keeps the server baseline in sync so that the
+ * client-supplied baselineGold matches on the next save_state.
+ */
+function updateCachedGold(player: Player, delta: number) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = ((state.character ?? {}) as Record<string, unknown>);
+  const current = Math.max(0, Number(char.gold ?? 0));
+  player.cachedGameState = { ...state, character: { ...char, gold: Math.max(0, current + delta) } };
+}
 
 function clampGameState(incoming: unknown, stored: unknown): unknown {
   if (!incoming || typeof incoming !== "object") return incoming;
@@ -467,10 +482,32 @@ async function handleMessage(player: Player, raw: string) {
   // ── save_state ──────────────────────────────────────────────────────────────
   } else if (msg.type === "save_state") {
     if (!player.username) return;
+
+    // ── Baseline validation ───────────────────────────────────────────────────
+    // Client sends baselineGold = gold at the last server-confirmed save.
+    // Server compares against its own cachedGameState.character.gold.
+    // A mismatch means the client's view diverged from the server's; we log it
+    // and proceed using the server's cache as the authoritative baseline so
+    // the delta calculation is always grounded in a known-good state.
+    const baselineGold = msg.baselineGold !== undefined ? Number(msg.baselineGold) : null;
+    const cachedChar = (player.cachedGameState as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined;
+    const cachedGold = Math.max(0, Number(cachedChar?.gold ?? 0));
+
+    if (baselineGold !== null && Math.abs(baselineGold - cachedGold) > BASELINE_MISMATCH_TOLERANCE) {
+      logger.warn(
+        { username: player.username, clientBaseline: baselineGold, serverCached: cachedGold },
+        "save_state baseline mismatch — using server cache as authoritative baseline"
+      );
+    }
+
+    // Clamp always uses server's own cachedGameState so even if the client
+    // lies about baseline, the delta is anchored to the server's truth.
     const validated = clampGameState(msg.gameState, player.cachedGameState);
     player.cachedGameState = validated;
     await dbUpdateGameState(player.username.toLowerCase(), validated);
-    send(player.ws, { type: "state_saved" });
+
+    const confirmedGold = ((validated as Record<string, unknown>)?.character as Record<string, unknown> | undefined)?.gold;
+    send(player.ws, { type: "state_saved", confirmedGold: Number(confirmedGold ?? 0) });
 
   // ── chat ────────────────────────────────────────────────────────────────────
   } else if (msg.type === "chat") {
@@ -528,6 +565,7 @@ async function handleMessage(player: Player, raw: string) {
 
     const seller = getPlayerByStableId(listing.sellerId);
     if (seller) {
+      updateCachedGold(seller, listing.price);
       send(seller.ws, { type: "ah_sale", listing, buyerName: player.name });
     } else {
       const sellerUname = listing.sellerId.toLowerCase();
@@ -571,6 +609,7 @@ async function handleMessage(player: Player, raw: string) {
     const goldReturn = (order.count - order.filled) * order.pricePerUnit;
     buyOrders.delete(order.id);
     await dbDeleteBuyOrder(order.id);
+    updateCachedGold(player, goldReturn);
     send(player.ws, { type: "bo_cancelled", orderId: order.id, goldReturn });
     broadcastBoUpdate();
 
@@ -594,6 +633,7 @@ async function handleMessage(player: Player, raw: string) {
       await dbSaveBuyOrder(order);
     }
 
+    updateCachedGold(player, goldEarned);
     send(player.ws, { type: "bo_sold", orderId: order.id, count, goldEarned });
 
     const buyerPlayer = getPlayerByStableId(order.buyerId);

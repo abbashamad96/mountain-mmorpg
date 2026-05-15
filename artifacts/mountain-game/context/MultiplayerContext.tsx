@@ -118,6 +118,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const connectRef = useRef<() => void>(() => {});
   const prevAuthUsernameRef = useRef<string | null>(null);
   const restoringSessionRef = useRef(false);
+  // Last gold amount the server confirmed in a state_saved ack.
+  // Sent as baselineGold with every subsequent save so the server can
+  // verify the client's pre-action state matches its own cached state.
+  const lastConfirmedGoldRef = useRef<number>(0);
 
   // ── Load from storage, then connect ────────────────────────────────────────
   useEffect(() => {
@@ -226,6 +230,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           boOrderId: msg.orderId,
           boGoldReturn: msg.goldReturn,
         }]);
+      } else if (msg.type === "state_saved") {
+        // Server confirmed the save and echoes back the gold it actually stored.
+        // Record this as the new baseline for the next save's delta check.
+        if (msg.confirmedGold !== undefined) {
+          lastConfirmedGoldRef.current = Number(msg.confirmedGold);
+        }
       } else if (msg.type === "auth_ok") {
         const newUserLower = msg.username.toLowerCase();
         const switched = prevAuthUsernameRef.current !== null &&
@@ -245,6 +255,13 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         if (msg.yourId) setYourId(msg.yourId);
 
         if (switched) setAccountSwitched(true);
+
+        // Seed lastConfirmedGold from the server state received at login
+        // so the very first save has a correct baseline.
+        const loginGold = (msg.gameState as Record<string,unknown> | null)?.character;
+        if (loginGold && typeof loginGold === "object") {
+          lastConfirmedGoldRef.current = Math.max(0, Number((loginGold as Record<string,unknown>).gold ?? 0));
+        }
 
         // Always push server state — overwrites any stale local data
         setServerGameState(msg.gameState ?? {});
@@ -341,7 +358,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const saveGameState = useCallback((state: unknown) => {
-    sendWs({ type: "save_state", gameState: state });
+    sendWs({ type: "save_state", gameState: state, baselineGold: lastConfirmedGoldRef.current });
   }, [sendWs]);
 
   const clearServerGameState = useCallback(() => {

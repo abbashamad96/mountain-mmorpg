@@ -359,13 +359,17 @@ export default function GameScreen() {
   }, [serverGameState, resetGameState, consumeAccountSwitch, loadState, clearServerGameState]);
 
   // ── Auto-save game state when authenticated and connected ────────────────
+  // Fires ~1 s after any gameState change (combat, gather, AH event, stat
+  // allocation…).  Connection is checked before scheduling — if the socket
+  // drops mid-action the timer is never started and the save waits until
+  // the reconnect re-triggers this effect with status === "connected".
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!isAuthenticated || status !== "connected") return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveGameState(gameState);
-    }, 5000);
+    }, 1000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [gameState, isAuthenticated, status, saveGameState]);
 
