@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
-import { Material } from "./GameContext";
+import { Material, RARITY_COLORS } from "./GameContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,15 @@ export type AhEvent =
   | { id: string; kind: "bo_received"; boOrderId: string; boCount: number; boMaterial: AuctionListing["material"] }
   | { id: string; kind: "bo_cancelled"; boOrderId: string; boGoldReturn: number };
 
+export interface NotificationEntry {
+  id: string;
+  kind: AhEvent["kind"];
+  title: string;
+  body: string;
+  ts: number;
+  read: boolean;
+}
+
 interface MultiplayerContextType {
   status: ConnectionStatus;
   yourId: string | null;
@@ -63,6 +72,9 @@ interface MultiplayerContextType {
   fillBuyOrder: (orderId: string, count: number, version: number) => void;
   ahEvents: AhEvent[];
   consumeAhEvent: (id: string) => void;
+  notifications: NotificationEntry[];
+  unreadCount: number;
+  markNotificationsRead: () => void;
   isAuthenticated: boolean;
   authUsername: string | null;
   authError: string | null;
@@ -108,6 +120,8 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const [sessionExpired, setSessionExpired] = useState(false);
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
+
+  const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const nameRef = useRef(playerName);
@@ -202,33 +216,58 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       } else if (msg.type === "bo_update") {
         setBuyOrders(msg.orders ?? []);
       } else if (msg.type === "ah_bought" && msg.listing) {
-        setAhEvents((prev) => [...prev, { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bought", listing: msg.listing }]);
+        const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bought" as const, listing: msg.listing };
+        setAhEvents((prev) => [...prev, entry]);
+        setNotifications((prev) => [...prev, {
+          id: entry.id, kind: "bought",
+          title: "Auction Purchase",
+          body: `Bought \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type}`,
+          ts: Date.now(), read: false,
+        }]);
       } else if (msg.type === "ah_sale" && msg.listing) {
-        setAhEvents((prev) => [...prev, { id: `ahev-${Date.now()}-${Math.random()}`, kind: "sale", listing: msg.listing, buyerName: msg.buyerName }]);
+        const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "sale" as const, listing: msg.listing, buyerName: msg.buyerName };
+        setAhEvents((prev) => [...prev, entry]);
+        setNotifications((prev) => [...prev, {
+          id: entry.id, kind: "sale",
+          title: "Listing Sold",
+          body: `Your ${msg.listing.material.rarity} ${msg.listing.material.type} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`,
+          ts: Date.now(), read: false,
+        }]);
       } else if (msg.type === "ah_cancelled" && msg.listing) {
-        setAhEvents((prev) => [...prev, { id: `ahev-${Date.now()}-${Math.random()}`, kind: "cancelled", listing: msg.listing }]);
+        const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "cancelled" as const, listing: msg.listing };
+        setAhEvents((prev) => [...prev, entry]);
+        setNotifications((prev) => [...prev, {
+          id: entry.id, kind: "cancelled",
+          title: "Listing Cancelled",
+          body: `Returned \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type} to inventory`,
+          ts: Date.now(), read: false,
+        }]);
       } else if (msg.type === "bo_sold") {
-        setAhEvents((prev) => [...prev, {
-          id: `ahev-${Date.now()}-${Math.random()}`,
-          kind: "bo_sold",
-          boOrderId: msg.orderId,
-          boCount: msg.count,
-          boGoldEarned: msg.goldEarned,
+        const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_sold" as const, boOrderId: msg.orderId, boCount: msg.count, boGoldEarned: msg.goldEarned };
+        setAhEvents((prev) => [...prev, entry]);
+        setNotifications((prev) => [...prev, {
+          id: entry.id, kind: "bo_sold",
+          title: "Buy Order Filled",
+          body: `Earned ${msg.goldEarned.toLocaleString()}G for filling a buy order`,
+          ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_received") {
-        setAhEvents((prev) => [...prev, {
-          id: `ahev-${Date.now()}-${Math.random()}`,
-          kind: "bo_received",
-          boOrderId: msg.orderId,
-          boCount: msg.count,
-          boMaterial: msg.material,
+        const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_received" as const, boOrderId: msg.orderId, boCount: msg.count, boMaterial: msg.material };
+        setAhEvents((prev) => [...prev, entry]);
+        setNotifications((prev) => [...prev, {
+          id: entry.id, kind: "bo_received",
+          title: "Buy Order Received",
+          body: `Received \u00d7${msg.count} ${msg.material.rarity} ${msg.material.type} from your buy order`,
+          ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_cancelled") {
-        setAhEvents((prev) => [...prev, {
-          id: `ahev-${Date.now()}-${Math.random()}`,
-          kind: "bo_cancelled",
-          boOrderId: msg.orderId,
-          boGoldReturn: msg.goldReturn,
+        const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_cancelled" as const, boOrderId: msg.orderId, boGoldReturn: msg.goldReturn };
+        setAhEvents((prev) => [...prev, entry]);
+        setNotifications((prev) => [...prev, {
+          id: entry.id, kind: "bo_cancelled",
+          title: "Buy Order Cancelled",
+          body: `${msg.goldReturn.toLocaleString()}G refunded from cancelled buy order`,
+          ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "state_saved") {
         // Server confirmed the save and echoes back the gold it actually stored.
@@ -329,6 +368,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     setAhEvents((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
+  const markNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
   const consumeAccountSwitch = useCallback(() => {
     setAccountSwitched(false);
   }, []);
@@ -405,6 +448,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       listings, listAhItem, buyAhItem, cancelAhListing, refreshListings,
       buyOrders, createBuyOrder, cancelBuyOrder, fillBuyOrder,
       ahEvents, consumeAhEvent,
+      notifications, unreadCount: notifications.filter((n) => !n.read).length, markNotificationsRead,
       isAuthenticated, authUsername, authError, authPending,
       serverGameState, clearServerGameState,
       accountSwitched, consumeAccountSwitch,

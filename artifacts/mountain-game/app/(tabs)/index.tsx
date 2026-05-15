@@ -14,6 +14,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { GatheringModal } from "@/components/GatheringModal";
+import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
 import { TimerBar } from "@/components/TimerBar";
@@ -308,6 +309,7 @@ export default function GameScreen() {
     saveGameState, accountSwitched, consumeAccountSwitch,
     sessionExpired, clearSessionExpired,
     status,
+    unreadCount,
   } = useMultiplayer();
 
   const [isInteracting, setIsInteracting] = useState(false);
@@ -325,6 +327,7 @@ export default function GameScreen() {
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [gatherMaterial, setGatherMaterial] = useState<Material | null>(null);
   const [gatherAttempts, setGatherAttempts] = useState(1);
   const [showGather, setShowGather] = useState(false);
@@ -552,6 +555,18 @@ export default function GameScreen() {
           </Pressable>
           <Pressable
             style={styles.headerBtn}
+            onPress={() => setShowNotifications(true)}
+            hitSlop={4}
+          >
+            <Feather name="bell" size={20} color={Colors.game.text} />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.headerBtn}
             onPress={() => setShowChat(true)}
             hitSlop={4}
           >
@@ -638,6 +653,7 @@ export default function GameScreen() {
         preSelectedEntry={preSelectForAh}
       />
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
+      <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal
         visible={showStats}
@@ -700,6 +716,16 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   statsBadgeText: {
+    fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff",
+  },
+  bellBadge: {
+    position: "absolute", top: -4, right: -4,
+    backgroundColor: Colors.game.red,
+    borderRadius: 8, minWidth: 16, height: 16,
+    paddingHorizontal: 3,
+    alignItems: "center", justifyContent: "center",
+  },
+  bellBadgeText: {
     fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff",
   },
   quickStrip: {
