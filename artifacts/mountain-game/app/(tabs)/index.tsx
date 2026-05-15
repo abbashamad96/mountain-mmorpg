@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
+import { OfflineOverlay } from "@/components/OfflineOverlay";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { GatheringModal } from "@/components/GatheringModal";
@@ -307,11 +308,12 @@ export default function GameScreen() {
     ahEvents, consumeAhEvent,
     isAuthenticated, authUsername, serverGameState, clearServerGameState,
     saveGameState, accountSwitched, consumeAccountSwitch,
-    sessionExpired, clearSessionExpired,
-    status,
+    sessionExpired,
+    status, isOnline,
     unreadCount,
   } = useMultiplayer();
 
+  const hasEverConnectedRef = useRef(false);
   const [isInteracting, setIsInteracting] = useState(false);
   const [cooldownDuration, setCooldownDuration] = useState(2500);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -343,13 +345,18 @@ export default function GameScreen() {
 
   const char = gameState.character;
 
+  // ── Track first successful connection so overlay doesn't flash on boot ──
+  useEffect(() => {
+    if (status === "connected") hasEverConnectedRef.current = true;
+  }, [status]);
+
   // ── Wipe local state when saved session is rejected by server ────────────
+  // sessionExpired is cleared in the context's auth_ok handler on re-login.
   useEffect(() => {
     if (sessionExpired) {
       resetGameState();
-      clearSessionExpired();
     }
-  }, [sessionExpired, resetGameState, clearSessionExpired]);
+  }, [sessionExpired, resetGameState]);
 
   // ── Load server state on login — always reset local first so server wins ──
   useEffect(() => {
@@ -675,6 +682,14 @@ export default function GameScreen() {
         playerLevel={char.level}
         onComplete={handleBattleComplete}
       />
+
+      {/* Offline / disconnected overlay — Modal so it renders above all RN modals.
+          Show immediately when the device has no network (cold-start included).
+          Use hasEverConnectedRef to gate WS-only disconnects so we don't flash
+          the overlay on the initial connect attempt at boot. */}
+      {(!isOnline || (hasEverConnectedRef.current && status !== "connected")) && (
+        <OfflineOverlay />
+      )}
     </View>
   );
 }

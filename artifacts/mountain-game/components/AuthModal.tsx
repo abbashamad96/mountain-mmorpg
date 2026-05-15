@@ -96,6 +96,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
   const displayError = localError || mp.authError;
 
   const mandatory = !mp.isAuthenticated;
+  const sessionExpiredBanner = mp.sessionExpired && tab === "login" && screen === "auth";
 
   const handleOverlayPress = () => {
     if (mandatory) return;
@@ -216,6 +217,16 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                   ? "Create an account or sign in to play"
                   : "Save your progress & play from any device"}
               </Text>
+
+              {/* Session expired notice */}
+              {sessionExpiredBanner && (
+                <View style={styles.sessionExpiredBox}>
+                  <Feather name="clock" size={13} color={Colors.game.gold} />
+                  <Text style={styles.sessionExpiredTxt}>
+                    Your session expired. Please log in to continue.
+                  </Text>
+                </View>
+              )}
 
               {/* Tabs */}
               <View style={styles.tabs}>
@@ -436,6 +447,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.green,
   },
   successTxt: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.green, flex: 1 },
+  sessionExpiredBox: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "rgba(201,168,76,0.10)",
+    borderRadius: 8, padding: 10, marginBottom: 14,
+    borderWidth: 1, borderColor: Colors.game.gold + "88",
+  },
+  sessionExpiredTxt: { fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.gold, flex: 1 },
   inputGroup: { marginBottom: 12 },
   inputLabel: {
     fontSize: 10, fontFamily: "Inter_700Bold",

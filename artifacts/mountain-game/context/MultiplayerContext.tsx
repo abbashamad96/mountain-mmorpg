@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { Material, RARITY_COLORS } from "./GameContext";
@@ -56,6 +57,7 @@ export interface NotificationEntry {
 
 interface MultiplayerContextType {
   status: ConnectionStatus;
+  isOnline: boolean;
   yourId: string | null;
   playerName: string;
   setPlayerName: (name: string) => void;
@@ -105,6 +107,7 @@ const AUTH_USER_KEY = "@mountain_auth_user_v1";
 
 export function MultiplayerProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+  const [isOnline, setIsOnline] = useState(true);
   const [yourId, setYourId] = useState<string | null>(null);
   const [playerName, setPlayerNameState] = useState("...");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -282,6 +285,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         prevAuthUsernameRef.current = newUserLower;
 
         restoringSessionRef.current = false;
+        setSessionExpired(false);
         setIsAuthenticated(true);
         setAuthUsername(msg.username);
         setAuthError(null);
@@ -307,6 +311,8 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       } else if (msg.type === "auth_fail") {
         const wasRestoring = restoringSessionRef.current;
         restoringSessionRef.current = false;
+        setIsAuthenticated(false);
+        setAuthUsername(null);
         setAuthError(msg.reason ?? "Authentication failed.");
         setAuthPending(false);
         authTokenRef.current = null;
@@ -327,6 +333,14 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   connectRef.current = connect;
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      if (!mountedRef.current) return;
+      setIsOnline(state.isConnected !== false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -443,7 +457,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
   return (
     <MultiplayerContext.Provider value={{
-      status, yourId, playerName, setPlayerName,
+      status, isOnline, yourId, playerName, setPlayerName,
       messages, sendChat,
       listings, listAhItem, buyAhItem, cancelAhListing, refreshListings,
       buyOrders, createBuyOrder, cancelBuyOrder, fillBuyOrder,
