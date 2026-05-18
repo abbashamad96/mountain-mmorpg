@@ -136,9 +136,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const prevAuthUsernameRef = useRef<string | null>(null);
   const restoringSessionRef = useRef(false);
   // Last gold amount the server confirmed in a state_saved ack.
-  // Sent as baselineGold with every subsequent save so the server can
-  // verify the client's pre-action state matches its own cached state.
   const lastConfirmedGoldRef = useRef<number>(0);
+  // ── Heartbeat ──
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastPongRef = useRef<number>(0);
+  const HEARTBEAT_INTERVAL_MS = 15_000;
+  const HEARTBEAT_DEADLINE_MS = 45_000; // 3 missed pings before force close
 
   // ── Load from storage, then connect ────────────────────────────────────────
   useEffect(() => {
@@ -191,6 +194,17 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     ws.onopen = () => {
       if (!mountedRef.current) return;
       setStatus("connected");
+      lastPongRef.current = Date.now();
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = setInterval(() => {
+        const wsNow = wsRef.current;
+        if (!wsNow || wsNow.readyState !== WebSocket.OPEN) return;
+        if (Date.now() - lastPongRef.current > HEARTBEAT_DEADLINE_MS) {
+          wsNow.close();
+          return;
+        }
+        wsNow.send(JSON.stringify({ type: "ping" }));
+      }, HEARTBEAT_INTERVAL_MS);
       ws.send(JSON.stringify({ type: "join", name: nameRef.current }));
       if (authTokenRef.current) {
         restoringSessionRef.current = true;
@@ -203,7 +217,9 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       let msg: any;
       try { msg = JSON.parse(e.data); } catch { return; }
 
-      if (msg.type === "joined") {
+      if (msg.type === "pong") {
+        lastPongRef.current = Date.now();
+      } else if (msg.type === "joined") {
         setYourId(msg.yourId);
       } else if (msg.type === "chat" || msg.type === "system") {
         setMessages((prev) => [...prev, {
@@ -325,6 +341,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     ws.onclose = () => {
       if (!mountedRef.current) return;
       wsRef.current = null;
+      if (heartbeatIntervalRef.current) { clearInterval(heartbeatIntervalRef.current); heartbeatIntervalRef.current = null; }
       setStatus("disconnected");
       reconnectTimer.current = setTimeout(() => { if (mountedRef.current) connect(); }, 3000);
     };
@@ -346,6 +363,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     return () => {
       mountedRef.current = false;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
       wsRef.current?.close();
     };
   }, []);

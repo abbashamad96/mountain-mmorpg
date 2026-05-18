@@ -311,6 +311,7 @@ export default function GameScreen() {
     sessionExpired,
     status, isOnline,
     unreadCount,
+    logout,
   } = useMultiplayer();
 
   const hasEverConnectedRef = useRef(false);
@@ -545,8 +546,36 @@ export default function GameScreen() {
     setPreSelectForAh(null);
   }, []);
 
+  // ── Inactivity auto-logout (5 minutes) ────────────────────────────────────────
+  // Any press anywhere on the screen resets the 5-minute timer.  If the
+  // player walks away from the device, the timer expires and they are logged
+  // out automatically (game state is already saved by the per-action save).
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const INACTIVITY_MS = 5 * 60 * 1000;
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    function reset() {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(() => {
+        logout();
+        setShowAuth(true);
+      }, INACTIVITY_MS);
+    }
+    reset();
+    return () => { if (inactivityTimer.current) clearTimeout(inactivityTimer.current); };
+  }, [isAuthenticated, logout]);
+
   return (
-    <View style={styles.root}>
+    <Pressable
+      style={styles.root}
+      onPress={() => {
+        if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); }
+        inactivityTimer.current = setTimeout(() => {
+          logout();
+          setShowAuth(true);
+        }, INACTIVITY_MS);
+      }}
+    >
       {/* ── Top: header + stat strip ──────────────────────────────────── */}
       <View style={[styles.topSection, { paddingTop: topPad + 12 }]}>
         <View style={styles.titleRow}>
@@ -690,7 +719,7 @@ export default function GameScreen() {
       {(!isOnline || (hasEverConnectedRef.current && status !== "connected")) && (
         <OfflineOverlay />
       )}
-    </View>
+    </Pressable>
   );
 }
 

@@ -342,7 +342,9 @@ async function handleMessage(player: Player, raw: string) {
   try { msg = JSON.parse(raw); } catch { return; }
 
   // ── join ────────────────────────────────────────────────────────────────────
-  if (msg.type === "join") {
+  if (msg.type === "ping") {
+    send(player.ws, { type: "pong" });
+  } else if (msg.type === "join") {
     const name = String(msg.name || "Wanderer").slice(0, 20);
     const oldName = player.name;
     player.name = name;

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,6 +14,8 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { useMultiplayer } from "@/context/MultiplayerContext";
+
+const REMEMBER_ME_KEY = "@mountain_remember_username";
 
 type Screen = "auth" | "forgot" | "forgot-sent";
 type Tab = "login" | "register";
@@ -34,17 +37,21 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
   const [forgotEmail, setForgotEmail] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [forgotPending, setForgotPending] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Sync forgot-password sent state
   useEffect(() => {
     if (mp.forgotPasswordSent) setScreen("forgot-sent");
   }, [mp.forgotPasswordSent]);
 
-  // Reset on open
+  // On open: pre-fill remembered username
   useEffect(() => {
     if (visible) {
       setScreen("auth");
       setLocalError(null);
+      AsyncStorage.getItem(REMEMBER_ME_KEY).then((saved) => {
+        if (saved) { setUsername(saved); setRememberMe(true); }
+      });
     }
   }, [visible]);
 
@@ -64,6 +71,11 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
       if (password.length < 6) { setLocalError("Password must be at least 6 characters."); return; }
       mp.register(username.trim(), password, null, email.trim());
     } else {
+      if (rememberMe) {
+        AsyncStorage.setItem(REMEMBER_ME_KEY, username.trim());
+      } else {
+        AsyncStorage.removeItem(REMEMBER_ME_KEY);
+      }
       mp.login(username.trim(), password);
     }
   };
@@ -327,6 +339,16 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
                 </View>
               )}
 
+              {/* Remember me (login only) */}
+              {tab === "login" && (
+                <Pressable style={styles.rememberRow} onPress={() => setRememberMe((v) => !v)}>
+                  <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
+                    {rememberMe && <Feather name="check" size={10} color="#fff" />}
+                  </View>
+                  <Text style={styles.rememberLabel}>Remember my username</Text>
+                </Pressable>
+              )}
+
               {/* Forgot password (login only) */}
               {tab === "login" && (
                 <Pressable
@@ -474,6 +496,23 @@ const styles = StyleSheet.create({
   forgotLinkTxt: {
     fontSize: 11, fontFamily: "Inter_500Medium",
     color: Colors.game.gold, opacity: 0.8,
+  },
+  rememberRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    alignSelf: "flex-start",
+  },
+  checkbox: {
+    width: 16, height: 16, borderRadius: 4,
+    borderWidth: 1.5, borderColor: Colors.game.border,
+    alignItems: "center", justifyContent: "center",
+  },
+  checkboxActive: {
+    backgroundColor: Colors.game.green,
+    borderColor: Colors.game.green,
+  },
+  rememberLabel: {
+    fontSize: 11, fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
   },
   submitBtn: {
     backgroundColor: Colors.game.gold,
