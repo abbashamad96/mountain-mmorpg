@@ -140,8 +140,8 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   // ── Heartbeat ──
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastPongRef = useRef<number>(0);
-  const HEARTBEAT_INTERVAL_MS = 30_000;
-  const HEARTBEAT_DEADLINE_MS = 90_000; // 3 missed pings before force close
+  const HEARTBEAT_INTERVAL_MS = 6_000;
+  const HEARTBEAT_DEADLINE_MS = 18_000; // 3 missed pings before force close
 
   // ── Load from storage, then connect ────────────────────────────────────────
   useEffect(() => {
