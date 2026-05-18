@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Modal,
   Pressable,
@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { MaterialEntry, RARITY_COLORS, useGame } from "@/context/GameContext";
+import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
@@ -44,6 +44,20 @@ const VERSION_LABELS: Record<number, { label: string; color: string }> = {
   1: { label: "Tier I", color: "#A78BFA" },
   2: { label: "Tier II", color: "#34D399" },
   3: { label: "Tier III", color: "#FCD34D" },
+};
+
+const TYPE_ICONS: Record<MaterialType, string> = {
+  Ore: "⛏",
+  Wood: "🪵",
+  Herb: "🌿",
+  Leather: "🛡",
+};
+
+const TYPE_COLORS: Record<MaterialType, string> = {
+  Ore: "#A0A0A0",
+  Wood: "#A07B3C",
+  Herb: "#22C55E",
+  Leather: "#CD853F",
 };
 
 // ─── Item detail modal ────────────────────────────────────────────────────────
@@ -151,6 +165,25 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
+  const [activeTab, setActiveTab] = useState<"profile" | "inventory">("profile");
+
+  // Group inventory by material type, sort each group by rarity (highest first)
+  const groupedInventory = useMemo(() => {
+    const groups: Record<MaterialType, MaterialEntry[]> = {
+      Ore: [], Wood: [], Herb: [], Leather: [],
+    };
+    for (const entry of char.materials) {
+      groups[entry.material.type]?.push(entry);
+    }
+    for (const type of Object.keys(groups) as MaterialType[]) {
+      groups[type].sort((a, b) => {
+        const aIdx = RARITIES.indexOf(a.material.rarity);
+        const bIdx = RARITIES.indexOf(b.material.rarity);
+        return bIdx - aIdx;
+      });
+    }
+    return groups;
+  }, [char.materials]);
 
   const handleListOnAhFromDetail = (entry: MaterialEntry) => {
     setSelectedEntry(null);
@@ -163,130 +196,172 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.nameLabel}>WANDERER</Text>
-              <View style={styles.levelRow}>
-                <Text style={styles.lvLabel}>Level </Text>
-                <Text style={styles.lvValue}>{char.level}</Text>
-              </View>
-            </View>
-            <View style={styles.goldBlock}>
-              <View style={styles.goldCoin}>
-                <Text style={styles.goldCoinText}>G</Text>
-              </View>
-              <Text style={styles.goldVal}>{char.gold.toLocaleString()}</Text>
-            </View>
-          </View>
-
-          {/* XP Bar */}
-          <View style={styles.xpRow}>
-            <View style={styles.xpGem}>
-              <Text style={styles.xpGemText}>✦</Text>
-            </View>
-            <View style={styles.xpTrack}>
-              <View style={[styles.xpFill, { width: `${xpPct}%` as any }]} />
-            </View>
-            <Text style={styles.xpNums}>{char.xp}/{char.xpToNext}</Text>
-          </View>
-
-          {hasPending && (
-            <View style={styles.pendingBanner}>
-              <Text style={styles.pendingText}>
-                ✦ {char.pendingStatPoints} stat point{char.pendingStatPoints > 1 ? "s" : ""} to allocate
+          {/* ── Tabs ────────────────────────────────────────────────────── */}
+          <View style={styles.tabBar}>
+            <Pressable
+              style={[styles.tabBtn, activeTab === "profile" && styles.tabBtnActive]}
+              onPress={() => setActiveTab("profile")}
+            >
+              <Text style={[styles.tabText, activeTab === "profile" && styles.tabTextActive]}>
+                PROFILE
               </Text>
-            </View>
-          )}
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === "inventory" && styles.tabBtnActive]}
+              onPress={() => setActiveTab("inventory")}
+            >
+              <Text style={[styles.tabText, activeTab === "inventory" && styles.tabTextActive]}>
+                INVENTORY {char.materials.length > 0 ? `(${char.materials.length})` : ""}
+              </Text>
+            </Pressable>
+          </View>
 
-          <View style={styles.divider} />
-
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-            {/* Stats */}
-            <View style={styles.statGrid}>
-              {STAT_CONFIG.map((s) => {
-                const val = char.stats[s.key];
-                // Derived display values
-                let derivedLabel: string | null = null;
-                if (s.key === "defence") {
-                  derivedLabel = "increases block chance";
-                } else if (s.key === "speed") {
-                  derivedLabel = "increases turn frequency";
-                } else if (s.key === "strength") {
-                  derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
-                } else if (s.key === "health") {
-                  derivedLabel = `${Math.floor(val * 10)} max HP`;
-                }
-                return (
-                  <View key={s.key} style={styles.statCard}>
-                    <View style={styles.statCardTop}>
-                      <Text style={styles.statIcon}>{s.icon}</Text>
-                      <View style={styles.statInfo}>
-                        <Text style={[styles.statName, { color: s.color }]}>{s.label}</Text>
-                        <Text style={styles.statDesc}>{s.desc}</Text>
-                        {derivedLabel && (
-                          <Text style={[styles.statDerived, { color: s.color }]}>{derivedLabel}</Text>
-                        )}
-                      </View>
-                      <Text style={[styles.statVal, { color: s.color }]}>
-                        {s.key === "strength" ? val.toFixed(2) : Math.floor(val)}
-                      </Text>
-                    </View>
-                    {hasPending && (
-                      <Pressable
-                        style={[styles.allocBtn, { borderColor: s.color }]}
-                        onPress={() => allocateStat(s.key)}
-                      >
-                        <Text style={[styles.allocBtnText, { color: s.color }]}>
-                          + Allocate ({s.bonus})
-                        </Text>
-                      </Pressable>
-                    )}
+          {/* ── Profile tab ───────────────────────────────────────────── */}
+          {activeTab === "profile" && (
+            <View style={styles.tabContent}>
+              <View style={styles.header}>
+                <View>
+                  <Text style={styles.nameLabel}>WANDERER</Text>
+                  <View style={styles.levelRow}>
+                    <Text style={styles.lvLabel}>Level </Text>
+                    <Text style={styles.lvValue}>{char.level}</Text>
                   </View>
-                );
-              })}
-            </View>
+                </View>
+                <View style={styles.goldBlock}>
+                  <View style={styles.goldCoin}>
+                    <Text style={styles.goldCoinText}>G</Text>
+                  </View>
+                  <Text style={styles.goldVal}>{char.gold.toLocaleString()}</Text>
+                </View>
+              </View>
 
-            {/* Inventory */}
-            {char.materials.length > 0 && (
-              <View style={styles.materialsBlock}>
-                <Text style={styles.sectionLabel}>INVENTORY  ·  tap to inspect</Text>
-                <View style={styles.inventoryGrid}>
-                  {char.materials.map((entry) => {
-                    const rarityColor = RARITY_COLORS[entry.material.rarity];
+              <View style={styles.xpRow}>
+                <View style={styles.xpGem}>
+                  <Text style={styles.xpGemText}>✦</Text>
+                </View>
+                <View style={styles.xpTrack}>
+                  <View style={[styles.xpFill, { width: `${xpPct}%` as any }]} />
+                </View>
+                <Text style={styles.xpNums}>{char.xp}/{char.xpToNext}</Text>
+              </View>
+
+              {hasPending && (
+                <View style={styles.pendingBanner}>
+                  <Text style={styles.pendingText}>
+                    ✦ {char.pendingStatPoints} stat point{char.pendingStatPoints > 1 ? "s" : ""} to allocate
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.divider} />
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.statGrid}>
+                  {STAT_CONFIG.map((s) => {
+                    const val = char.stats[s.key];
+                    let derivedLabel: string | null = null;
+                    if (s.key === "defence") derivedLabel = "increases block chance";
+                    else if (s.key === "speed") derivedLabel = "increases turn frequency";
+                    else if (s.key === "strength") derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
+                    else if (s.key === "health") derivedLabel = `${Math.floor(val * 10)} max HP`;
                     return (
-                      <Pressable
-                        key={entry.key}
-                        style={styles.invSlotWrap}
-                        onPress={() => setSelectedEntry(entry)}
-                      >
-                        <View style={[styles.invSlot, { borderColor: rarityColor }]}>
-                          <MaterialImage
-                            type={entry.material.type}
-                            rarity={entry.material.rarity}
-                            version={entry.material.version}
-                            size={68}
-                            compact
-                            animateParticles={false}
-                          />
-                        </View>
-                        <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
-                          <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>
-                        </View>
-                        <View style={styles.typeLabel}>
-                          <Text style={styles.typeLabelText} adjustsFontSizeToFit minimumFontScale={0.7}>
-                            {entry.material.type.toUpperCase()}
-                            {entry.material.version > 0 ? ` T${entry.material.version}` : ""}
+                      <View key={s.key} style={styles.statCard}>
+                        <View style={styles.statCardTop}>
+                          <Text style={styles.statIcon}>{s.icon}</Text>
+                          <View style={styles.statInfo}>
+                            <Text style={[styles.statName, { color: s.color }]}>{s.label}</Text>
+                            <Text style={styles.statDesc}>{s.desc}</Text>
+                            {derivedLabel && (
+                              <Text style={[styles.statDerived, { color: s.color }]}>{derivedLabel}</Text>
+                            )}
+                          </View>
+                          <Text style={[styles.statVal, { color: s.color }]}>
+                            {s.key === "strength" ? val.toFixed(2) : Math.floor(val)}
                           </Text>
                         </View>
-                      </Pressable>
+                        {hasPending && (
+                          <Pressable
+                            style={[styles.allocBtn, { borderColor: s.color }]}
+                            onPress={() => allocateStat(s.key)}
+                          >
+                            <Text style={[styles.allocBtnText, { color: s.color }]}>
+                              + Allocate ({s.bonus})
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
                     );
                   })}
                 </View>
-              </View>
-            )}
+                <View style={{ height: 24 }} />
+              </ScrollView>
+            </View>
+          )}
 
-            <View style={{ height: 24 }} />
-          </ScrollView>
+          {/* ── Inventory tab ───────────────────────────────────────────── */}
+          {activeTab === "inventory" && (
+            <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+              {char.materials.length === 0 ? (
+                <View style={styles.emptyInv}>
+                  <Text style={styles.emptyInvText}>Your inventory is empty.</Text>
+                  <Text style={styles.emptyInvSub}>Gather materials by exploring the mountain.</Text>
+                </View>
+              ) : (
+                <>
+                  {(Object.keys(groupedInventory) as MaterialType[]).map((type) => {
+                    const entries = groupedInventory[type];
+                    if (entries.length === 0) return null;
+                    const typeColor = TYPE_COLORS[type];
+                    const totalCount = entries.reduce((s, e) => s + e.count, 0);
+                    return (
+                      <View key={type} style={styles.typeSection}>
+                        <View style={[styles.typeHeader, { borderColor: typeColor }]}>
+                          <Text style={[styles.typeHeaderIcon, { color: typeColor }]}>{TYPE_ICONS[type]}</Text>
+                          <Text style={[styles.typeHeaderName, { color: typeColor }]}>{type.toUpperCase()}</Text>
+                          <View style={[styles.typeHeaderBadge, { backgroundColor: typeColor }]}>
+                            <Text style={styles.typeHeaderBadgeText}>×{totalCount}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.inventoryGrid}>
+                          {entries.map((entry) => {
+                            const rarityColor = RARITY_COLORS[entry.material.rarity];
+                            return (
+                              <Pressable
+                                key={entry.key}
+                                style={styles.invSlotWrap}
+                                onPress={() => setSelectedEntry(entry)}
+                              >
+                                <View style={[styles.invSlot, { borderColor: rarityColor }]}>
+                                  <MaterialImage
+                                    type={entry.material.type}
+                                    rarity={entry.material.rarity}
+                                    version={entry.material.version}
+                                    size={68}
+                                    compact
+                                    animateParticles={false}
+                                  />
+                                </View>
+                                <View style={[styles.countBadge, { backgroundColor: rarityColor }]}>
+                                  <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>
+                                </View>
+                                <View style={styles.typeLabel}>
+                                  <Text style={styles.typeLabelText} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                    {entry.material.rarity}
+                                    {entry.material.version > 0 ? ` T${entry.material.version}` : ""}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <View style={{ height: 24 }} />
+                </>
+              )}
+            </ScrollView>
+          )}
 
           <Pressable style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>CLOSE</Text>
@@ -328,8 +403,44 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.game.border,
     borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
+
+  // Tabs
+  tabBar: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 14,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+  },
+  tabBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  tabBtnActive: {
+    backgroundColor: Colors.game.gold,
+  },
+  tabText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+    letterSpacing: 1,
+  },
+  tabTextActive: {
+    color: "#3d2e00",
+  },
+  tabContent: {
+    flex: 1,
+    minHeight: 300,
+  },
+
+  // Profile
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -374,7 +485,6 @@ const styles = StyleSheet.create({
   },
   pendingText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.purpleLight },
   divider: { height: 1, backgroundColor: Colors.game.border, marginVertical: 8 },
-  scroll: { flex: 0, maxHeight: 480 },
   statGrid: { gap: 10, marginBottom: 16 },
   statCard: {
     backgroundColor: Colors.game.surface,
@@ -394,10 +504,59 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.03)",
   },
   allocBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
-  materialsBlock: { gap: 10, marginBottom: 8 },
-  sectionLabel: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 2,
+
+  // Inventory empty state
+  emptyInv: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 60,
+  },
+  emptyInvText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+  },
+  emptyInvSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+  },
+
+  // Type sections
+  typeSection: {
+    marginBottom: 18,
+    gap: 10,
+  },
+  typeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: Colors.game.surface,
+  },
+  typeHeaderIcon: { fontSize: 16 },
+  typeHeaderName: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.5,
+    flex: 1,
+  },
+  typeHeaderBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  typeHeaderBadgeText: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: "#000",
   },
   inventoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   invSlotWrap: { alignItems: "center", gap: 4 },
@@ -417,6 +576,7 @@ const styles = StyleSheet.create({
     fontSize: 9, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 0.5, textAlign: "center",
   },
+
   closeBtn: {
     backgroundColor: Colors.game.surface,
     borderRadius: 14, paddingVertical: 14,
@@ -424,6 +584,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.border,
   },
   closeBtnText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
+
   // Item detail
   detailOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.6)",
