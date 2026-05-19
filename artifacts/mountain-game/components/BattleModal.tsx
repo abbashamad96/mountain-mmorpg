@@ -37,7 +37,7 @@ const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
 const MAX_SYNC_TURNS = 50;
 
 function actionCost(speed: number): number {
-  return 15000 / (100 + 0.1 * Math.max(0, speed));
+  return Math.max(10, 15000 / (100 + 0.1 * Math.max(0, speed)));
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
