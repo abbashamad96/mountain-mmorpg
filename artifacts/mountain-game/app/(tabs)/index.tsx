@@ -386,6 +386,7 @@ export default function GameScreen() {
 
   // ── AH toast helper ───────────────────────────────────────────────────────
   const pushToast = useCallback((msg: string, isGold: boolean) => {
+    if (!msg || !msg.trim()) return;
     const id = `t-${Date.now()}-${Math.random()}`;
     setAhToasts((prev) => [...prev, { id, msg, isGold }]);
     setTimeout(() => setAhToasts((prev) => prev.filter((t) => t.id !== id)), 3600);
@@ -447,15 +448,17 @@ export default function GameScreen() {
 
     if (roll.type === "gold_xp") {
       applyGoldXp(roll.goldGained, roll.xpGained);
-      addLogEntry({
-        id: roll.id,
-        timestamp: roll.timestamp,
-        type: "gold_xp",
-        summary: `+${roll.goldGained}g +${roll.xpGained}xp`,
-        goldGained: roll.goldGained,
-        xpGained: roll.xpGained,
-        material: null,
-      });
+      if (roll.goldGained > 0 || roll.xpGained > 0) {
+        addLogEntry({
+          id: roll.id,
+          timestamp: roll.timestamp,
+          type: "gold_xp",
+          summary: `${roll.goldGained > 0 ? `+${roll.goldGained}g` : ""}${roll.xpGained > 0 ? ` +${roll.xpGained}xp` : ""}`,
+          goldGained: roll.goldGained,
+          xpGained: roll.xpGained,
+          material: null,
+        });
+      }
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     } else if (roll.type === "gather" && roll.material) {
