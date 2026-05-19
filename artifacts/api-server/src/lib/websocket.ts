@@ -21,6 +21,7 @@ interface Player {
   username: string | null;
   ws: WebSocket;
   cachedGameState: unknown;
+  cacheDirty: boolean;
 }
 
 interface AuctionListing {
@@ -143,6 +144,37 @@ function updateCachedGold(player: Player, delta: number) {
   const char = ((state.character ?? {}) as Record<string, unknown>);
   const current = Math.max(0, Number(char.gold ?? 0));
   player.cachedGameState = { ...state, character: { ...char, gold: Math.max(0, current + delta) } };
+  player.cacheDirty = true;
+}
+
+function updateCachedMaterials(player: Player, material: { type: string; rarity: string; version: number }, delta: number) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const materials = Array.isArray(char.materials) ? [...char.materials] : [];
+  const key = `${material.type}|${material.rarity}|${material.version}`;
+  const idx = materials.findIndex(
+    (e: any) =>
+      e.key === key ||
+      (e.material?.type === material.type && e.material?.rarity === material.rarity && e.material?.version === material.version)
+  );
+  if (idx >= 0) {
+    const entry = materials[idx] as Record<string, unknown>;
+    const newCount = Math.max(0, (Number(entry.count) || 0) + delta);
+    if (newCount <= 0) {
+      materials.splice(idx, 1);
+    } else {
+      materials[idx] = { ...entry, count: newCount };
+    }
+  } else if (delta > 0) {
+    materials.push({
+      key,
+      material: { type: material.type, rarity: material.rarity, version: material.version },
+      count: delta,
+    });
+  }
+  player.cachedGameState = { ...state, character: { ...char, materials } };
+  player.cacheDirty = true;
 }
 
 function clampGameState(incoming: unknown, stored: unknown): unknown {
@@ -177,9 +209,15 @@ function clampGameState(incoming: unknown, stored: unknown): unknown {
   // ── Stat points: not clamped here — items will grant bonus stat points ────
   const pendingStatPoints = Math.max(0, Number(inChar.pendingStatPoints ?? 0));
 
+  // ── Materials & other fields: preserve from incoming, falling back to stored ──
+  const materials = Array.isArray(inChar.materials) ? inChar.materials : (Array.isArray(oldChar.materials) ? oldChar.materials : []);
+  const stats = (inChar.stats && typeof inChar.stats === "object")
+    ? inChar.stats
+    : (oldChar.stats && typeof oldChar.stats === "object" ? oldChar.stats : {});
+
   return {
     ...inc,
-    character: { ...inChar, gold: newGold, level, xp, xpToNext, pendingStatPoints },
+    character: { ...inChar, gold: newGold, level, xp, xpToNext, pendingStatPoints, materials, stats },
   };
 }
 
@@ -636,7 +674,14 @@ async function handleMessage(player: Player, raw: string) {
     }
 
     updateCachedGold(player, goldEarned);
-    send(player.ws, { type: "bo_sold", orderId: order.id, count, goldEarned });
+    updateCachedMaterials(player, { type: order.material.type, rarity: order.material.rarity, version: actualVersion }, -count);
+    send(player.ws, {
+      type: "bo_sold",
+      orderId: order.id,
+      count,
+      goldEarned,
+      material: { type: order.material.type, rarity: order.material.rarity, version: actualVersion },
+    });
 
     const buyerPlayer = getPlayerByStableId(order.buyerId);
     const receivedPayload = {
@@ -645,6 +690,7 @@ async function handleMessage(player: Player, raw: string) {
       material: { type: order.material.type, rarity: order.material.rarity, version: actualVersion },
     };
     if (buyerPlayer) {
+      updateCachedMaterials(buyerPlayer, { type: order.material.type, rarity: order.material.rarity, version: actualVersion }, count);
       send(buyerPlayer.ws, { type: "bo_received", ...receivedPayload });
     } else {
       const buyerUname = order.buyerId.toLowerCase();
@@ -679,9 +725,23 @@ export async function attachWebSocketServer(server: Server) {
     logger.error({ err }, "Failed to load data from DB");
   }
 
+  // Flush dirty player caches to DB every 10 seconds so server-side
+  // gold/material changes (AH sales, buy order fills) are never lost.
+  setInterval(async () => {
+    for (const p of players.values()) {
+      if (p.cacheDirty && p.username) {
+        p.cacheDirty = false;
+        await dbUpdateGameState(p.username.toLowerCase(), p.cachedGameState).catch((err: unknown) => {
+          logger.error({ err, username: p.username }, "Periodic cache flush failed");
+          p.cacheDirty = true; // retry next interval
+        });
+      }
+    }
+  }, 10_000);
+
   wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
     counter++;
-    const player: Player = { id: `p${counter}`, name: "", username: null, ws, cachedGameState: null };
+    const player: Player = { id: `p${counter}`, name: "", username: null, ws, cachedGameState: null, cacheDirty: false };
     players.set(player.id, player);
     logger.info({ playerId: player.id }, "WebSocket client connected");
 

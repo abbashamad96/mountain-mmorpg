@@ -377,6 +377,7 @@ interface GameContextType {
   setScene: (scene: SceneType) => void;
   applyGoldXp: (gold: number, xp: number) => ApplyResult;
   addMaterials: (mats: Material[]) => void;
+  addMaterialCount: (material: Material, count: number) => void;
   removeMaterial: (key: string, count: number) => void;
   allocateStat: (stat: keyof CharacterStats) => void;
   addLogEntry: (entry: LogEntry) => void;
@@ -442,6 +443,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const addMaterialCount = useCallback((material: Material, count: number) => {
+    if (count <= 0) return;
+    setGameState((prev) => {
+      const key = materialKey(material);
+      const materials = [...prev.character.materials];
+      const idx = materials.findIndex((e) => e.key === key);
+      if (idx >= 0) {
+        materials[idx] = { ...materials[idx], count: materials[idx].count + count };
+      } else {
+        materials.push({ key, material, count });
+      }
+      return { ...prev, character: { ...prev.character, materials } };
+    });
+  }, []);
+
   const removeMaterial = useCallback((key: string, count: number) => {
     setGameState((prev) => {
       const materials = prev.character.materials
@@ -495,7 +511,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState }}
     >
       {children}
     </GameContext.Provider>

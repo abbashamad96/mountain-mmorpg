@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
-import { Material, RARITY_COLORS } from "./GameContext";
+import { Material, RARITY_COLORS, useGame } from "./GameContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,6 +106,7 @@ const AUTH_USER_KEY = "@mountain_auth_user_v1";
 // ─── Provider ───────────────────────────────────────────────────────────────────
 
 export function MultiplayerProvider({ children }: { children: React.ReactNode }) {
+  const game = useGame();
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [isOnline, setIsOnline] = useState(true);
   const [yourId, setYourId] = useState<string | null>(null);
@@ -262,6 +263,16 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_sold") {
+        // Safely deduct materials from local inventory.  If the player filled
+        // the order via the UI the client already removed them; this is a
+        // safety-net for offline sellers (delivery re-sent on reconnect).
+        if (msg.material && msg.count > 0) {
+          const key = `${msg.material.type}|${msg.material.rarity}|${msg.material.version}`;
+          const existing = game.gameState.character.materials.find((e) => e.key === key);
+          if (existing && existing.count >= msg.count) {
+            game.removeMaterial(key, msg.count);
+          }
+        }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_sold" as const, boOrderId: msg.orderId, boCount: msg.count, boGoldEarned: msg.goldEarned };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
@@ -271,6 +282,9 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_received") {
+        if (msg.material && msg.count > 0) {
+          game.addMaterialCount(msg.material, msg.count);
+        }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_received" as const, boOrderId: msg.orderId, boCount: msg.count, boMaterial: msg.material };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
@@ -430,7 +444,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     authTokenRef.current = null;
     AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     AsyncStorage.removeItem(AUTH_USER_KEY);
-  }, []);
+    // Wipe local game state immediately so the next login sees a clean slate
+    game.resetGameState();
+    setServerGameState(null);
+  }, [game]);
 
   const saveGameState = useCallback((state: unknown) => {
     sendWs({ type: "save_state", gameState: state, baselineGold: lastConfirmedGoldRef.current });

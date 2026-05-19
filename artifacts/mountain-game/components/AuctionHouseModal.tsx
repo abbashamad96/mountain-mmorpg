@@ -178,7 +178,7 @@ interface AuctionHouseModalProps {
 }
 
 export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: AuctionHouseModalProps) {
-  const { gameState, removeMaterial, applyGoldXp } = useGame();
+  const { gameState, applyGoldXp, removeMaterial } = useGame();
   const {
     yourId,
     listings,
