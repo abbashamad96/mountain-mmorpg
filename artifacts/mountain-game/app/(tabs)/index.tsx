@@ -155,7 +155,7 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         {/* Battle event */}
         {entry.type === "battle" && (
           <View style={logStackStyles.battleBlock}>
-            {/* Row 1: verb + NPC name (colored by rarity) */}
+            {/* Row 1: verb + NPC name (colored by rarity) + tier */}
             <View style={logStackStyles.inlineRow}>
               <Text style={logStackStyles.dimLabel}>{isVictory ? "Defeated" : "Fled from"}</Text>
               <Text
@@ -164,6 +164,13 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               >
                 {npcName}
               </Text>
+              {entry.npcVersion !== undefined && entry.npcVersion > 0 && (
+                <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[entry.npcVersion] ?? Colors.game.border }]}>
+                  <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[entry.npcVersion] ?? Colors.game.text }]}>
+                    T{entry.npcVersion}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Row 2: gold + xp rewards (show whenever values exist, not gated on isVictory flag) */}
@@ -521,13 +528,14 @@ export default function GameScreen() {
           timestamp: Date.now(),
           type: "battle",
           summary: victory
-            ? `Defeated ${npc.name} +${goldReward}g +${xpReward}xp${droppedMat ? ` · dropped ${droppedMat.type}${dropCount > 1 ? ` ×${dropCount}` : ""}` : ""}`
+            ? `Defeated ${npc.name} (T${npc.version}) +${goldReward}g +${xpReward}xp${droppedMat ? ` · dropped ${droppedMat.type}${dropCount > 1 ? ` ×${dropCount}` : ""}` : ""}`
             : `Fled from ${npc.name}`,
           goldGained: goldReward,
           xpGained: xpReward,
           material: droppedMat,
           dropCount: dropCount > 0 ? dropCount : undefined,
           npcRarity: npc.rarity,
+          npcVersion: npc.version,
           victory,
         });
       }

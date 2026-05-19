@@ -98,6 +98,7 @@ export interface LogEntry {
   dropCount?: number;
   victory?: boolean;
   npcRarity?: RarityName;
+  npcVersion?: VersionNum;
 }
 
 export interface Character {
