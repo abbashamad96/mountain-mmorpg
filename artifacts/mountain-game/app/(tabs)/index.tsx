@@ -413,7 +413,6 @@ export default function GameScreen() {
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_received") {
         if (ev.boMaterial && ev.boCount && ev.boCount > 0) {
-          addMaterials(Array(ev.boCount).fill(ev.boMaterial));
           pushToast(`Received ×${ev.boCount} ${ev.boMaterial.rarity} ${ev.boMaterial.type} from order`, false);
         }
         consumeAhEvent(ev.id);

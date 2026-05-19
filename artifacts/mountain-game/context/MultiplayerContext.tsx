@@ -275,33 +275,15 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_sold" as const, boOrderId: msg.orderId, boCount: msg.count, boGoldEarned: msg.goldEarned };
         setAhEvents((prev) => [...prev, entry]);
-        setNotifications((prev) => [...prev, {
-          id: entry.id, kind: "bo_sold",
-          title: "Buy Order Filled",
-          body: `Earned ${msg.goldEarned.toLocaleString()}G for filling a buy order`,
-          ts: Date.now(), read: false,
-        }]);
       } else if (msg.type === "bo_received") {
         if (msg.material && msg.count > 0) {
           game.addMaterialCount(msg.material, msg.count);
         }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_received" as const, boOrderId: msg.orderId, boCount: msg.count, boMaterial: msg.material };
         setAhEvents((prev) => [...prev, entry]);
-        setNotifications((prev) => [...prev, {
-          id: entry.id, kind: "bo_received",
-          title: "Buy Order Received",
-          body: `Received \u00d7${msg.count} ${msg.material.rarity} ${msg.material.type} from your buy order`,
-          ts: Date.now(), read: false,
-        }]);
       } else if (msg.type === "bo_cancelled") {
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_cancelled" as const, boOrderId: msg.orderId, boGoldReturn: msg.goldReturn };
         setAhEvents((prev) => [...prev, entry]);
-        setNotifications((prev) => [...prev, {
-          id: entry.id, kind: "bo_cancelled",
-          title: "Buy Order Cancelled",
-          body: `${msg.goldReturn.toLocaleString()}G refunded from cancelled buy order`,
-          ts: Date.now(), read: false,
-        }]);
       } else if (msg.type === "state_saved") {
         // Server confirmed the save and echoes back the gold it actually stored.
         // Record this as the new baseline for the next save's delta check.
