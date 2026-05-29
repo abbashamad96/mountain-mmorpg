@@ -1,5 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { GameItem, ItemSlot, ItemStatBlock, sumItemStats, sumPercentStats } from "@/lib/items";
+
+export type { GameItem, ItemSlot, ItemStatBlock };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +112,25 @@ export interface Character {
   gold: number;
   pendingStatPoints: number;
   materials: MaterialEntry[];
+  equippedItems: Partial<Record<ItemSlot, GameItem>>;
+  itemBag: GameItem[];
+}
+
+export function getEffectiveStats(char: Character): CharacterStats {
+  const flat = sumItemStats(char.equippedItems);
+  const pct  = sumPercentStats(char.equippedItems);
+  const base: CharacterStats = {
+    strength: char.stats.strength + flat.strength,
+    health:   char.stats.health   + flat.health,
+    defence:  char.stats.defence  + flat.defence,
+    speed:    char.stats.speed    + flat.speed,
+  };
+  return {
+    strength: base.strength * (1 + pct.strength),
+    health:   base.health   * (1 + pct.health),
+    defence:  base.defence  * (1 + pct.defence),
+    speed:    base.speed    * (1 + pct.speed),
+  };
 }
 
 export interface GameState {
@@ -360,6 +382,8 @@ const defaultCharacter: Character = {
   gold: 0,
   pendingStatPoints: 0,
   materials: [],
+  equippedItems: {},
+  itemBag: [],
 };
 
 const defaultGameState: GameState = {
@@ -385,6 +409,10 @@ interface GameContextType {
   incrementEvents: () => void;
   loadState: (state: Partial<GameState>) => void;
   resetGameState: () => void;
+  equipItem: (item: GameItem) => void;
+  unequipItem: (slot: ItemSlot) => void;
+  addItemToBag: (item: GameItem) => void;
+  removeItemFromBag: (id: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -409,6 +437,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           ...saved.character,
           stats: { ...defaultCharacter.stats, ...saved.character?.stats },
           materials: saved.character?.materials ?? [],
+          equippedItems: saved.character?.equippedItems ?? {},
+          itemBag: saved.character?.itemBag ?? [],
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
@@ -480,6 +510,44 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const equipItem = useCallback((item: GameItem) => {
+    setGameState((prev) => {
+      const oldEquipped = prev.character.equippedItems[item.slot];
+      const newEquipped = { ...prev.character.equippedItems, [item.slot]: item };
+      // If something was already in the slot, move it to bag
+      let newBag = prev.character.itemBag.filter((i) => i.id !== item.id);
+      if (oldEquipped) newBag = [...newBag, oldEquipped];
+      return { ...prev, character: { ...prev.character, equippedItems: newEquipped, itemBag: newBag } };
+    });
+  }, []);
+
+  const unequipItem = useCallback((slot: ItemSlot) => {
+    setGameState((prev) => {
+      const item = prev.character.equippedItems[slot];
+      if (!item) return prev;
+      const newEquipped = { ...prev.character.equippedItems };
+      delete newEquipped[slot];
+      return {
+        ...prev,
+        character: { ...prev.character, equippedItems: newEquipped, itemBag: [...prev.character.itemBag, item] },
+      };
+    });
+  }, []);
+
+  const addItemToBag = useCallback((item: GameItem) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, itemBag: [...prev.character.itemBag, item] },
+    }));
+  }, []);
+
+  const removeItemFromBag = useCallback((id: string) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, itemBag: prev.character.itemBag.filter((i) => i.id !== id) },
+    }));
+  }, []);
+
   const addLogEntry = useCallback((entry: LogEntry) => {
     setGameState((prev) => ({
       ...prev,
@@ -499,6 +567,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       ...saved.character,
       stats: { ...defaultCharacter.stats, ...saved.character?.stats },
       materials: saved.character?.materials ?? [],
+      equippedItems: saved.character?.equippedItems ?? {},
+      itemBag: saved.character?.itemBag ?? [],
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -512,7 +582,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag }}
     >
       {children}
     </GameContext.Provider>

@@ -12,6 +12,7 @@ import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType } from "@
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
+import { EquipmentTab } from "./EquipmentTab";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "inventory">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
 
   // Group inventory by material type, sort each group by rarity (highest first)
   const groupedInventory = useMemo(() => {
@@ -211,7 +212,15 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
               onPress={() => setActiveTab("inventory")}
             >
               <Text style={[styles.tabText, activeTab === "inventory" && styles.tabTextActive]}>
-                INVENTORY {char.materials.length > 0 ? `(${char.materials.length})` : ""}
+                ITEMS {char.materials.length > 0 ? `(${char.materials.length})` : ""}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === "equipment" && styles.tabBtnActive]}
+              onPress={() => setActiveTab("equipment")}
+            >
+              <Text style={[styles.tabText, activeTab === "equipment" && styles.tabTextActive]}>
+                GEAR {Object.keys(char.equippedItems).length > 0 ? `(${Object.keys(char.equippedItems).length})` : ""}
               </Text>
             </Pressable>
           </View>
@@ -295,6 +304,13 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                 </View>
                 <View style={{ height: 24 }} />
               </ScrollView>
+            </View>
+          )}
+
+          {/* ── Equipment tab ───────────────────────────────────────────── */}
+          {activeTab === "equipment" && (
+            <View style={styles.tabContent}>
+              <EquipmentTab />
             </View>
           )}
 

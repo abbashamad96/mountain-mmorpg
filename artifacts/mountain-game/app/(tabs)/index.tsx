@@ -29,6 +29,7 @@ import {
   rollEvent,
   rollNpcDrop,
   useGame,
+  getEffectiveStats,
 } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
@@ -717,7 +718,7 @@ export default function GameScreen() {
       <BattleModal
         visible={showBattle}
         npc={battleNpc}
-        playerStats={char.stats}
+        playerStats={getEffectiveStats(char)}
         playerLevel={char.level}
         onComplete={handleBattleComplete}
       />
