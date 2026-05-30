@@ -32,6 +32,7 @@ interface AuctionListing {
   count: number;
   price: number;
   listedAt: number;
+  item?: Record<string, unknown>;
 }
 
 interface BuyOrder {
@@ -287,11 +288,14 @@ async function dbDeleteSessionsByUser(usernameLower: string) {
 }
 
 async function dbSaveAhListing(listing: AuctionListing) {
+  const materialToStore = listing.item
+    ? { ...listing.material, _item: listing.item }
+    : listing.material;
   await db.insert(auctionListingsTable).values({
     id: listing.id,
     sellerId: listing.sellerId,
     sellerName: listing.sellerName,
-    material: listing.material,
+    material: materialToStore,
     count: listing.count,
     price: listing.price,
     createdAt: listing.listedAt,
@@ -346,14 +350,22 @@ async function loadFromDb() {
   ]);
 
   for (const row of listingRows) {
+    const mat = row.material as Record<string, unknown>;
+    const _item = mat._item as Record<string, unknown> | undefined;
+    const cleanMat = {
+      type: String(mat.type ?? ""),
+      rarity: String(mat.rarity ?? ""),
+      version: parseInt(String(mat.version ?? "0")) || 0,
+    };
     auctionListings.set(row.id, {
       id: row.id,
       sellerId: row.sellerId,
       sellerName: row.sellerName,
-      material: row.material as { type: string; rarity: string; version: number },
+      material: cleanMat,
       count: row.count,
       price: row.price,
       listedAt: Number(row.createdAt),
+      item: _item,
     });
   }
 
@@ -568,22 +580,42 @@ async function handleMessage(player: Player, raw: string) {
 
   // ── ah_list ─────────────────────────────────────────────────────────────────
   } else if (msg.type === "ah_list") {
-    const mat = msg.material;
-    if (!mat?.type || !mat?.rarity) return;
-    const count = Math.max(1, parseInt(msg.count) || 1);
     const price = Math.max(1, parseInt(msg.price) || 1);
-    const listing: AuctionListing = {
-      id: `ah-${Date.now()}-${player.id}`,
-      sellerId: stableId(player),
-      sellerName: player.name,
-      material: { type: String(mat.type).slice(0, 20), rarity: String(mat.rarity).slice(0, 20), version: parseInt(mat.version) || 0 },
-      count,
-      price,
-      listedAt: Date.now(),
-    };
-    auctionListings.set(listing.id, listing);
-    await dbSaveAhListing(listing);
-    broadcastAhUpdate();
+    if (msg.item && typeof msg.item === "object") {
+      // Equipment item listing
+      const item = msg.item as Record<string, unknown>;
+      const rarity  = String(item.rarity  ?? "Common").slice(0, 20);
+      const tier    = parseInt(String(item.tier ?? "0")) || 0;
+      const listing: AuctionListing = {
+        id: `ah-${Date.now()}-${player.id}`,
+        sellerId: stableId(player),
+        sellerName: player.name,
+        material: { type: "Equipment", rarity, version: tier },
+        count: 1,
+        price,
+        listedAt: Date.now(),
+        item,
+      };
+      auctionListings.set(listing.id, listing);
+      await dbSaveAhListing(listing);
+      broadcastAhUpdate();
+    } else {
+      const mat = msg.material;
+      if (!mat?.type || !mat?.rarity) return;
+      const count = Math.max(1, parseInt(msg.count) || 1);
+      const listing: AuctionListing = {
+        id: `ah-${Date.now()}-${player.id}`,
+        sellerId: stableId(player),
+        sellerName: player.name,
+        material: { type: String(mat.type).slice(0, 20), rarity: String(mat.rarity).slice(0, 20), version: parseInt(mat.version) || 0 },
+        count,
+        price,
+        listedAt: Date.now(),
+      };
+      auctionListings.set(listing.id, listing);
+      await dbSaveAhListing(listing);
+      broadcastAhUpdate();
+    }
 
   // ── ah_cancel ───────────────────────────────────────────────────────────────
   } else if (msg.type === "ah_cancel") {

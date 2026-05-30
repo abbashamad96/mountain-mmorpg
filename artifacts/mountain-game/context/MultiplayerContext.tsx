@@ -25,6 +25,7 @@ export interface AuctionListing {
   count: number;
   price: number;
   listedAt: number;
+  item?: unknown;
 }
 
 export interface BuyOrder {
@@ -65,6 +66,7 @@ interface MultiplayerContextType {
   sendChat: (text: string) => void;
   listings: AuctionListing[];
   listAhItem: (material: Material, count: number, price: number) => void;
+  listAhEquipItem: (item: unknown, price: number) => void;
   buyAhItem: (listingId: string) => void;
   cancelAhListing: (listingId: string) => void;
   refreshListings: () => void;
@@ -236,30 +238,45 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       } else if (msg.type === "bo_update") {
         setBuyOrders(msg.orders ?? []);
       } else if (msg.type === "ah_bought" && msg.listing) {
+        const isEquip = msg.listing.material?.type === "Equipment";
+        if (isEquip && msg.listing.item) {
+          game.addItemToBag(msg.listing.item as any);
+        }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bought" as const, listing: msg.listing };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "bought",
           title: "Auction Purchase",
-          body: `Bought \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type}`,
+          body: isEquip
+            ? `Bought ${msg.listing.material.rarity} ${(msg.listing.item as any)?.slot ?? "Equipment"}`
+            : `Bought \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type}`,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "ah_sale" && msg.listing) {
+        const isEquip = msg.listing.material?.type === "Equipment";
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "sale" as const, listing: msg.listing, buyerName: msg.buyerName };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "sale",
           title: "Listing Sold",
-          body: `Your ${msg.listing.material.rarity} ${msg.listing.material.type} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`,
+          body: isEquip
+            ? `Your ${msg.listing.material.rarity} ${(msg.listing.item as any)?.slot ?? "Equipment"} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
+            : `Your ${msg.listing.material.rarity} ${msg.listing.material.type} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "ah_cancelled" && msg.listing) {
+        const isEquip = msg.listing.material?.type === "Equipment";
+        if (isEquip && msg.listing.item) {
+          game.addItemToBag(msg.listing.item as any);
+        }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "cancelled" as const, listing: msg.listing };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "cancelled",
           title: "Listing Cancelled",
-          body: `Returned \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type} to inventory`,
+          body: isEquip
+            ? `Returned ${msg.listing.material.rarity} ${(msg.listing.item as any)?.slot ?? "Equipment"} to inventory`
+            : `Returned \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type} to inventory`,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_sold") {
@@ -396,6 +413,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     sendWs({ type: "ah_list", material, count, price });
   }, [sendWs]);
 
+  const listAhEquipItem = useCallback((item: unknown, price: number) => {
+    sendWs({ type: "ah_list", item, price });
+  }, [sendWs]);
+
   const buyAhItem = useCallback((listingId: string) => { sendWs({ type: "ah_buy", listingId }); }, [sendWs]);
   const cancelAhListing = useCallback((listingId: string) => { sendWs({ type: "ah_cancel", listingId }); }, [sendWs]);
   const refreshListings = useCallback(() => { sendWs({ type: "ah_get" }); }, [sendWs]);
@@ -494,7 +515,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     <MultiplayerContext.Provider value={{
       status, isOnline, yourId, playerName, setPlayerName,
       messages, sendChat,
-      listings, listAhItem, buyAhItem, cancelAhListing, refreshListings,
+      listings, listAhItem, listAhEquipItem, buyAhItem, cancelAhListing, refreshListings,
       buyOrders, createBuyOrder, cancelBuyOrder, fillBuyOrder,
       ahEvents, consumeAhEvent,
       notifications, unreadCount: notifications.filter((n) => !n.read).length, markNotificationsRead,

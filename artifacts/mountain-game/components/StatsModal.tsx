@@ -10,11 +10,13 @@ import {
 import Colors from "@/constants/colors";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
-import { ITEM_RARITY_COLORS } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
 import { ChestOpenModal } from "./ChestOpenModal";
+import { ItemBagModal } from "./ItemBagModal";
+import { ItemImage } from "./ItemImage";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,7 @@ interface StatsModalProps {
   visible: boolean;
   onClose: () => void;
   onListOnAh?: (entry: MaterialEntry) => void;
+  onListItemOnAh?: (item: GameItem) => void;
 }
 
 const STAT_CONFIG = [
@@ -162,13 +165,14 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
-  const { gameState, allocateStat, addItemToBag, removeChestFromBag } = useGame();
+export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh }: StatsModalProps) {
+  const { gameState, allocateStat, addItemToBag, removeChestFromBag, equipItem, removeItemFromBag } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
+  const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
 
   // Group inventory by material type, sort each group by rarity (highest first)
@@ -378,16 +382,23 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
                         {char.itemBag!.map((item) => {
                           const rc = ITEM_RARITY_COLORS[item.rarity];
                           return (
-                            <View key={item.id} style={styles.invSlotWrap}>
-                              <View style={[styles.invSlot, { borderColor: rc, alignItems: "center", justifyContent: "center" }]}>
-                                <Text style={{ fontSize: 30 }}>⚙</Text>
+                            <Pressable
+                              key={item.id}
+                              style={styles.invSlotWrap}
+                              onPress={() => setSelectedBagItem(item)}
+                            >
+                              <View style={[styles.invSlot, { borderColor: rc, padding: 2 }]}>
+                                <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} size={66} compact />
+                              </View>
+                              <View style={[styles.countBadge, { backgroundColor: rc }]}>
+                                <Text style={styles.countText} numberOfLines={1}>TAP</Text>
                               </View>
                               <View style={styles.typeLabel}>
                                 <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={2}>
                                   {item.rarity}{"\n"}{item.slot}
                                 </Text>
                               </View>
-                            </View>
+                            </Pressable>
                           );
                         })}
                       </View>
@@ -473,6 +484,23 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
             setSelectedChest(null);
           }}
           onClose={() => setSelectedChest(null)}
+        />
+      )}
+
+      {selectedBagItem && (
+        <ItemBagModal
+          item={selectedBagItem}
+          onClose={() => setSelectedBagItem(null)}
+          onEquip={() => {
+            equipItem(selectedBagItem);
+            removeItemFromBag(selectedBagItem.id);
+            setSelectedBagItem(null);
+          }}
+          onSellOnAh={onListItemOnAh ? () => {
+            const item = selectedBagItem;
+            setSelectedBagItem(null);
+            onListItemOnAh(item);
+          } : undefined}
         />
       )}
     </Modal>

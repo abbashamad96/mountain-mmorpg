@@ -27,18 +27,20 @@ import {
   VersionNum,
   useGame,
 } from "@/context/GameContext";
+import { GameItem, ITEM_RARITY_COLORS, ItemRarity } from "@/lib/items";
+import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Tab = "listings" | "orders";
-type Step = "tabs" | "pick" | "price" | "bo-create";
-type FilterType = "All" | MaterialType;
+type Step = "tabs" | "pick" | "price" | "item-price" | "bo-create";
+type FilterType = "All" | MaterialType | "Equipment";
 type SortKey = "price" | "qty" | "time";
 type SortDir = "asc" | "desc";
 
-const FILTER_TYPES: FilterType[] = ["All", "Ore", "Wood", "Herb", "Leather"];
+const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
 const SORT_LABELS: Record<SortKey, string> = { price: "PRICE", qty: "QTY", time: "TIME" };
 
@@ -169,20 +171,72 @@ function BuyOrderCard({
   );
 }
 
+// ─── Equipment listing card ───────────────────────────────────────────────────
+
+function ItemListingCard({
+  listing, isOwn, canAfford, onBuy, onCancel,
+}: {
+  listing: AuctionListing; isOwn: boolean; canAfford: boolean;
+  onBuy: () => void; onCancel: () => void;
+}) {
+  const item = listing.item as GameItem | undefined;
+  const rc = (ITEM_RARITY_COLORS as Record<string, string>)[listing.material.rarity] ?? "#9CA3AF";
+  return (
+    <View style={[styles.listingCard, isOwn && styles.ownCard, { borderColor: rc + "55" }]}>
+      <View style={styles.listingImg}>
+        {item ? (
+          <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} size={54} compact />
+        ) : (
+          <View style={{ width: 54, height: 54, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: 28 }}>⚔</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.listingInfo}>
+        <Text style={[styles.listingName, { color: rc }]} numberOfLines={1}>
+          {item?.name ?? `${listing.material.rarity} Equipment`}
+        </Text>
+        <Text style={styles.listingMeta}>
+          {item?.slot ?? "Equipment"} · T{listing.material.version} · {isOwn ? "YOUR LISTING" : listing.sellerName}
+        </Text>
+      </View>
+      <View style={styles.listingRight}>
+        <View style={styles.priceRow}>
+          <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
+          <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
+        </View>
+        {isOwn ? (
+          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
+            onPress={onBuy} disabled={!canAfford}
+          >
+            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 interface AuctionHouseModalProps {
   visible: boolean;
   onClose: () => void;
   preSelectedEntry?: MaterialEntry | null;
+  preSelectedItem?: GameItem | null;
 }
 
-export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: AuctionHouseModalProps) {
-  const { gameState, applyGoldXp, removeMaterial } = useGame();
+export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem }: AuctionHouseModalProps) {
+  const { gameState, applyGoldXp, removeMaterial, removeItemFromBag } = useGame();
   const {
     yourId,
     listings,
-    listAhItem, buyAhItem, cancelAhListing, refreshListings,
+    listAhItem, listAhEquipItem, buyAhItem, cancelAhListing, refreshListings,
     buyOrders,
     createBuyOrder, cancelBuyOrder, fillBuyOrder,
   } = useMultiplayer();
@@ -191,6 +245,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
   const [tab, setTab] = useState<Tab>("listings");
   const [step, setStep] = useState<Step>("tabs");
   const [pickedEntry, setPickedEntry] = useState<MaterialEntry | null>(null);
+  const [pickedItem, setPickedItem] = useState<GameItem | null>(null);
   const [countStr, setCountStr] = useState("1");
   const [priceStr, setPriceStr] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("All");
@@ -221,7 +276,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
   const [boCountStr, setBoCountStr] = useState("1");
   const [boPriceStr, setBoPriceStr] = useState("");
 
-  // Handle pre-selected entry from inventory
+  // Handle pre-selected entry/item from inventory
   useEffect(() => {
     if (visible && preSelectedEntry) {
       setPickedEntry(preSelectedEntry);
@@ -229,12 +284,18 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
       setPriceStr("");
       setStep("price");
       setTab("listings");
+    } else if (visible && preSelectedItem) {
+      setPickedItem(preSelectedItem);
+      setPriceStr("");
+      setStep("item-price");
+      setTab("listings");
     }
     if (!visible) {
       setStep("tabs");
       setPickedEntry(null);
+      setPickedItem(null);
     }
-  }, [visible, preSelectedEntry]);
+  }, [visible, preSelectedEntry, preSelectedItem]);
 
   const showFeedback = useCallback((msg: string, ok = true) => {
     setFeedback({ msg, ok });
@@ -310,6 +371,19 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     showFeedback("Item listed successfully!");
   };
 
+  const handleConfirmListItem = () => {
+    if (!pickedItem) return;
+    const price = parseInt(priceStr.replace(/[^0-9]/g, ""), 10) || 0;
+    if (price <= 0) { showFeedback("Enter a price above 0.", false); return; }
+    removeItemFromBag(pickedItem.id);
+    listAhEquipItem(pickedItem, price);
+    setStep("tabs");
+    setTab("listings");
+    setPickedItem(null);
+    setPriceStr("");
+    showFeedback("Equipment listed for sale!");
+  };
+
   const handleFillOrder = useCallback((order: BuyOrder, qty: number) => {
     const matchEntry = char.materials.find((e) =>
       e.material.type === order.material.type &&
@@ -374,6 +448,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
   const handleClose = () => {
     setStep("tabs");
     setPickedEntry(null);
+    setPickedItem(null);
+    setPriceStr("");
     setBoType(null); setBoRarity(null); setBoVersion(null);
     setBoCountStr("1"); setBoPriceStr("");
     onClose();
@@ -429,9 +505,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     const filtered = applyTypeFilter(listings) as AuctionListing[];
     const sorted = applySortListings(filtered);
 
-    // Group: type -> rarity -> items
+    // Split equipment from material listings
+    const equipListings = sorted.filter((l) => l.material.type === "Equipment");
+    const matListings   = sorted.filter((l) => l.material.type !== "Equipment");
+
+    // Group material listings: type -> rarity -> items
     const groups = new Map<string, Map<string, AuctionListing[]>>();
-    sorted.forEach((l) => {
+    matListings.forEach((l) => {
       const typeKey = l.material.type;
       const rarityKey = l.material.rarity;
       if (!groups.has(typeKey)) groups.set(typeKey, new Map());
@@ -471,15 +551,41 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     return (
       <View>
         <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
-          <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
+          <Text style={styles.listItemBtnTxt}>+ LIST MATERIAL</Text>
         </Pressable>
+
+        {/* Equipment listings */}
+        {equipListings.length > 0 && (typeFilter === "All" || typeFilter === "Equipment") && (
+          <View style={{ marginBottom: 8 }}>
+            <View style={[styles.sectionHeader, { borderLeftColor: Colors.game.purpleLight }]}>
+              <View style={styles.sectionDot}>
+                <View style={[styles.sectionDotInner, { backgroundColor: Colors.game.purpleLight }]} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: Colors.game.purpleLight }]}>⚔ EQUIPMENT LISTINGS</Text>
+              <Text style={styles.sectionCount}>({equipListings.length})</Text>
+            </View>
+            {equipListings.map((l) => (
+              <ItemListingCard
+                key={l.id}
+                listing={l}
+                isOwn={l.sellerId === yourId}
+                canAfford={char.gold >= l.price}
+                onBuy={() => handleBuy(l)}
+                onCancel={() => handleCancel(l)}
+              />
+            ))}
+          </View>
+        )}
+
         {renderSortBar()}
-        {sorted.length === 0 ? (
+        {matListings.length === 0 && equipListings.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
               {listings.length === 0 ? "No listings yet." : "No listings match this filter."}
             </Text>
           </View>
+        ) : matListings.length === 0 ? (
+          <View style={{ height: 4 }} />
         ) : (
           <FlatList
             data={sortedTypes}
@@ -825,6 +931,60 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
     );
   };
 
+  // ── Item price wizard ─────────────────────────────────────────────────────
+
+  const renderItemPriceStep = () => {
+    if (!pickedItem) return null;
+    const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedItem.rarity] ?? "#9CA3AF";
+    return (
+      <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
+        <Text style={styles.wizardTitle}>LIST EQUIPMENT FOR SALE</Text>
+        <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
+          <ItemImage slot={pickedItem.slot} rarity={pickedItem.rarity} quality={pickedItem.quality} size={64} compact />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.previewName, { color: rc }]} numberOfLines={2}>{pickedItem.name}</Text>
+            <Text style={styles.previewSub}>{pickedItem.slot} · T{pickedItem.tier} · {pickedItem.rarity}</Text>
+            {!pickedItem.tradable && (
+              <Text style={[styles.previewSub, { color: "#F87171" }]}>Account Bound — cannot be sold</Text>
+            )}
+          </View>
+        </View>
+        {pickedItem.tradable && (
+          <>
+            <View style={styles.inputRow}>
+              <Text style={styles.inputLabel}>Price (G)</Text>
+              <TextInput
+                style={styles.priceInput}
+                keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
+                value={priceStr}
+                onChangeText={(v) => setPriceStr(v.replace(/[^0-9]/g, ""))}
+                maxLength={9} placeholderTextColor={Colors.game.textMuted}
+                placeholder="1000" selectionColor={Colors.game.gold}
+                autoFocus={Platform.OS === "web"}
+                {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
+              />
+            </View>
+            <View style={styles.wizardBtnRow}>
+              <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedItem(null); }}>
+                <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
+                <Text style={styles.backBtnTxt}>CANCEL</Text>
+              </Pressable>
+              <Pressable style={styles.confirmBtn} onPress={handleConfirmListItem}>
+                <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+        {!pickedItem.tradable && (
+          <Pressable style={[styles.backBtn, { alignSelf: "center", marginTop: 12 }]} onPress={() => { setStep("tabs"); setPickedItem(null); }}>
+            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
+            <Text style={styles.backBtnTxt}>BACK</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+    );
+  };
+
   // ── Buy order creation wizard ──────────────────────────────────────────────
 
   const renderBoCreate = () => {
@@ -1004,6 +1164,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry }: Auctio
             {step === "tabs" && tab === "orders" && renderOrders()}
             {step === "pick" && renderPickStep()}
             {step === "price" && renderPriceStep()}
+            {step === "item-price" && renderItemPriceStep()}
             {step === "bo-create" && renderBoCreate()}
           </ScrollView>
 

@@ -33,7 +33,7 @@ import {
   useGame,
   getEffectiveStats,
 } from "@/context/GameContext";
-import { ITEM_RARITY_COLORS } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -388,6 +388,7 @@ export default function GameScreen() {
   const battleNpcRef = useRef<NpcBattleStats | null>(null);
   const [showBattle, setShowBattle] = useState(false);
   const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
+  const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(null);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
 
   const insets = useSafeAreaInsets();
@@ -447,14 +448,28 @@ export default function GameScreen() {
     for (const ev of ahEvents) {
       if (ev.kind === "sale") {
         applyGoldXp(ev.listing!.price, 0);
-        pushToast(`Listing sold! +${ev.listing!.price.toLocaleString()}G`, true);
+        const isSaleEquip = ev.listing?.material?.type === "Equipment";
+        pushToast(
+          isSaleEquip
+            ? `${(ev.listing!.item as any)?.slot ?? "Equipment"} sold! +${ev.listing!.price.toLocaleString()}G`
+            : `Listing sold! +${ev.listing!.price.toLocaleString()}G`,
+          true,
+        );
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bought") {
-        addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
-        pushToast(`Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`, false);
+        const isBoughtEquip = ev.listing?.material?.type === "Equipment";
+        if (!isBoughtEquip) {
+          addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
+          pushToast(`Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`, false);
+        } else {
+          pushToast(`Received ${ev.listing!.material.rarity} ${(ev.listing!.item as any)?.slot ?? "Equipment"}!`, false);
+        }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "cancelled") {
-        addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
+        const isCancelledEquip = ev.listing?.material?.type === "Equipment";
+        if (!isCancelledEquip) {
+          addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
+        }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_sold") {
         if (ev.boGoldEarned && ev.boGoldEarned > 0) {
@@ -621,12 +636,21 @@ export default function GameScreen() {
   const handleListOnAh = useCallback((entry: MaterialEntry) => {
     setShowStats(false);
     setPreSelectForAh(entry);
+    setPreSelectItemForAh(null);
+    setShowAuction(true);
+  }, []);
+
+  const handleListItemOnAh = useCallback((item: GameItem) => {
+    setShowStats(false);
+    setPreSelectForAh(null);
+    setPreSelectItemForAh(item);
     setShowAuction(true);
   }, []);
 
   const handleAhClose = useCallback(() => {
     setShowAuction(false);
     setPreSelectForAh(null);
+    setPreSelectItemForAh(null);
   }, []);
 
   // ── Inactivity auto-logout (5 minutes) ────────────────────────────────────────
@@ -770,6 +794,7 @@ export default function GameScreen() {
         visible={showAuction}
         onClose={handleAhClose}
         preSelectedEntry={preSelectForAh}
+        preSelectedItem={preSelectItemForAh}
       />
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
       <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
@@ -778,6 +803,7 @@ export default function GameScreen() {
         visible={showStats}
         onClose={() => setShowStats(false)}
         onListOnAh={handleListOnAh}
+        onListItemOnAh={handleListItemOnAh}
       />
       <GatheringModal
         visible={showGather}
