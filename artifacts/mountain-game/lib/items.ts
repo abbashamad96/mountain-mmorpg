@@ -226,3 +226,98 @@ export function getTotalStatPoints(rarity: ItemRarity, tier: ItemTier, quality: 
 export function getTotalPercent(rarity: ItemRarity, tier: ItemTier, quality: ItemQuality): number {
   return PERCENT_TABLE[rarity][tier][QUALITY_IDX[quality]];
 }
+
+// ─── Item Chest ───────────────────────────────────────────────────────────────
+
+export interface ItemChest {
+  id: string;
+  rarity: ItemRarity;
+  tier: ItemTier;
+  tradable: boolean;
+}
+
+export const CHEST_RARITY_ICONS: Record<ItemRarity, string> = {
+  Common: "📦", Uncommon: "📦", Rare: "📦", Epic: "📦",
+  Elite: "📦", Legendary: "📦", Superior: "📦", Cosmic: "📦",
+};
+
+// ─── Drop Tables ──────────────────────────────────────────────────────────────
+
+// [monster rarity][monster tier 0..3] → item rarity weights [Common..Cosmic]
+const ITEM_DROP_TABLE: Record<ItemRarity, number[][]> = {
+  Common:    [[64.39,21,10,3,1,0.4,0.2,0.1],[60.36,22,12,3.6,1.2,0.48,0.24,0.12],[56.42,23,14,4.2,1.4,0.56,0.28,0.14],[52.48,24,16,4.8,1.6,0.64,0.32,0.16]],
+  Uncommon:  [[42.28,28,16,8,3.5,1.5,0.7,0.02],[34.336,30,19.2,9.6,4.2,1.8,0.84,0.024],[26.392,32,22.4,11.2,4.9,2.1,0.98,0.028],[18.448,34,25.6,12.8,5.6,2.4,1.12,0.032]],
+  Rare:      [[22.05,22,28,16,7,3,1.9,0.05],[18.46,17,31,19.2,8.4,3.6,2.28,0.06],[13.87,13,34,22.4,9.8,4.2,2.66,0.07],[9.28,9,37,25.6,11.2,4.8,3.04,0.08]],
+  Epic:      [[10,12,22,30,16,7,2.9,0.1],[8.4,8,23,32,17,8,3.48,0.12],[5.8,5,24,34,18,9,4.06,0.14],[3.2,2,25,36,19,10,4.64,0.16]],
+  Elite:     [[6.1,7,12,22,30,18,4.7,0.2],[5.62,6,11.5,20,32,19,5.64,0.24],[5.14,5,11,18,34,20,6.58,0.28],[4.66,4,10.5,16,36,21,7.52,0.32]],
+  Legendary: [[1,1.5,9,15,25.1,32.4,15,1],[0,0,8,15,25.6,34.2,16,1.2],[0,0,6.1,13.5,26,36,17,1.4],[0,0,2.9,13,26.5,38,18,1.6]],
+  Superior:  [[0,0,1,10,16,28,41,4],[0,0,0,8.2,14,29,44,4.8],[0,0,0,5.4,12,30,47,5.6],[0,0,0,2.6,10,31,50,6.4]],
+  Cosmic:    [[0,0,0,1,9.8,25,54.2,10],[0,0,0,0,7.5,23.5,57,12],[0,0,0,0,4,22,60,14],[0,0,0,0,0.5,20.5,63,16]],
+};
+
+// monster tier → item tier weights [T0, T1, T2, T3]
+const ITEM_TIER_DROP_WEIGHTS: number[][] = [
+  [90, 6, 3, 1],
+  [50, 40, 6, 4],
+  [30, 40, 21, 9],
+  [15, 30, 40, 15],
+];
+
+const ITEM_QUALITY_WEIGHTS = [65, 25, 10];
+
+// ─── Roll Helpers ─────────────────────────────────────────────────────────────
+
+function rollFromWeights<T>(items: readonly T[], weights: readonly number[]): T {
+  const total = (weights as number[]).reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
+export function rollItemQuality(): ItemQuality {
+  return rollFromWeights(ITEM_QUALITIES, ITEM_QUALITY_WEIGHTS);
+}
+
+export function rollItemTier(monsterTier: ItemTier): ItemTier {
+  return rollFromWeights([0, 1, 2, 3] as const, ITEM_TIER_DROP_WEIGHTS[monsterTier]);
+}
+
+export function rollItemRarityFromMonster(monsterRarity: ItemRarity, monsterTier: ItemTier): ItemRarity {
+  return rollFromWeights(ITEM_RARITIES, ITEM_DROP_TABLE[monsterRarity][monsterTier]);
+}
+
+export function rollItemDropFromMonster(monsterRarity: ItemRarity, monsterTier: ItemTier): GameItem {
+  const itemRarity = rollItemRarityFromMonster(monsterRarity, monsterTier);
+  const itemTier   = rollItemTier(monsterTier);
+  const quality    = rollItemQuality();
+  const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
+  return generateItem(slot, itemRarity, itemTier, quality);
+}
+
+export function rollChestFromMonster(monsterRarity: ItemRarity, monsterTier: ItemTier): ItemChest {
+  let rarity = monsterRarity;
+  let tier   = monsterTier;
+  if (Math.random() < 0.01) {
+    const idx = ITEM_RARITIES.indexOf(rarity);
+    if (idx < ITEM_RARITIES.length - 1) {
+      rarity = ITEM_RARITIES[idx + 1];
+      if (monsterTier === 3) tier = 0;
+    }
+  }
+  return { id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rarity, tier, tradable: true };
+}
+
+export function rollExplorationChest(rarity: ItemRarity): ItemChest {
+  return { id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rarity, tier: 0, tradable: true };
+}
+
+export function openChest(chest: ItemChest): GameItem {
+  const itemRarity = rollItemRarityFromMonster(chest.rarity, chest.tier);
+  const itemTier   = rollItemTier(chest.tier);
+  const quality    = rollItemQuality();
+  const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
+  return generateItem(slot, itemRarity, itemTier, quality);
+}

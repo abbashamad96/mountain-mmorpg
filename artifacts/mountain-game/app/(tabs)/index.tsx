@@ -26,11 +26,14 @@ import {
   RARITY_COLORS,
   MaterialEntry,
   NpcBattleStats,
+  ItemChest,
+  NpcDropResult,
   rollEvent,
   rollNpcDrop,
   useGame,
   getEffectiveStats,
 } from "@/context/GameContext";
+import { ITEM_RARITY_COLORS } from "@/lib/items";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -85,6 +88,8 @@ const TIER_COLORS: Record<number, string> = {
 function LogEntryRow({ entry }: { entry: LogEntry }) {
   const mat = entry.material;
   const isVictory = entry.victory === true;
+  const chest = entry.chest;
+  const itemDrop = entry.itemDrop;
 
   // Extract NPC name from summary for battle entries
   let npcName = "";
@@ -100,10 +105,13 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
       {/* Left icon */}
       <View style={logStackStyles.iconWrap}>
         {entry.type === "gather" && (
-          <Text style={logStackStyles.emoji}>📦</Text>
+          <Text style={logStackStyles.emoji}>⛏</Text>
         )}
         {entry.type === "battle" && (
           <Text style={logStackStyles.emoji}>{isVictory ? "⚔" : "🏃"}</Text>
+        )}
+        {entry.type === "item_chest" && (
+          <Text style={logStackStyles.emoji}>📦</Text>
         )}
       </View>
 
@@ -118,6 +126,22 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
             {entry.xpGained > 0 && (
               <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
             )}
+          </View>
+        )}
+
+        {/* Chest found exploration event */}
+        {entry.type === "item_chest" && chest && (
+          <View style={logStackStyles.battleBlock}>
+            <View style={logStackStyles.inlineRow}>
+              <Text style={logStackStyles.dimLabel}>Found</Text>
+              <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[chest.rarity] }]}>
+                {chest.rarity} Chest
+              </Text>
+              <View style={[logStackStyles.tierBadge, { borderColor: "#555" }]}>
+                <Text style={[logStackStyles.tierTxt, { color: "#aaa" }]}>T{chest.tier}</Text>
+              </View>
+            </View>
+            <Text style={logStackStyles.dimLabel}>Added to bag — open from ITEMS tab</Text>
           </View>
         )}
 
@@ -174,7 +198,7 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               )}
             </View>
 
-            {/* Row 2: gold + xp rewards (show whenever values exist, not gated on isVictory flag) */}
+            {/* Row 2: gold + xp rewards */}
             {(entry.goldGained > 0 || entry.xpGained > 0) && (
               <View style={logStackStyles.inlineRow}>
                 {entry.goldGained > 0 && (
@@ -186,7 +210,7 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               </View>
             )}
 
-            {/* Row 3: material drop */}
+            {/* Row 3: drop — material OR item OR chest */}
             {mat && (
               <View style={logStackStyles.inlineRow}>
                 <Text style={logStackStyles.dimLabel}>drop:</Text>
@@ -205,7 +229,24 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                 </Text>
               </View>
             )}
-            {!mat && isVictory && (
+            {itemDrop && (
+              <View style={logStackStyles.inlineRow}>
+                <Text style={logStackStyles.dimLabel}>drop:</Text>
+                <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[itemDrop.rarity] }]}>
+                  {itemDrop.name}
+                </Text>
+                <Text style={[logStackStyles.dimLabel]}>({itemDrop.slot})</Text>
+              </View>
+            )}
+            {chest && (
+              <View style={logStackStyles.inlineRow}>
+                <Text style={logStackStyles.dimLabel}>drop:</Text>
+                <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[chest.rarity] }]}>
+                  📦 {chest.rarity} Chest
+                </Text>
+              </View>
+            )}
+            {!mat && !itemDrop && !chest && isVictory && (
               <Text style={logStackStyles.dimLabel}>no drop</Text>
             )}
           </View>
@@ -311,6 +352,7 @@ export default function GameScreen() {
   const {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
     incrementEvents, loadState, resetGameState,
+    addItemToBag, addChestToBag,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -478,8 +520,22 @@ export default function GameScreen() {
       battleNpcRef.current = roll.npc;
       setBattleNpc(roll.npc);
       setShowBattle(true);
+    } else if (roll.type === "item_chest" && roll.chest) {
+      addChestToBag(roll.chest);
+      addLogEntry({
+        id: roll.id,
+        timestamp: roll.timestamp,
+        type: "item_chest",
+        summary: `Found a ${roll.chest.rarity} Chest!`,
+        goldGained: 0,
+        xpGained: 0,
+        material: null,
+        chest: roll.chest,
+      });
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+      cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     }
-  }, [isInteracting, char, applyGoldXp, addMaterials, addLogEntry, incrementEvents, setScene]);
+  }, [isInteracting, char, applyGoldXp, addMaterials, addLogEntry, incrementEvents, setScene, addChestToBag]);
 
   const handleGatherComplete = useCallback(
     (gathered: Material[]) => {
@@ -512,24 +568,38 @@ export default function GameScreen() {
       }
       const npc = battleNpcRef.current;
       if (npc) {
-        // Roll for material drop on victory
         let droppedMat: Material | null = null;
         let dropCount = 0;
+        let droppedItem = undefined as typeof undefined | NonNullable<LogEntry["itemDrop"]>;
+        let droppedChest = undefined as typeof undefined | NonNullable<LogEntry["chest"]>;
+
         if (victory) {
-          const drop = rollNpcDrop(npc);
-          if (drop) {
+          const drop: NpcDropResult = rollNpcDrop(npc);
+          if (drop?.type === "material") {
             droppedMat = drop.material;
             dropCount = drop.count;
             const mats = Array.from({ length: drop.count }, () => ({ ...drop.material }));
             addMaterials(mats);
+          } else if (drop?.type === "item") {
+            droppedItem = drop.item;
+            addItemToBag(drop.item);
+          } else if (drop?.type === "chest") {
+            droppedChest = drop.chest;
+            addChestToBag(drop.chest);
           }
         }
+
+        let dropSuffix = "";
+        if (droppedMat) dropSuffix = ` · ${droppedMat.type}${dropCount > 1 ? ` ×${dropCount}` : ""}`;
+        else if (droppedItem) dropSuffix = ` · ${droppedItem.name}`;
+        else if (droppedChest) dropSuffix = ` · 📦 ${droppedChest.rarity} Chest`;
+
         addLogEntry({
           id: `b-${Date.now()}`,
           timestamp: Date.now(),
           type: "battle",
           summary: victory
-            ? `Defeated ${npc.name} (T${npc.version}) +${goldReward}g +${xpReward}xp${droppedMat ? ` · dropped ${droppedMat.type}${dropCount > 1 ? ` ×${dropCount}` : ""}` : ""}`
+            ? `Defeated ${npc.name} (T${npc.version}) +${goldReward}g +${xpReward}xp${dropSuffix}`
             : `Fled from ${npc.name}`,
           goldGained: goldReward,
           xpGained: xpReward,
@@ -538,11 +608,13 @@ export default function GameScreen() {
           npcRarity: npc.rarity,
           npcVersion: npc.version,
           victory,
+          itemDrop: droppedItem,
+          chest: droppedChest,
         });
       }
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
-    [applyGoldXp, addLogEntry, addMaterials]
+    [applyGoldXp, addLogEntry, addMaterials, addItemToBag, addChestToBag]
   );
 
   // ── List item from inventory → AH ─────────────────────────────────────────

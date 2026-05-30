@@ -1,8 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { GameItem, ItemSlot, ItemStatBlock, sumItemStats, sumPercentStats } from "@/lib/items";
+import {
+  GameItem, ItemSlot, ItemStatBlock, ItemChest, ItemTier,
+  sumItemStats, sumPercentStats,
+  rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest,
+} from "@/lib/items";
 
-export type { GameItem, ItemSlot, ItemStatBlock };
+export type { GameItem, ItemSlot, ItemStatBlock, ItemChest };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -70,7 +74,7 @@ export interface NpcBattleStats {
   xpReward: number;
 }
 
-export type EventType = "gold_xp" | "gather" | "battle";
+export type EventType = "gold_xp" | "gather" | "battle" | "item_chest";
 
 export interface EventRoll {
   id: string;
@@ -88,6 +92,9 @@ export interface EventRoll {
   gatherAttempts: number;
   // battle fields
   npc: NpcBattleStats | null;
+  // chest / item drop fields
+  chest: ItemChest | null;
+  itemDrop: GameItem | null;
 }
 
 export interface LogEntry {
@@ -102,6 +109,8 @@ export interface LogEntry {
   victory?: boolean;
   npcRarity?: RarityName;
   npcVersion?: VersionNum;
+  chest?: ItemChest;
+  itemDrop?: GameItem;
 }
 
 export interface Character {
@@ -114,6 +123,7 @@ export interface Character {
   materials: MaterialEntry[];
   equippedItems: Partial<Record<ItemSlot, GameItem>>;
   itemBag: GameItem[];
+  chestBag: ItemChest[];
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -226,22 +236,40 @@ const DROP_COUNT_RANGE: Record<RarityName, [number, number]> = {
   Cosmic:    [1, 1],
 };
 
-export function rollNpcDrop(npc: NpcBattleStats): { material: Material; count: number } | null {
-  // T3 monsters: 45% drop chance; all others: 40%
-  const baseChance = npc.version === 3 ? 45 : 40;
-  if (Math.random() * 100 >= baseChance) return null;
+export type NpcDropResult =
+  | null
+  | { type: "material"; material: Material; count: number }
+  | { type: "item";    item: GameItem }
+  | { type: "chest";  chest: ItemChest };
 
-  const type = MATERIAL_TYPES_DROP[Math.floor(Math.random() * MATERIAL_TYPES_DROP.length)];
-  const rarity = npc.rarity;
+export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
+  const r = Math.random() * 100;
+  const materialChance = npc.version === 3 ? 45 : 40;
 
-  // Drop matches the NPC's tier; 4% chance to upgrade by 1 tier (capped at T3)
-  let version = npc.version as VersionNum;
-  if (version < 3 && Math.random() * 100 < 4) version = (version + 1) as VersionNum;
+  if (r < 10) {
+    // 10% equipment item drop
+    const item = rollItemDropFromMonster(npc.rarity, npc.version as ItemTier);
+    return { type: "item", item };
+  }
 
-  const [min, max] = DROP_COUNT_RANGE[rarity] ?? [1, 1];
-  const count = min + Math.floor(Math.random() * (max - min + 1));
+  if (r < 11) {
+    // 1% chest drop
+    const chest = rollChestFromMonster(npc.rarity, npc.version as ItemTier);
+    return { type: "chest", chest };
+  }
 
-  return { material: { type, rarity, version }, count };
+  if (r < 11 + materialChance) {
+    // material drop
+    const matType = MATERIAL_TYPES_DROP[Math.floor(Math.random() * MATERIAL_TYPES_DROP.length)];
+    const rarity = npc.rarity;
+    let version = npc.version as VersionNum;
+    if (version < 3 && Math.random() * 100 < 4) version = (version + 1) as VersionNum;
+    const [min, max] = DROP_COUNT_RANGE[rarity] ?? [1, 1];
+    const count = min + Math.floor(Math.random() * (max - min + 1));
+    return { type: "material", material: { type: matType, rarity, version }, count };
+  }
+
+  return null;
 }
 
 // ─── Material Helpers ────────────────────────────────────────────────────────
@@ -314,12 +342,13 @@ const BATTLE_SCENES: SceneType[] = ["combat", "dungeon", "volcanic"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
 
 export function rollEvent(char: Character): EventRoll {
-  // Single exclusive event roll: 65% gold_xp, 25% gather, 15% battle (norm'd to 105)
-  const r = Math.random() * 105;
+  // Single exclusive event roll: 60% gold_xp, 25% gather, 10% battle, 5% item_chest
+  const r = Math.random() * 100;
   let type: EventType;
-  if (r < 65) type = "gold_xp";
-  else if (r < 90) type = "gather";
-  else type = "battle";
+  if (r < 60) type = "gold_xp";
+  else if (r < 85) type = "gather";
+  else if (r < 95) type = "battle";
+  else type = "item_chest";
 
   const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
   const ts = Date.now();
@@ -341,7 +370,7 @@ export function rollEvent(char: Character): EventRoll {
       id, type, timestamp: ts, sceneType: scene,
       goldGained: gold, xpGained: xp,
       levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
-      material: null, gatherAttempts: 0, npc: null,
+      material: null, gatherAttempts: 0, npc: null, chest: null, itemDrop: null,
     };
   }
 
@@ -357,7 +386,18 @@ export function rollEvent(char: Character): EventRoll {
       id, type, timestamp: ts, sceneType: scene,
       goldGained: 0, xpGained: 0,
       levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
-      material: mat, gatherAttempts: attempts, npc: null,
+      material: mat, gatherAttempts: attempts, npc: null, chest: null, itemDrop: null,
+    };
+  }
+
+  if (type === "item_chest") {
+    const chest = rollExplorationChest(rollRarity());
+    const scene = GOLD_XP_SCENES[Math.floor(Math.random() * GOLD_XP_SCENES.length)];
+    return {
+      id, type, timestamp: ts, sceneType: scene,
+      goldGained: 0, xpGained: 0,
+      levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
+      material: null, gatherAttempts: 0, npc: null, chest, itemDrop: null,
     };
   }
 
@@ -368,7 +408,7 @@ export function rollEvent(char: Character): EventRoll {
     id, type, timestamp: ts, sceneType: scene,
     goldGained: 0, xpGained: 0,
     levelsBefore, levelsAfter: levelsBefore, statPointsGained: 0,
-    material: null, gatherAttempts: 0, npc,
+    material: null, gatherAttempts: 0, npc, chest: null, itemDrop: null,
   };
 }
 
@@ -384,6 +424,7 @@ const defaultCharacter: Character = {
   materials: [],
   equippedItems: {},
   itemBag: [],
+  chestBag: [],
 };
 
 const defaultGameState: GameState = {
@@ -413,6 +454,8 @@ interface GameContextType {
   unequipItem: (slot: ItemSlot) => void;
   addItemToBag: (item: GameItem) => void;
   removeItemFromBag: (id: string) => void;
+  addChestToBag: (chest: ItemChest) => void;
+  removeChestFromBag: (id: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -439,6 +482,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           materials: saved.character?.materials ?? [],
           equippedItems: saved.character?.equippedItems ?? {},
           itemBag: saved.character?.itemBag ?? [],
+          chestBag: saved.character?.chestBag ?? [],
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
@@ -548,6 +592,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const addChestToBag = useCallback((chest: ItemChest) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, chestBag: [...prev.character.chestBag, chest] },
+    }));
+  }, []);
+
+  const removeChestFromBag = useCallback((id: string) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, chestBag: prev.character.chestBag.filter((c) => c.id !== id) },
+    }));
+  }, []);
+
   const addLogEntry = useCallback((entry: LogEntry) => {
     setGameState((prev) => ({
       ...prev,
@@ -569,6 +627,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       materials: saved.character?.materials ?? [],
       equippedItems: saved.character?.equippedItems ?? {},
       itemBag: saved.character?.itemBag ?? [],
+      chestBag: saved.character?.chestBag ?? [],
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -582,7 +641,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag }}
     >
       {children}
     </GameContext.Provider>

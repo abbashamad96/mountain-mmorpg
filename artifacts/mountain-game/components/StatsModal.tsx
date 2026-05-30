@@ -8,11 +8,13 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType } from "@/context/GameContext";
+import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
+import { ITEM_RARITY_COLORS } from "@/lib/items";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
+import { ChestOpenModal } from "./ChestOpenModal";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -161,11 +163,12 @@ function ItemDetailModal({
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
-  const { gameState, allocateStat } = useGame();
+  const { gameState, allocateStat, addItemToBag, removeChestFromBag } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
+  const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
 
   // Group inventory by material type, sort each group by rarity (highest first)
@@ -212,7 +215,7 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
               onPress={() => setActiveTab("inventory")}
             >
               <Text style={[styles.tabText, activeTab === "inventory" && styles.tabTextActive]}>
-                ITEMS {char.materials.length > 0 ? `(${char.materials.length})` : ""}
+                ITEMS {(char.materials.length + (char.chestBag?.length ?? 0) + (char.itemBag?.length ?? 0)) > 0 ? `(${char.materials.length + (char.chestBag?.length ?? 0) + (char.itemBag?.length ?? 0)})` : ""}
               </Text>
             </Pressable>
             <Pressable
@@ -317,13 +320,81 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
           {/* ── Inventory tab ───────────────────────────────────────────── */}
           {activeTab === "inventory" && (
             <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-              {char.materials.length === 0 ? (
+              {(char.materials.length === 0 && (char.chestBag?.length ?? 0) === 0 && (char.itemBag?.length ?? 0) === 0) ? (
                 <View style={styles.emptyInv}>
                   <Text style={styles.emptyInvText}>Your inventory is empty.</Text>
                   <Text style={styles.emptyInvSub}>Gather materials by exploring the mountain.</Text>
                 </View>
               ) : (
                 <>
+                  {/* ── Chests ── */}
+                  {(char.chestBag?.length ?? 0) > 0 && (
+                    <View style={styles.typeSection}>
+                      <View style={[styles.typeHeader, { borderColor: Colors.game.gold }]}>
+                        <Text style={[styles.typeHeaderIcon, { color: Colors.game.gold }]}>📦</Text>
+                        <Text style={[styles.typeHeaderName, { color: Colors.game.gold }]}>CHESTS</Text>
+                        <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.gold }]}>
+                          <Text style={styles.typeHeaderBadgeText}>×{char.chestBag!.length}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.inventoryGrid}>
+                        {char.chestBag!.map((chest) => {
+                          const rc = ITEM_RARITY_COLORS[chest.rarity];
+                          return (
+                            <Pressable
+                              key={chest.id}
+                              style={styles.invSlotWrap}
+                              onPress={() => setSelectedChest(chest)}
+                            >
+                              <View style={[styles.invSlot, { borderColor: rc, alignItems: "center", justifyContent: "center" }]}>
+                                <Text style={{ fontSize: 38 }}>📦</Text>
+                              </View>
+                              <View style={[styles.countBadge, { backgroundColor: rc }]}>
+                                <Text style={styles.countText} numberOfLines={1}>OPEN</Text>
+                              </View>
+                              <View style={styles.typeLabel}>
+                                <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.6}>
+                                  {chest.rarity} T{chest.tier}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* ── Item Bag (unequipped equipment) ── */}
+                  {(char.itemBag?.length ?? 0) > 0 && (
+                    <View style={styles.typeSection}>
+                      <View style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]}>
+                        <Text style={[styles.typeHeaderIcon, { color: Colors.game.purpleLight }]}>⚔</Text>
+                        <Text style={[styles.typeHeaderName, { color: Colors.game.purpleLight }]}>EQUIPMENT BAG</Text>
+                        <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.purpleLight }]}>
+                          <Text style={styles.typeHeaderBadgeText}>×{char.itemBag!.length}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.inventoryGrid}>
+                        {char.itemBag!.map((item) => {
+                          const rc = ITEM_RARITY_COLORS[item.rarity];
+                          return (
+                            <View key={item.id} style={styles.invSlotWrap}>
+                              <View style={[styles.invSlot, { borderColor: rc, alignItems: "center", justifyContent: "center" }]}>
+                                <Text style={{ fontSize: 30 }}>⚙</Text>
+                              </View>
+                              <View style={styles.typeLabel}>
+                                <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={2}>
+                                  {item.rarity}{"\n"}{item.slot}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* ── Materials ── */}
                   {(Object.keys(groupedInventory) as MaterialType[]).map((type) => {
                     const entries = groupedInventory[type];
                     if (entries.length === 0) return null;
@@ -390,6 +461,18 @@ export function StatsModal({ visible, onClose, onListOnAh }: StatsModalProps) {
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
           onListOnAh={onListOnAh ? handleListOnAhFromDetail : undefined}
+        />
+      )}
+
+      {selectedChest && (
+        <ChestOpenModal
+          chest={selectedChest}
+          onClaim={(item) => {
+            addItemToBag(item);
+            removeChestFromBag(selectedChest.id);
+            setSelectedChest(null);
+          }}
+          onClose={() => setSelectedChest(null)}
         />
       )}
     </Modal>
