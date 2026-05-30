@@ -389,6 +389,7 @@ export default function GameScreen() {
   const [showBattle, setShowBattle] = useState(false);
   const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
   const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(null);
+  const [preSelectChestForAh, setPreSelectChestForAh] = useState<ItemChest | null>(null);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
 
   const insets = useSafeAreaInsets();
@@ -448,26 +449,36 @@ export default function GameScreen() {
     for (const ev of ahEvents) {
       if (ev.kind === "sale") {
         applyGoldXp(ev.listing!.price, 0);
-        const isSaleEquip = ev.listing?.material?.type === "Equipment";
+        const matTypeStr = ev.listing?.material?.type as string | undefined;
+        const isSaleEquip = matTypeStr === "Equipment";
+        const isSaleChest = matTypeStr === "Chest";
         pushToast(
           isSaleEquip
             ? `${(ev.listing!.item as any)?.slot ?? "Equipment"} sold! +${ev.listing!.price.toLocaleString()}G`
+            : isSaleChest
+            ? `Chest sold! +${ev.listing!.price.toLocaleString()}G`
             : `Listing sold! +${ev.listing!.price.toLocaleString()}G`,
           true,
         );
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bought") {
-        const isBoughtEquip = ev.listing?.material?.type === "Equipment";
-        if (!isBoughtEquip) {
+        const matTypeStr = ev.listing?.material?.type as string | undefined;
+        const isBoughtEquip = matTypeStr === "Equipment";
+        const isBoughtChest = matTypeStr === "Chest";
+        if (!isBoughtEquip && !isBoughtChest) {
           addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
           pushToast(`Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`, false);
-        } else {
+        } else if (isBoughtEquip) {
           pushToast(`Received ${ev.listing!.material.rarity} ${(ev.listing!.item as any)?.slot ?? "Equipment"}!`, false);
+        } else {
+          pushToast(`Received T${ev.listing!.material.version ?? 0} ${ev.listing!.material.rarity} Chest!`, false);
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "cancelled") {
-        const isCancelledEquip = ev.listing?.material?.type === "Equipment";
-        if (!isCancelledEquip) {
+        const matTypeStr = ev.listing?.material?.type as string | undefined;
+        const isCancelledEquip = matTypeStr === "Equipment";
+        const isCancelledChest = matTypeStr === "Chest";
+        if (!isCancelledEquip && !isCancelledChest) {
           addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
         }
         consumeAhEvent(ev.id);
@@ -651,6 +662,13 @@ export default function GameScreen() {
     setShowAuction(false);
     setPreSelectForAh(null);
     setPreSelectItemForAh(null);
+    setPreSelectChestForAh(null);
+  }, []);
+
+  const handleListChestOnAh = useCallback((chest: ItemChest) => {
+    setShowStats(false);
+    setPreSelectChestForAh(chest);
+    setShowAuction(true);
   }, []);
 
   // ── Inactivity auto-logout (5 minutes) ────────────────────────────────────────
@@ -795,6 +813,7 @@ export default function GameScreen() {
         onClose={handleAhClose}
         preSelectedEntry={preSelectForAh}
         preSelectedItem={preSelectItemForAh}
+        preSelectedChest={preSelectChestForAh}
       />
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
       <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
@@ -804,6 +823,7 @@ export default function GameScreen() {
         onClose={() => setShowStats(false)}
         onListOnAh={handleListOnAh}
         onListItemOnAh={handleListItemOnAh}
+        onListChestOnAh={handleListChestOnAh}
       />
       <GatheringModal
         visible={showGather}

@@ -11,17 +11,19 @@ import {
 import Colors from "@/constants/colors";
 import { GameItem, ItemChest } from "@/context/GameContext";
 import {
-  openChest,
-  ITEM_RARITY_COLORS,
+  formatItemName,
   ITEM_QUALITY_COLORS,
-  ITEM_SLOT_ICONS,
-  formatPercent,
+  ITEM_RARITY_COLORS,
+  openChest,
 } from "@/lib/items";
+import { ChestImage } from "./ChestImage";
+import { ItemImage } from "./ItemImage";
 
 interface ChestOpenModalProps {
   chest: ItemChest;
   onClaim: (item: GameItem) => void;
   onClose: () => void;
+  onSellOnAh?: () => void;
 }
 
 const RARITY_LABELS: Record<string, string> = {
@@ -46,7 +48,7 @@ const OPEN_MESSAGES: Record<string, string> = {
   Cosmic: "The cosmos pour forth!",
 };
 
-export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps) {
+export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpenModalProps) {
   const [phase, setPhase] = useState<"idle" | "opening" | "revealed">("idle");
   const [revealedItem, setRevealedItem] = useState<GameItem | null>(null);
 
@@ -65,26 +67,26 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
     setPhase("opening");
 
     const shakeSequence = Animated.sequence([
-      Animated.timing(shakeX, { toValue: 14, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 14,  duration: 65, useNativeDriver: true }),
       Animated.timing(shakeX, { toValue: -14, duration: 65, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 11, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 11,  duration: 65, useNativeDriver: true }),
       Animated.timing(shakeX, { toValue: -11, duration: 65, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 8, duration: 65, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: -8, duration: 65, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 4, duration: 65, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 0, duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 8,   duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -8,  duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 4,   duration: 65, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 0,   duration: 65, useNativeDriver: true }),
     ]);
 
     Animated.sequence([
       shakeSequence,
       Animated.parallel([
-        Animated.timing(glowOp,   { toValue: 1,   duration: 180, useNativeDriver: true }),
-        Animated.timing(scale,    { toValue: 1.35, duration: 180, useNativeDriver: true }),
+        Animated.timing(glowOp, { toValue: 1,    duration: 180, useNativeDriver: true }),
+        Animated.timing(scale,  { toValue: 1.35, duration: 180, useNativeDriver: true }),
       ]),
       Animated.parallel([
         Animated.timing(chestOp, { toValue: 0, duration: 220, useNativeDriver: true }),
         Animated.timing(glowOp,  { toValue: 0, duration: 220, useNativeDriver: true }),
-        Animated.timing(scale,   { toValue: 2,   duration: 220, useNativeDriver: true }),
+        Animated.timing(scale,   { toValue: 2, duration: 220, useNativeDriver: true }),
       ]),
     ]).start(() => {
       setPhase("revealed");
@@ -96,10 +98,7 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
   }
 
   const itemRc = revealedItem ? ITEM_RARITY_COLORS[revealedItem.rarity] : rc;
-  const hasPercent = revealedItem
-    ? (revealedItem.percentStats.strength > 0 || revealedItem.percentStats.health > 0 ||
-       revealedItem.percentStats.defence > 0 || revealedItem.percentStats.speed > 0)
-    : false;
+  const itemQc = revealedItem ? ITEM_QUALITY_COLORS[revealedItem.quality] : "#9CA3AF";
 
   const STAT_ROWS: { key: keyof NonNullable<typeof revealedItem>["stats"]; label: string; icon: string }[] = [
     { key: "strength", label: "Strength", icon: "⚔" },
@@ -110,7 +109,7 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
 
   return (
     <Modal transparent visible animationType="fade">
-      <Pressable style={styles.overlay} onPress={phase === "idle" ? undefined : undefined}>
+      <Pressable style={styles.overlay}>
         <Pressable style={[styles.card, { borderColor: rc }]} onPress={(e) => e.stopPropagation()}>
 
           {/* ── Chest phase ── */}
@@ -126,34 +125,42 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
                 </View>
               </View>
 
-              {/* Animated chest box */}
+              {/* Animated chest */}
               <Animated.View
-                style={[
-                  styles.chestWrap,
-                  {
-                    transform: [{ translateX: shakeX }, { scale }],
-                    opacity: chestOp,
-                  },
-                ]}
+                style={[styles.chestWrap, { transform: [{ translateX: shakeX }, { scale }], opacity: chestOp }]}
               >
-                {/* Glow ring */}
-                <Animated.View
-                  style={[styles.glowRing, { backgroundColor: rc + "44", opacity: glowOp }]}
-                />
+                <Animated.View style={[styles.glowRing, { backgroundColor: rc + "44", opacity: glowOp }]} />
                 <View style={[styles.chestBox, { borderColor: rc, shadowColor: rc }]}>
-                  <Text style={styles.chestEmoji}>📦</Text>
+                  <ChestImage rarity={chest.rarity} size={90} />
                 </View>
               </Animated.View>
 
+              {/* Idle: action buttons */}
               {phase === "idle" && (
-                <Pressable style={[styles.openBtn, { borderColor: rc }]} onPress={handleOpen}>
-                  <Text style={[styles.openBtnTxt, { color: rc }]}>OPEN CHEST</Text>
-                </Pressable>
+                <View style={styles.idleActions}>
+                  <Pressable style={[styles.openBtn, { borderColor: rc }]} onPress={handleOpen}>
+                    <Text style={[styles.openBtnTxt, { color: rc }]}>OPEN CHEST</Text>
+                  </Pressable>
+                  {onSellOnAh && chest.tradable && (
+                    <Pressable style={styles.sellBtn} onPress={onSellOnAh}>
+                      <Text style={styles.sellBtnTxt}>SELL ON AH</Text>
+                    </Pressable>
+                  )}
+                </View>
               )}
+
+              {/* Opening: flavor text */}
               {phase === "opening" && (
                 <Text style={[styles.openingMsg, { color: rc }]}>
                   {OPEN_MESSAGES[chest.rarity]}
                 </Text>
+              )}
+
+              {/* CLOSE only in idle (before opening commit) */}
+              {phase === "idle" && (
+                <Pressable style={styles.closeBtn} onPress={onClose}>
+                  <Text style={styles.closeBtnTxt}>CLOSE</Text>
+                </Pressable>
               )}
             </View>
           )}
@@ -163,23 +170,35 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
             <Animated.View style={[styles.revealPhase, { opacity: itemOp, transform: [{ scale: itemScale }] }]}>
               <Text style={[styles.openingMsg, { color: rc }]}>{OPEN_MESSAGES[chest.rarity]}</Text>
 
-              {/* Item header */}
               <View style={[styles.itemCard, { borderColor: itemRc }]}>
-                <View style={styles.itemHeader}>
-                  <Text style={[styles.itemSlotIcon, { color: itemRc }]}>{ITEM_SLOT_ICONS[revealedItem.slot]}</Text>
+                {/* Art */}
+                <View style={styles.artRow}>
+                  <ItemImage
+                    slot={revealedItem.slot}
+                    rarity={revealedItem.rarity}
+                    quality={revealedItem.quality}
+                    tier={revealedItem.tier}
+                    size={72}
+                  />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.itemName, { color: itemRc }]}>{revealedItem.name}</Text>
+                    {/* Full formatted name */}
+                    <Text style={[styles.itemName, { color: itemRc }]} numberOfLines={2}>
+                      {formatItemName(revealedItem)}
+                    </Text>
+                    {/* Quality badge */}
+                    {revealedItem.quality !== "Basic" && (
+                      <View style={[styles.qualBadge, { borderColor: itemQc + "99", backgroundColor: itemQc + "18" }]}>
+                        <Text style={[styles.qualBadgeTxt, { color: itemQc }]}>
+                          {revealedItem.quality.toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
                     <View style={styles.itemTagRow}>
                       <View style={[styles.tag, { borderColor: itemRc }]}>
                         <Text style={[styles.tagTxt, { color: itemRc }]}>{revealedItem.rarity.toUpperCase()}</Text>
                       </View>
                       <View style={[styles.tag, { borderColor: "#555" }]}>
                         <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{revealedItem.tier}</Text>
-                      </View>
-                      <View style={[styles.tag, { borderColor: ITEM_QUALITY_COLORS[revealedItem.quality] }]}>
-                        <Text style={[styles.tagTxt, { color: ITEM_QUALITY_COLORS[revealedItem.quality] }]}>
-                          {revealedItem.quality.toUpperCase()}
-                        </Text>
                       </View>
                     </View>
                   </View>
@@ -196,7 +215,7 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
                         <Text style={styles.statIcon}>{icon}</Text>
                         <Text style={styles.statLabel}>{label}</Text>
                         {flat > 0 && <Text style={styles.flatVal}>+{flat}</Text>}
-                        {pct > 0 && <Text style={styles.pctVal}>+{formatPercent(pct)}</Text>}
+                        {pct > 0 && <Text style={styles.pctVal}>+{(pct * 100).toFixed(1)}%</Text>}
                       </View>
                     );
                   })}
@@ -206,16 +225,15 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
                 </ScrollView>
               </View>
 
-              <Pressable style={[styles.claimBtn, { borderColor: itemRc, backgroundColor: itemRc + "22" }]}
-                onPress={() => onClaim(revealedItem)}>
+              <Pressable
+                style={[styles.claimBtn, { borderColor: itemRc, backgroundColor: itemRc + "22" }]}
+                onPress={() => onClaim(revealedItem)}
+              >
                 <Text style={[styles.claimBtnTxt, { color: itemRc }]}>ADD TO BAG</Text>
               </Pressable>
+              {/* No CLOSE here — must claim the item */}
             </Animated.View>
           )}
-
-          <Pressable style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeBtnTxt}>CLOSE</Text>
-          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
@@ -224,96 +242,63 @@ export function ChestOpenModal({ chest, onClaim, onClose }: ChestOpenModalProps)
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    flex: 1, backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center", alignItems: "center", padding: 20,
   },
   card: {
     backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 24,
-    padding: 22,
-    width: "100%",
-    maxWidth: 340,
-    borderWidth: 2,
-    gap: 14,
-    alignItems: "center",
+    borderRadius: 24, padding: 22,
+    width: "100%", maxWidth: 340,
+    borderWidth: 2, gap: 14, alignItems: "center",
   },
 
   chestPhase: { alignItems: "center", gap: 12, width: "100%" },
-  chestTitle: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 2,
-    textAlign: "center",
-  },
+  chestTitle: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2, textAlign: "center" },
   chestTagRow: { flexDirection: "row", gap: 8 },
-  tag: {
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 6, borderWidth: 1,
-  },
+  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
   tagTxt: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1 },
 
-  chestWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-  },
-  glowRing: {
-    position: "absolute",
-    width: 130, height: 130,
-    borderRadius: 65,
-  },
+  chestWrap: { alignItems: "center", justifyContent: "center", marginVertical: 4 },
+  glowRing: { position: "absolute", width: 130, height: 130, borderRadius: 65 },
   chestBox: {
-    width: 100, height: 100,
-    borderRadius: 20,
-    borderWidth: 3,
+    width: 110, height: 110, borderRadius: 20, borderWidth: 2,
     backgroundColor: Colors.game.surface,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.7, shadowRadius: 12, elevation: 8,
   },
-  chestEmoji: { fontSize: 52 },
 
+  idleActions: { width: "100%", gap: 8 },
   openBtn: {
-    borderWidth: 2,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
+    borderWidth: 2, borderRadius: 14,
+    paddingVertical: 12, alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.04)",
-    marginTop: 4,
   },
-  openBtnTxt: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 2,
+  openBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },
+  sellBtn: {
+    borderWidth: 1.5, borderRadius: 14,
+    paddingVertical: 11, alignItems: "center",
+    borderColor: "#F59E0B",
+    backgroundColor: "rgba(245,158,11,0.08)",
   },
-  openingMsg: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
+  sellBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5, color: "#F59E0B" },
+  openingMsg: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", letterSpacing: 0.5 },
 
   revealPhase: { alignItems: "center", gap: 12, width: "100%" },
   itemCard: {
-    width: "100%",
-    backgroundColor: Colors.game.surface,
-    borderRadius: 16,
-    borderWidth: 2,
-    padding: 14,
-    gap: 10,
+    width: "100%", backgroundColor: Colors.game.surface,
+    borderRadius: 16, borderWidth: 2, padding: 14, gap: 10,
   },
-  itemHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  itemSlotIcon: { fontSize: 26, marginTop: 2 },
-  itemName: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 5 },
+  artRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  itemName: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 4, lineHeight: 20 },
+  qualBadge: {
+    alignSelf: "flex-start", borderWidth: 1, borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4,
+  },
+  qualBadgeTxt: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
   itemTagRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
 
-  statsScroll: { maxHeight: 130 },
+  statsScroll: { maxHeight: 120 },
   statRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
     paddingVertical: 3, paddingHorizontal: 8,
@@ -321,36 +306,18 @@ const styles = StyleSheet.create({
     borderRadius: 6, marginBottom: 3,
   },
   statIcon: { fontSize: 13, width: 18 },
-  statLabel: {
-    flex: 1, fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.textDim,
-  },
+  statLabel: { flex: 1, fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
   flatVal: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.green },
   pctVal:  { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.gold },
-  noStat: {
-    fontSize: 11, fontFamily: "Inter_400Regular",
-    color: Colors.game.textDim, fontStyle: "italic",
-  },
+  noStat:  { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim, fontStyle: "italic" },
 
-  claimBtn: {
-    width: "100%",
-    borderWidth: 2, borderRadius: 14,
-    paddingVertical: 13, alignItems: "center",
-  },
-  claimBtnTxt: {
-    fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2,
-  },
+  claimBtn: { width: "100%", borderWidth: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
+  claimBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },
 
   closeBtn: {
-    width: "100%",
-    backgroundColor: Colors.game.surface,
+    width: "100%", backgroundColor: Colors.game.surface,
     borderRadius: 14, paddingVertical: 12,
-    alignItems: "center", borderWidth: 1,
-    borderColor: Colors.game.border,
+    alignItems: "center", borderWidth: 1, borderColor: Colors.game.border,
   },
-  closeBtnTxt: {
-    fontSize: 12, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 2,
-  },
+  closeBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
 });

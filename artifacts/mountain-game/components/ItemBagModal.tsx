@@ -10,6 +10,7 @@ import {
 import Colors from "@/constants/colors";
 import { GameItem, useGame } from "@/context/GameContext";
 import {
+  formatItemName,
   ITEM_QUALITY_COLORS,
   ITEM_RARITY_COLORS,
   ITEM_SLOT_ICONS,
@@ -55,9 +56,9 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh }: ItemBagModa
 
           {/* ── Art + identity ───────────────────────────────────────── */}
           <View style={ss.header}>
-            <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} size={84} />
+            <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={84} />
             <View style={ss.headerInfo}>
-              <Text style={[ss.name, { color: rc }]} numberOfLines={2}>{item.name}</Text>
+              <Text style={[ss.name, { color: rc }]} numberOfLines={2}>{formatItemName(item)}</Text>
 
               <View style={ss.tagRow}>
                 <View style={[ss.tag, { borderColor: rc }]}>

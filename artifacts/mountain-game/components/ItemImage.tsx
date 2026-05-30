@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, StyleSheet, View } from "react-native";
 import Svg, {
   Circle,
   Defs,
@@ -10,7 +10,7 @@ import Svg, {
   Rect,
   Stop,
 } from "react-native-svg";
-import { ITEM_QUALITY_COLORS, ITEM_RARITY_COLORS, ItemQuality, ItemRarity, ItemSlot } from "@/lib/items";
+import { ITEM_QUALITY_COLORS, ITEM_RARITY_COLORS, ItemQuality, ItemRarity, ItemSlot, ItemTier } from "@/lib/items";
 
 // ─── Rarity effects ───────────────────────────────────────────────────────────
 
@@ -27,6 +27,26 @@ const RARITY_GLOW_OPACITY: Record<ItemRarity, number> = {
 const QUALITY_SHINE: Record<ItemQuality, number> = {
   Basic: 0, Good: 0.10, Excellent: 0.22,
 };
+
+// ─── Tier sparkle positions (as [left_frac, top_frac] of total size) ──────────
+
+const SPARKLE_POSITIONS: [number, number][][] = [
+  [],
+  // Tier 1 – 4 corners
+  [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]],
+  // Tier 2 – corners + edge midpoints
+  [[0.05, 0.05], [0.50, 0.04], [0.95, 0.05],
+   [0.96, 0.50],
+   [0.95, 0.95], [0.50, 0.96], [0.05, 0.95],
+   [0.04, 0.50]],
+  // Tier 3 – 12 points
+  [[0.05, 0.05], [0.38, 0.04], [0.62, 0.04], [0.95, 0.05],
+   [0.96, 0.35], [0.96, 0.65],
+   [0.95, 0.95], [0.62, 0.96], [0.38, 0.96], [0.05, 0.95],
+   [0.04, 0.65], [0.04, 0.35]],
+];
+
+const SPARKLE_SIZES: number[] = [0, 3.5, 4.5, 6];
 
 // ─── Slot shapes (100×100 viewBox) ────────────────────────────────────────────
 
@@ -136,11 +156,14 @@ interface ItemImageProps {
   slot: ItemSlot;
   rarity: ItemRarity;
   quality?: ItemQuality;
+  tier?: ItemTier;
   size?: number;
   compact?: boolean;
 }
 
-export function ItemImage({ slot, rarity, quality = "Basic", size = 80, compact = false }: ItemImageProps) {
+export function ItemImage({
+  slot, rarity, quality = "Basic", tier = 0, size = 80, compact = false,
+}: ItemImageProps) {
   const rc = ITEM_RARITY_COLORS[rarity];
   const rings = RARITY_GLOW_RINGS[rarity];
   const baseOpacity = RARITY_GLOW_OPACITY[rarity];
@@ -149,9 +172,37 @@ export function ItemImage({ slot, rarity, quality = "Basic", size = 80, compact 
   const fill   = rc + "55";
   const stroke = rc;
 
+  // Sparkle animation for tier > 0 (non-compact only)
+  const sparkleAnim = useRef(new Animated.Value(0.55)).current;
+  useEffect(() => {
+    if (compact || tier === 0) { sparkleAnim.setValue(0.55); return; }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sparkleAnim, { toValue: 1.0, duration: 800 + tier * 150, useNativeDriver: true }),
+        Animated.timing(sparkleAnim, { toValue: 0.15, duration: 800 + tier * 150, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [compact, tier, sparkleAnim]);
+
+  // Quality border styling
+  const isGood      = quality === "Good";
+  const isExcellent = quality === "Excellent";
+  const qBorderColor = isExcellent
+    ? ITEM_QUALITY_COLORS.Excellent
+    : isGood
+    ? ITEM_QUALITY_COLORS.Good
+    : rc;
+  const innerBorderWidth = (isGood || isExcellent) ? 2 : compact ? 1.5 : 2;
+
+  // Tier sparkles
+  const sparklePts  = SPARKLE_POSITIONS[tier] ?? [];
+  const sparkleSize = SPARKLE_SIZES[tier] ?? 0;
+
   return (
     <View style={[ss.root, { width: size, height: size }]}>
-      {/* Glow rings (behind) */}
+      {/* Rarity glow rings (behind everything) */}
       {Array.from({ length: rings }).map((_, i) => {
         const s = size * (0.90 - i * 0.09);
         const offset = (size - s) / 2;
@@ -167,29 +218,84 @@ export function ItemImage({ slot, rarity, quality = "Basic", size = 80, compact 
         );
       })}
 
+      {/* Good quality – single outer ring in blue */}
+      {isGood && (
+        <View style={[ss.qualRing, {
+          width: size * 0.96, height: size * 0.96,
+          borderRadius: size * 0.175,
+          borderColor: ITEM_QUALITY_COLORS.Good + "BB",
+          borderWidth: 1.5,
+          top: size * 0.02, left: size * 0.02,
+        }]} />
+      )}
+
+      {/* Excellent quality – two outer rings in gold */}
+      {isExcellent && (
+        <>
+          <View style={[ss.qualRing, {
+            width: size * 0.985, height: size * 0.985,
+            borderRadius: size * 0.18,
+            borderColor: ITEM_QUALITY_COLORS.Excellent + "EE",
+            borderWidth: 1.5,
+            top: size * 0.0075, left: size * 0.0075,
+          }]} />
+          <View style={[ss.qualRing, {
+            width: size * 0.955, height: size * 0.955,
+            borderRadius: size * 0.17,
+            borderColor: ITEM_QUALITY_COLORS.Excellent + "55",
+            borderWidth: 1,
+            top: size * 0.0225, left: size * 0.0225,
+          }]} />
+        </>
+      )}
+
       {/* Background tile */}
       <View style={[ss.bg, {
         width: size * 0.90,
         height: size * 0.90,
         borderRadius: size * 0.15,
-        backgroundColor: rc + "1A",
-        borderColor: rc + "66",
-        borderWidth: compact ? 1.5 : 2,
+        backgroundColor: isExcellent
+          ? ITEM_QUALITY_COLORS.Excellent + "14"
+          : isGood
+          ? ITEM_QUALITY_COLORS.Good + "11"
+          : rc + "1A",
+        borderColor: (isGood || isExcellent) ? qBorderColor + "88" : rc + "66",
+        borderWidth: innerBorderWidth,
       }]}>
         <Svg viewBox="0 0 100 100" width={size * 0.76} height={size * 0.76}>
           <Defs>
-            <RadialGradient id={`bg_${rarity}`} cx="50%" cy="50%" r="50%">
+            <RadialGradient id={`bg_${rarity}_${quality}`} cx="50%" cy="50%" r="50%">
               <Stop offset="0%"   stopColor={rc} stopOpacity={0.18} />
               <Stop offset="100%" stopColor={rc} stopOpacity={0.04} />
             </RadialGradient>
           </Defs>
-          <Rect x="0" y="0" width="100" height="100" fill={`url(#bg_${rarity})`} />
+          <Rect x="0" y="0" width="100" height="100" fill={`url(#bg_${rarity}_${quality})`} />
           <SlotShape slot={slot} fill={fill} stroke={stroke} />
-          {shine > 0 && (
-            <Polygon points="0,0 100,0 55,42 0,20" fill="white" opacity={shine} />
-          )}
+          {/* Quality shine overlay */}
+          {shine > 0 && <Polygon points="0,0 100,0 55,42 0,20" fill="white" opacity={shine} />}
+          {/* Extra Excellent shine streak */}
+          {isExcellent && <Polygon points="0,0 65,0 28,30 0,12" fill={ITEM_QUALITY_COLORS.Excellent} opacity={0.07} />}
         </Svg>
       </View>
+
+      {/* Tier sparkle dots along border */}
+      {sparklePts.map(([lf, tf], i) => (
+        <Animated.View
+          key={i}
+          style={[ss.sparkle, {
+            width: sparkleSize,
+            height: sparkleSize,
+            backgroundColor: rc,
+            left: lf * size - sparkleSize / 2,
+            top: tf * size - sparkleSize / 2,
+            opacity: compact ? (0.3 + tier * 0.15) : sparkleAnim,
+            shadowColor: rc,
+            shadowOpacity: 0.85,
+            shadowRadius: sparkleSize * 1.2,
+            elevation: 3,
+          }]}
+        />
+      ))}
     </View>
   );
 }
@@ -197,17 +303,9 @@ export function ItemImage({ slot, rarity, quality = "Basic", size = 80, compact 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const ss = StyleSheet.create({
-  root: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ring: {
-    position: "absolute",
-    borderWidth: 1,
-  },
-  bg: {
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
+  root:    { alignItems: "center", justifyContent: "center" },
+  ring:    { position: "absolute", borderWidth: 1 },
+  qualRing:{ position: "absolute" },
+  bg:      { alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  sparkle: { position: "absolute", transform: [{ rotate: "45deg" }] },
 });

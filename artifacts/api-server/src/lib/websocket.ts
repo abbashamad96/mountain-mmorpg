@@ -599,6 +599,24 @@ async function handleMessage(player: Player, raw: string) {
       auctionListings.set(listing.id, listing);
       await dbSaveAhListing(listing);
       broadcastAhUpdate();
+    } else if (msg.chest && typeof msg.chest === "object") {
+      // Chest listing
+      const chest = msg.chest as Record<string, unknown>;
+      const rarity = String(chest.rarity ?? "Common").slice(0, 20);
+      const tier   = parseInt(String(chest.tier ?? "0")) || 0;
+      const listing: AuctionListing = {
+        id: `ah-${Date.now()}-${player.id}`,
+        sellerId: stableId(player),
+        sellerName: player.name,
+        material: { type: "Chest", rarity, version: tier },
+        count: 1,
+        price,
+        listedAt: Date.now(),
+        item: chest,
+      };
+      auctionListings.set(listing.id, listing);
+      await dbSaveAhListing(listing);
+      broadcastAhUpdate();
     } else {
       const mat = msg.material;
       if (!mat?.type || !mat?.rarity) return;

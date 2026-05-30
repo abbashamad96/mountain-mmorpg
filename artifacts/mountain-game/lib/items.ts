@@ -227,6 +227,15 @@ export function getTotalPercent(rarity: ItemRarity, tier: ItemTier, quality: Ite
   return PERCENT_TABLE[rarity][tier][QUALITY_IDX[quality]];
 }
 
+export function formatItemName(item: GameItem): string {
+  const qualPart = item.quality !== "Basic" ? ` [${item.quality}]` : "";
+  return `T${item.tier} ${item.rarity} ${item.name}${qualPart}`;
+}
+
+export function formatChestName(chest: ItemChest): string {
+  return `T${chest.tier} ${chest.rarity} Chest`;
+}
+
 // ─── Item Chest ───────────────────────────────────────────────────────────────
 
 export interface ItemChest {

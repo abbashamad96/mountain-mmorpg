@@ -14,6 +14,7 @@ import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
+import { ChestImage } from "./ChestImage";
 import { ChestOpenModal } from "./ChestOpenModal";
 import { ItemBagModal } from "./ItemBagModal";
 import { ItemImage } from "./ItemImage";
@@ -25,6 +26,7 @@ interface StatsModalProps {
   onClose: () => void;
   onListOnAh?: (entry: MaterialEntry) => void;
   onListItemOnAh?: (item: GameItem) => void;
+  onListChestOnAh?: (chest: ItemChest) => void;
 }
 
 const STAT_CONFIG = [
@@ -165,7 +167,7 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh }: StatsModalProps) {
+export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh }: StatsModalProps) {
   const { gameState, allocateStat, addItemToBag, removeChestFromBag, equipItem, removeItemFromBag } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
@@ -350,8 +352,8 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh }: Sta
                               style={styles.invSlotWrap}
                               onPress={() => setSelectedChest(chest)}
                             >
-                              <View style={[styles.invSlot, { borderColor: rc, alignItems: "center", justifyContent: "center" }]}>
-                                <Text style={{ fontSize: 38 }}>📦</Text>
+                              <View style={[styles.invSlot, { borderColor: rc, padding: 0, alignItems: "center", justifyContent: "center" }]}>
+                                <ChestImage rarity={chest.rarity} size={66} compact />
                               </View>
                               <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                 <Text style={styles.countText} numberOfLines={1}>OPEN</Text>
@@ -388,7 +390,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh }: Sta
                               onPress={() => setSelectedBagItem(item)}
                             >
                               <View style={[styles.invSlot, { borderColor: rc, padding: 2 }]}>
-                                <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} size={66} compact />
+                                <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={66} compact />
                               </View>
                               <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                 <Text style={styles.countText} numberOfLines={1}>TAP</Text>
@@ -484,6 +486,11 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh }: Sta
             setSelectedChest(null);
           }}
           onClose={() => setSelectedChest(null)}
+          onSellOnAh={onListChestOnAh && selectedChest.tradable ? () => {
+            const c = selectedChest;
+            setSelectedChest(null);
+            onListChestOnAh(c);
+          } : undefined}
         />
       )}
 

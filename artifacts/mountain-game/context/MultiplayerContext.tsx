@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
-import { Material, RARITY_COLORS, useGame } from "./GameContext";
+import { ItemChest, Material, RARITY_COLORS, useGame } from "./GameContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +67,7 @@ interface MultiplayerContextType {
   listings: AuctionListing[];
   listAhItem: (material: Material, count: number, price: number) => void;
   listAhEquipItem: (item: unknown, price: number) => void;
+  listAhChestItem: (chest: ItemChest, price: number) => void;
   buyAhItem: (listingId: string) => void;
   cancelAhListing: (listingId: string) => void;
   refreshListings: () => void;
@@ -238,45 +239,67 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       } else if (msg.type === "bo_update") {
         setBuyOrders(msg.orders ?? []);
       } else if (msg.type === "ah_bought" && msg.listing) {
-        const isEquip = msg.listing.material?.type === "Equipment";
+        const matType = msg.listing.material?.type;
+        const isEquip = matType === "Equipment";
+        const isChest = matType === "Chest";
         if (isEquip && msg.listing.item) {
           game.addItemToBag(msg.listing.item as any);
+        } else if (isChest && msg.listing.item) {
+          game.addChestToBag(msg.listing.item as any);
         }
+        const boughtItem = msg.listing.item as any;
+        const boughtBody = isEquip
+          ? `Bought T${boughtItem?.tier ?? 0} ${msg.listing.material.rarity} ${boughtItem?.name ?? boughtItem?.slot ?? "Equipment"}${boughtItem?.quality && boughtItem.quality !== "Basic" ? ` [${boughtItem.quality}]` : ""}`
+          : isChest
+          ? `Bought T${msg.listing.material.version ?? 0} ${msg.listing.material.rarity} Chest`
+          : `Bought \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type}`;
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bought" as const, listing: msg.listing };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "bought",
           title: "Auction Purchase",
-          body: isEquip
-            ? `Bought ${msg.listing.material.rarity} ${(msg.listing.item as any)?.slot ?? "Equipment"}`
-            : `Bought \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type}`,
+          body: boughtBody,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "ah_sale" && msg.listing) {
-        const isEquip = msg.listing.material?.type === "Equipment";
+        const matType = msg.listing.material?.type;
+        const isEquip = matType === "Equipment";
+        const isChest = matType === "Chest";
+        const soldItem = msg.listing.item as any;
+        const soldBody = isEquip
+          ? `Your T${soldItem?.tier ?? 0} ${msg.listing.material.rarity} ${soldItem?.name ?? soldItem?.slot ?? "Equipment"}${soldItem?.quality && soldItem.quality !== "Basic" ? ` [${soldItem.quality}]` : ""} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
+          : isChest
+          ? `Your T${msg.listing.material.version ?? 0} ${msg.listing.material.rarity} Chest sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
+          : `Your ${msg.listing.material.rarity} ${msg.listing.material.type} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`;
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "sale" as const, listing: msg.listing, buyerName: msg.buyerName };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "sale",
           title: "Listing Sold",
-          body: isEquip
-            ? `Your ${msg.listing.material.rarity} ${(msg.listing.item as any)?.slot ?? "Equipment"} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
-            : `Your ${msg.listing.material.rarity} ${msg.listing.material.type} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`,
+          body: soldBody,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "ah_cancelled" && msg.listing) {
-        const isEquip = msg.listing.material?.type === "Equipment";
+        const matType = msg.listing.material?.type;
+        const isEquip = matType === "Equipment";
+        const isChest = matType === "Chest";
         if (isEquip && msg.listing.item) {
           game.addItemToBag(msg.listing.item as any);
+        } else if (isChest && msg.listing.item) {
+          game.addChestToBag(msg.listing.item as any);
         }
+        const retItem = msg.listing.item as any;
+        const retBody = isEquip
+          ? `Returned T${retItem?.tier ?? 0} ${msg.listing.material.rarity} ${retItem?.name ?? retItem?.slot ?? "Equipment"}${retItem?.quality && retItem.quality !== "Basic" ? ` [${retItem.quality}]` : ""} to inventory`
+          : isChest
+          ? `Returned T${msg.listing.material.version ?? 0} ${msg.listing.material.rarity} Chest to inventory`
+          : `Returned \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type} to inventory`;
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "cancelled" as const, listing: msg.listing };
         setAhEvents((prev) => [...prev, entry]);
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "cancelled",
           title: "Listing Cancelled",
-          body: isEquip
-            ? `Returned ${msg.listing.material.rarity} ${(msg.listing.item as any)?.slot ?? "Equipment"} to inventory`
-            : `Returned \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type} to inventory`,
+          body: retBody,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_sold") {
@@ -417,6 +440,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     sendWs({ type: "ah_list", item, price });
   }, [sendWs]);
 
+  const listAhChestItem = useCallback((chest: ItemChest, price: number) => {
+    sendWs({ type: "ah_list", chest, price });
+  }, [sendWs]);
+
   const buyAhItem = useCallback((listingId: string) => { sendWs({ type: "ah_buy", listingId }); }, [sendWs]);
   const cancelAhListing = useCallback((listingId: string) => { sendWs({ type: "ah_cancel", listingId }); }, [sendWs]);
   const refreshListings = useCallback(() => { sendWs({ type: "ah_get" }); }, [sendWs]);
@@ -515,7 +542,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     <MultiplayerContext.Provider value={{
       status, isOnline, yourId, playerName, setPlayerName,
       messages, sendChat,
-      listings, listAhItem, listAhEquipItem, buyAhItem, cancelAhListing, refreshListings,
+      listings, listAhItem, listAhEquipItem, listAhChestItem, buyAhItem, cancelAhListing, refreshListings,
       buyOrders, createBuyOrder, cancelBuyOrder, fillBuyOrder,
       ahEvents, consumeAhEvent,
       notifications, unreadCount: notifications.filter((n) => !n.read).length, markNotificationsRead,
