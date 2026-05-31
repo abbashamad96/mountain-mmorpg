@@ -18,6 +18,8 @@ import {
   sumItemStats,
   sumPercentStats,
 } from "@/lib/items";
+import { ItemImage } from "./ItemImage";
+import { EquipPickerModal } from "./EquipPickerModal";
 
 // ─── Item Detail Modal ────────────────────────────────────────────────────────
 
@@ -135,9 +137,10 @@ function EquippedItemDetail({
 // ─── Equipment Tab ────────────────────────────────────────────────────────────
 
 export function EquipmentTab() {
-  const { gameState, unequipItem } = useGame();
+  const { gameState, unequipItem, equipItem } = useGame();
   const char = gameState.character;
   const [selected, setSelected] = useState<{ slot: ItemSlot; item: GameItem } | null>(null);
+  const [pickerSlot, setPickerSlot] = useState<ItemSlot | null>(null);
 
   const equippedCount = Object.keys(char.equippedItems).length;
   const flatBonus = sumItemStats(char.equippedItems);
@@ -165,8 +168,8 @@ export function EquipmentTab() {
             <Pressable
               key={slot}
               style={[styles.slotCard, { borderColor: rc }]}
-              onPress={() => item ? setSelected({ slot, item }) : undefined}
-              disabled={!item}
+              onPress={() => setPickerSlot(slot)}
+              onLongPress={() => item ? setSelected({ slot, item }) : undefined}
             >
               <Text style={[styles.slotIcon, { color: item ? rc : Colors.game.textMuted }]}>
                 {ITEM_SLOT_ICONS[slot]}
@@ -174,6 +177,14 @@ export function EquipmentTab() {
               <Text style={styles.slotName}>{slot.toUpperCase()}</Text>
               {item ? (
                 <>
+                  <ItemImage
+                    slot={item.slot}
+                    rarity={item.rarity}
+                    quality={item.quality}
+                    tier={item.tier}
+                    size={52}
+                    compact
+                  />
                   <Text style={[styles.slotItemName, { color: rc }]} numberOfLines={2}>{item.name}</Text>
                   <View style={styles.slotBadgeRow}>
                     <View style={[styles.slotBadge, { backgroundColor: rc + "33" }]}>
@@ -241,6 +252,12 @@ export function EquipmentTab() {
           onUnequip={() => unequipItem(selected.slot)}
         />
       )}
+
+      <EquipPickerModal
+        slot={pickerSlot}
+        onClose={() => setPickerSlot(null)}
+        onEquip={equipItem}
+      />
     </ScrollView>
   );
 }
