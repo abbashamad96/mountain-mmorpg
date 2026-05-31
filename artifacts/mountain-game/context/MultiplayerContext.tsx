@@ -32,7 +32,7 @@ export interface BuyOrder {
   id: string;
   buyerId: string;
   buyerName: string;
-  material: { type: string; rarity: string; version: number | null };
+  material: { type: string; rarity: string; version: number | null; slot?: string; quality?: string; statPref?: string };
   count: number;
   filled: number;
   pricePerUnit: number;
@@ -72,9 +72,9 @@ interface MultiplayerContextType {
   cancelAhListing: (listingId: string) => void;
   refreshListings: () => void;
   buyOrders: BuyOrder[];
-  createBuyOrder: (material: { type: string; rarity: string; version: number | null }, count: number, pricePerUnit: number) => void;
+  createBuyOrder: (material: BuyOrder["material"], count: number, pricePerUnit: number) => void;
   cancelBuyOrder: (orderId: string) => void;
-  fillBuyOrder: (orderId: string, count: number, version: number) => void;
+  fillBuyOrder: (orderId: string, count: number, version: number, itemId?: string, chestId?: string) => void;
   ahEvents: AhEvent[];
   consumeAhEvent: (id: string) => void;
   notifications: NotificationEntry[];
@@ -303,10 +303,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_sold") {
-        // Safely deduct materials from local inventory.  If the player filled
-        // the order via the UI the client already removed them; this is a
-        // safety-net for offline sellers (delivery re-sent on reconnect).
-        if (msg.material && msg.count > 0) {
+        const mType = msg.material?.type;
+        if (mType === "Equipment" && msg.item) {
+          game.removeItemFromBag((msg.item as any).id);
+        } else if (mType === "Chest" && msg.chest) {
+          game.removeChestFromBag((msg.chest as any).id);
+        } else if (msg.material && msg.count > 0) {
           const key = `${msg.material.type}|${msg.material.rarity}|${msg.material.version}`;
           const existing = game.gameState.character.materials.find((e) => e.key === key);
           if (existing && existing.count >= msg.count) {
@@ -322,7 +324,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_received") {
-        if (msg.material && msg.count > 0) {
+        const mType = msg.material?.type;
+        if (mType === "Equipment" && msg.item) {
+          game.addItemToBag(msg.item as any);
+        } else if (mType === "Chest" && msg.chest) {
+          game.addChestToBag(msg.chest as any);
+        } else if (msg.material && msg.count > 0) {
           game.addMaterialCount(msg.material, msg.count);
         }
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bo_received" as const, boOrderId: msg.orderId, boCount: msg.count, boMaterial: msg.material };
@@ -448,14 +455,17 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const cancelAhListing = useCallback((listingId: string) => { sendWs({ type: "ah_cancel", listingId }); }, [sendWs]);
   const refreshListings = useCallback(() => { sendWs({ type: "ah_get" }); }, [sendWs]);
 
-  const createBuyOrder = useCallback((material: { type: string; rarity: string; version: number | null }, count: number, pricePerUnit: number) => {
+  const createBuyOrder = useCallback((material: BuyOrder["material"], count: number, pricePerUnit: number) => {
     sendWs({ type: "bo_create", material, count, pricePerUnit });
   }, [sendWs]);
 
   const cancelBuyOrder = useCallback((orderId: string) => { sendWs({ type: "bo_cancel", orderId }); }, [sendWs]);
 
-  const fillBuyOrder = useCallback((orderId: string, count: number, version: number) => {
-    sendWs({ type: "bo_fill", orderId, count, version });
+  const fillBuyOrder = useCallback((orderId: string, count: number, version: number, itemId?: string, chestId?: string) => {
+    const payload: Record<string, unknown> = { type: "bo_fill", orderId, count, version };
+    if (itemId) payload.itemId = itemId;
+    if (chestId) payload.chestId = chestId;
+    sendWs(payload);
   }, [sendWs]);
 
   const consumeAhEvent = useCallback((id: string) => {

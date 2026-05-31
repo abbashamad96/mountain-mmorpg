@@ -28,7 +28,19 @@ import {
   VersionNum,
   useGame,
 } from "@/context/GameContext";
-import { formatChestName, GameItem, ITEM_RARITY_COLORS, ItemChest, ItemRarity } from "@/lib/items";
+import {
+  formatChestName,
+  GameItem,
+  ITEM_RARITY_COLORS,
+  ITEM_SLOTS,
+  ITEM_SLOT_ICONS,
+  ITEM_QUALITY_COLORS,
+  ItemChest,
+  ItemRarity,
+  ItemQuality,
+  ItemSlot,
+  ITEM_RARITIES,
+} from "@/lib/items";
 import { ChestImage } from "./ChestImage";
 import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
@@ -44,6 +56,15 @@ type SortDir = "asc" | "desc";
 
 const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
+const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest"];
+const BO_QUALITIES: ItemQuality[] = ["Basic", "Good", "Excellent"];
+const BO_STAT_PREFS: { key: "strength" | "health" | "defence" | "speed"; label: string; icon: string }[] = [
+  { key: "strength", label: "Strength", icon: "⚔" },
+  { key: "health", label: "Health", icon: "♥" },
+  { key: "defence", label: "Defence", icon: "🛡" },
+  { key: "speed", label: "Speed", icon: "⚡" },
+];
+function isMaterialType(t: string): t is MaterialType { return MATERIAL_TYPES.includes(t as MaterialType); }
 const SORT_LABELS: Record<SortKey, string> = { price: "PRICE", qty: "QTY", time: "TIME" };
 
 // ─── Sell listing card ────────────────────────────────────────────────────────
@@ -101,39 +122,56 @@ function ListingCard({
 // ─── Buy order card ───────────────────────────────────────────────────────────
 
 function BuyOrderCard({
-  order, isOwn, matchEntry, onFill, onCancel,
+  order, isOwn, matchEntry, matchItem, matchChest, onFill, onCancel,
 }: {
-  order: BuyOrder; isOwn: boolean; matchEntry: MaterialEntry | undefined;
+  order: BuyOrder; isOwn: boolean; matchEntry?: MaterialEntry; matchItem?: GameItem; matchChest?: ItemChest;
   onFill: (qty: number) => void; onCancel: () => void;
 }) {
   const remaining = order.count - order.filled;
-  const maxFill = matchEntry ? Math.min(matchEntry.count, remaining) : 0;
+  const isEquip = order.material.type === "Equipment";
+  const isChest = order.material.type === "Chest";
+  const hasMatch = isEquip ? !!matchItem : isChest ? !!matchChest : !!matchEntry;
+  const maxFill = isEquip || isChest ? (hasMatch ? 1 : 0) : (matchEntry ? Math.min(matchEntry.count, remaining) : 0);
   const rarityColor = RARITY_COLORS[order.material.rarity as RarityName] ?? "#9CA3AF";
   const displayVersion = (order.material.version ?? 0) as VersionNum;
 
   const [qty, setQty] = useState(maxFill);
   useEffect(() => { setQty(maxFill); }, [maxFill]);
 
+  let label = `${order.material.rarity} ${order.material.type}`;
+  let meta = `${order.material.version === null ? "Any tier" : `T${order.material.version}`}  ·  ${isOwn ? "YOUR ORDER" : order.buyerName}`;
+  if (isEquip && order.material.slot) {
+    label = `${order.material.rarity} ${order.material.slot}`;
+    meta = `${order.material.quality ?? "Any quality"}  ·  ${order.material.statPref ? `Highest ${order.material.statPref}` : "Any stat"}  ·  ${isOwn ? "YOUR ORDER" : order.buyerName}`;
+  }
+  if (isChest) {
+    meta = `${order.material.version === null ? "Any tier" : `T${order.material.version}`}  ·  ${isOwn ? "YOUR ORDER" : order.buyerName}`;
+  }
+
   return (
     <View style={[styles.listingCard, isOwn && styles.ownCard, { borderColor: rarityColor + "55" }]}>
       <View style={styles.listingImg}>
-        <MaterialImage
-          type={order.material.type as MaterialType}
-          rarity={order.material.rarity as RarityName}
-          version={displayVersion}
-          size={54} compact animateParticles={false}
-        />
+        {isEquip && matchItem ? (
+          <ItemImage slot={matchItem.slot} rarity={matchItem.rarity} quality={matchItem.quality} tier={matchItem.tier} size={54} />
+        ) : isChest && matchChest ? (
+          <ChestImage rarity={matchChest.rarity} size={54} />
+        ) : (
+          <MaterialImage
+            type={order.material.type as MaterialType}
+            rarity={order.material.rarity as RarityName}
+            version={displayVersion}
+            size={54} compact animateParticles={false}
+          />
+        )}
       </View>
       <View style={styles.listingInfo}>
         <RarityText
           rarity={order.material.rarity as RarityName}
           version={displayVersion}
-          label={`${order.material.rarity} ${order.material.type}`}
+          label={label}
           style={styles.listingName}
         />
-        <Text style={styles.listingMeta}>
-          {order.material.version === null ? "Any tier" : `T${order.material.version}`}  ·  {isOwn ? "YOUR ORDER" : order.buyerName}
-        </Text>
+        <Text style={styles.listingMeta}>{meta}</Text>
         <Text style={styles.boRemaining}>×{remaining} still needed</Text>
       </View>
       <View style={styles.listingRight}>
@@ -319,9 +357,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   }, []);
 
   // Buy order creation form state
+  const [boCategory, setBoCategory] = useState<string | null>(null);
   const [boType, setBoType] = useState<MaterialType | null>(null);
   const [boRarity, setBoRarity] = useState<RarityName | null>(null);
   const [boVersion, setBoVersion] = useState<number | null>(null);
+  const [boSlot, setBoSlot] = useState<ItemSlot | null>(null);
+  const [boQuality, setBoQuality] = useState<ItemQuality | null>(null);
+  const [boStatPref, setBoStatPref] = useState<"strength" | "health" | "defence" | "speed" | null>(null);
   const [boCountStr, setBoCountStr] = useState("1");
   const [boPriceStr, setBoPriceStr] = useState("");
 
@@ -452,7 +494,40 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     showFeedback("Chest listed for sale!");
   };
 
-  const handleFillOrder = useCallback((order: BuyOrder, qty: number) => {
+  const handleFillOrder = useCallback((order: BuyOrder, qty: number, itemId?: string, chestId?: string) => {
+    const mType = order.material.type;
+    const remaining = order.count - order.filled;
+    if (mType === "Equipment") {
+      if (!itemId) { showFeedback("Select an item to sell.", false); return; }
+      const item = char.itemBag.find((i) => i.id === itemId);
+      if (!item) { showFeedback("Item not found.", false); return; }
+      if (order.material.slot && item.slot !== order.material.slot) { showFeedback("Slot mismatch.", false); return; }
+      if (order.material.rarity !== item.rarity) { showFeedback("Rarity mismatch.", false); return; }
+      if (order.material.quality && item.quality !== order.material.quality) { showFeedback("Quality mismatch.", false); return; }
+      if (order.material.statPref) {
+        const stats = { strength: item.stats.strength, health: item.stats.health, defence: item.stats.defence, speed: item.stats.speed };
+        const highest = Math.max(...Object.values(stats));
+        const key = order.material.statPref as keyof typeof stats;
+        if (stats[key] !== highest) { showFeedback("Stat preference mismatch.", false); return; }
+      }
+      const goldEarned = order.pricePerUnit;
+      removeItemFromBag(itemId);
+      fillBuyOrder(order.id, 1, 0, itemId);
+      showFeedback(`Sold ${item.name} — ${goldEarned.toLocaleString()}G incoming!`);
+      return;
+    }
+    if (mType === "Chest") {
+      if (!chestId) { showFeedback("Select a chest to sell.", false); return; }
+      const chest = char.chestBag.find((c) => c.id === chestId);
+      if (!chest) { showFeedback("Chest not found.", false); return; }
+      if (order.material.rarity !== chest.rarity) { showFeedback("Rarity mismatch.", false); return; }
+      if (order.material.version !== null && order.material.version !== undefined && order.material.version !== chest.tier) { showFeedback("Tier mismatch.", false); return; }
+      const goldEarned = order.pricePerUnit;
+      removeChestFromBag(chestId);
+      fillBuyOrder(order.id, 1, chest.tier, undefined, chestId);
+      showFeedback(`Sold chest — ${goldEarned.toLocaleString()}G incoming!`);
+      return;
+    }
     const matchEntry = char.materials.find((e) =>
       e.material.type === order.material.type &&
       e.material.rarity === order.material.rarity &&
@@ -460,14 +535,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       e.count > 0
     );
     if (!matchEntry) { showFeedback("You don't have this item.", false); return; }
-    const remaining = order.count - order.filled;
     const fillCount = Math.min(qty, matchEntry.count, remaining);
     if (fillCount <= 0) return;
     const goldEarned = fillCount * order.pricePerUnit;
     removeMaterial(matchEntry.key, fillCount);
     fillBuyOrder(order.id, fillCount, matchEntry.material.version);
     showFeedback(`Sold ×${fillCount} — ${goldEarned.toLocaleString()}G incoming!`);
-  }, [char.materials, removeMaterial, fillBuyOrder, showFeedback]);
+  }, [char.materials, char.itemBag, char.chestBag, removeMaterial, removeItemFromBag, removeChestFromBag, fillBuyOrder, showFeedback]);
 
   const handleCancelOrder = useCallback((order: BuyOrder) => {
     cancelBuyOrder(order.id);
@@ -495,18 +569,27 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   }, [buyOrders, yourId, removeMaterial, fillBuyOrder, showFeedback]);
 
   const handleConfirmBoCreate = () => {
-    if (!boType || !boRarity) { showFeedback("Select type and rarity first.", false); return; }
+    const isEquip = boCategory === "Equipment";
+    const isChest = boCategory === "Chest";
+    const isMaterial = boCategory && MATERIAL_TYPES.includes(boCategory as MaterialType);
+    if (!boCategory || !boRarity) { showFeedback("Select type and rarity first.", false); return; }
+    if (isEquip && !boSlot) { showFeedback("Select an equipment slot.", false); return; }
     const count = parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0;
     const pricePerUnit = parseInt(boPriceStr.replace(/[^0-9]/g, ""), 10) || 0;
     if (count <= 0) { showFeedback("Enter a valid quantity.", false); return; }
     if (pricePerUnit <= 0) { showFeedback("Enter a price above 0.", false); return; }
     const total = count * pricePerUnit;
     if (char.gold < total) { showFeedback(`Not enough gold (need ${total.toLocaleString()}G).`, false); return; }
+    const material: BuyOrder["material"] = { type: boCategory, rarity: boRarity, version: boVersion };
+    if (isEquip && boSlot) material.slot = boSlot;
+    if (isEquip && boQuality) material.quality = boQuality;
+    if (isEquip && boStatPref) material.statPref = boStatPref;
     applyGoldXp(-total, 0);
-    createBuyOrder({ type: boType, rarity: boRarity, version: boVersion }, count, pricePerUnit);
+    createBuyOrder(material, count, pricePerUnit);
     setStep("tabs");
     setTab("orders");
-    setBoType(null); setBoRarity(null); setBoVersion(null);
+    setBoCategory(null); setBoType(null); setBoRarity(null); setBoVersion(null);
+    setBoSlot(null); setBoQuality(null); setBoStatPref(null);
     setBoCountStr("1"); setBoPriceStr("");
     showFeedback(`Buy order posted! ${total.toLocaleString()}G locked.`);
   };
@@ -746,13 +829,17 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       rMap.get(rarityKey)!.push(o);
     });
 
-    const typeOrder = ["Ore", "Wood", "Herb", "Leather"];
+    const typeOrder = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest"];
     const sortedTypes = Array.from(groups.keys()).sort(
-      (a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b)
+      (a, b) => {
+        const ai = typeOrder.indexOf(a);
+        const bi = typeOrder.indexOf(b);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      }
     );
 
     // Inventory items that have matching open buy orders (not own)
-    const invMatches = char.materials.filter((entry) =>
+    const matMatches = char.materials.filter((entry) =>
       entry.count > 0 &&
       active.some((o) =>
         o.buyerId !== yourId &&
@@ -761,6 +848,30 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
         (o.material.version === null || o.material.version === entry.material.version)
       )
     );
+    const equipMatches = char.itemBag.filter((item) =>
+      active.some((o) =>
+        o.buyerId !== yourId &&
+        o.material.type === "Equipment" &&
+        o.material.rarity === item.rarity &&
+        (o.material.slot === null || o.material.slot === undefined || o.material.slot === item.slot) &&
+        (o.material.quality === null || o.material.quality === undefined || o.material.quality === item.quality) &&
+        (o.material.statPref === null || o.material.statPref === undefined || (() => {
+          const stats = { strength: item.stats.strength, health: item.stats.health, defence: item.stats.defence, speed: item.stats.speed };
+          const highest = Math.max(...Object.values(stats));
+          const key = o.material.statPref as keyof typeof stats;
+          return stats[key] === highest;
+        })())
+      )
+    );
+    const chestMatches = char.chestBag.filter((chest) =>
+      active.some((o) =>
+        o.buyerId !== yourId &&
+        o.material.type === "Chest" &&
+        o.material.rarity === chest.rarity &&
+        (o.material.version === null || o.material.version === undefined || o.material.version === chest.tier)
+      )
+    );
+    const invMatches = matMatches;
 
     const renderBoSectionHeader = (type: MaterialType, rarity: RarityName, count: number) => {
       const key = `bo-${type}-${rarity}`;
@@ -893,19 +1004,44 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                         {expanded && (
                           <View style={styles.sectionBody}>
                             {items.map((o) => {
-                              const matchEntry = char.materials.find((e) =>
-                                e.material.type === o.material.type &&
-                                e.material.rarity === o.material.rarity &&
-                                (o.material.version === null || e.material.version === o.material.version) &&
-                                e.count > 0
-                              );
+                              const mType = o.material.type;
+                              let matchEntry: MaterialEntry | undefined;
+                              let matchItem: GameItem | undefined;
+                              let matchChest: ItemChest | undefined;
+                              if (mType === "Equipment") {
+                                matchItem = char.itemBag.find((i) =>
+                                  i.rarity === o.material.rarity &&
+                                  (o.material.slot === null || o.material.slot === undefined || i.slot === o.material.slot) &&
+                                  (o.material.quality === null || o.material.quality === undefined || i.quality === o.material.quality) &&
+                                  (o.material.statPref === null || o.material.statPref === undefined || (() => {
+                                    const stats = { strength: i.stats.strength, health: i.stats.health, defence: i.stats.defence, speed: i.stats.speed };
+                                    const highest = Math.max(...Object.values(stats));
+                                    const key = o.material.statPref as keyof typeof stats;
+                                    return stats[key] === highest;
+                                  })())
+                                );
+                              } else if (mType === "Chest") {
+                                matchChest = char.chestBag.find((c) =>
+                                  c.rarity === o.material.rarity &&
+                                  (o.material.version === null || o.material.version === undefined || c.tier === o.material.version)
+                                );
+                              } else {
+                                matchEntry = char.materials.find((e) =>
+                                  e.material.type === o.material.type &&
+                                  e.material.rarity === o.material.rarity &&
+                                  (o.material.version === null || e.material.version === o.material.version) &&
+                                  e.count > 0
+                                );
+                              }
                               return (
                                 <BuyOrderCard
                                   key={o.id}
                                   order={o}
                                   isOwn={o.buyerId === yourId}
                                   matchEntry={matchEntry}
-                                  onFill={(qty) => handleFillOrder(o, qty)}
+                                  matchItem={matchItem}
+                                  matchChest={matchChest}
+                                  onFill={(qty) => handleFillOrder(o, qty, matchItem?.id, matchChest?.id)}
                                   onCancel={() => handleCancelOrder(o)}
                                 />
                               );
@@ -1137,6 +1273,9 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   // ── Buy order creation wizard ──────────────────────────────────────────────
 
   const renderBoCreate = () => {
+    const isEquip = boCategory === "Equipment";
+    const isChest = boCategory === "Chest";
+    const isMaterial = boCategory && MATERIAL_TYPES.includes(boCategory as MaterialType);
     const total = (parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0) * (parseInt(boPriceStr.replace(/[^0-9]/g, ""), 10) || 0);
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
@@ -1144,19 +1283,27 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
         <Text style={styles.boHint}>
           Lock gold to buy specific items. Sellers fill your order and receive payment instantly.
         </Text>
-        <Text style={styles.boSectionLabel}>MATERIAL TYPE</Text>
+        <Text style={styles.boSectionLabel}>ITEM TYPE</Text>
         <View style={styles.boTypeRow}>
-          {MATERIAL_TYPES.map((t) => (
+          {BO_TYPES.map((t) => (
             <Pressable
               key={t}
-              style={[styles.boChip, boType === t && styles.boChipActive]}
-              onPress={() => { setBoType(t); setBoRarity(null); }}
+              style={[styles.boChip, boCategory === t && styles.boChipActive]}
+              onPress={() => {
+                setBoCategory(t);
+                setBoType(isMaterialType(t) ? (t as MaterialType) : null);
+                setBoRarity(null);
+                setBoVersion(null);
+                setBoSlot(null);
+                setBoQuality(null);
+                setBoStatPref(null);
+              }}
             >
-              <Text style={[styles.boChipTxt, boType === t && styles.boChipTxtActive]}>{t.toUpperCase()}</Text>
+              <Text style={[styles.boChipTxt, boCategory === t && styles.boChipTxtActive]}>{t.toUpperCase()}</Text>
             </Pressable>
           ))}
         </View>
-        {boType && (
+        {boCategory && (
           <>
             <Text style={styles.boSectionLabel}>RARITY</Text>
             <View style={styles.boRarityGrid}>
@@ -1176,7 +1323,65 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             </View>
           </>
         )}
-        {boRarity && (
+        {/* Equipment: slot selector */}
+        {isEquip && boRarity && (
+          <>
+            <Text style={styles.boSectionLabel}>SLOT</Text>
+            <View style={styles.boTypeRow}>
+              {ITEM_SLOTS.map((s) => (
+                <Pressable
+                  key={s}
+                  style={[styles.boChip, boSlot === s && styles.boChipActive]}
+                  onPress={() => setBoSlot(s)}
+                >
+                  <Text style={[styles.boChipTxt, boSlot === s && styles.boChipTxtActive]}>
+                    {ITEM_SLOT_ICONS[s]} {s.toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+        {/* Equipment: quality selector */}
+        {isEquip && boSlot && (
+          <>
+            <Text style={styles.boSectionLabel}>QUALITY (OPTIONAL)</Text>
+            <View style={styles.boTypeRow}>
+              {([null, ...BO_QUALITIES] as (ItemQuality | null)[]).map((q, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[styles.boChip, boQuality === q && styles.boChipActive]}
+                  onPress={() => setBoQuality(q)}
+                >
+                  <Text style={[styles.boChipTxt, boQuality === q && styles.boChipTxtActive]}>
+                    {q ?? "ANY"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+        {/* Equipment: stat preference */}
+        {isEquip && boSlot && (
+          <>
+            <Text style={styles.boSectionLabel}>HIGHEST STAT (OPTIONAL)</Text>
+            <View style={styles.boTypeRow}>
+              {([null, ...BO_STAT_PREFS] as (null | typeof BO_STAT_PREFS[0])[]).map((s, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[styles.boChip, boStatPref === (s?.key ?? null) && styles.boChipActive]}
+                  onPress={() => setBoStatPref(s?.key ?? null)}
+                >
+                  <Text style={[styles.boChipTxt, boStatPref === (s?.key ?? null) && styles.boChipTxtActive]}>
+                    {s ? `${s.icon} ${s.label}` : "ANY"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+        {/* Material / Chest: tier selector */}
+        {(isMaterial || isChest) && boRarity && (
           <>
             <Text style={styles.boSectionLabel}>TIER (OPTIONAL)</Text>
             <View style={styles.boVersionRow}>
@@ -1194,7 +1399,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             </View>
           </>
         )}
-        {boRarity && (
+        {/* Count + price for all categories */}
+        {boRarity && (isMaterial || isChest || (isEquip && boSlot)) && (
           <>
             <View style={styles.inputRow}>
               <Text style={styles.inputLabel}>Quantity Wanted</Text>
@@ -1233,7 +1439,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
             <Text style={styles.backBtnTxt}>BACK</Text>
           </Pressable>
-          {boRarity && (
+          {boRarity && (isMaterial || isChest || (isEquip && boSlot)) && (
             <Pressable style={styles.confirmBtn} onPress={handleConfirmBoCreate}>
               <Text style={styles.confirmBtnTxt}>POST ORDER</Text>
             </Pressable>

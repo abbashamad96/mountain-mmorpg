@@ -39,7 +39,7 @@ interface BuyOrder {
   id: string;
   buyerId: string;
   buyerName: string;
-  material: { type: string; rarity: string; version: number | null };
+  material: { type: string; rarity: string; version: number | null; slot?: string; quality?: string; statPref?: string };
   count: number;
   filled: number;
   pricePerUnit: number;
@@ -175,6 +175,52 @@ function updateCachedMaterials(player: Player, material: { type: string; rarity:
     });
   }
   player.cachedGameState = { ...state, character: { ...char, materials } };
+  player.cacheDirty = true;
+}
+
+function removeCachedItemById(player: Player, itemId: string) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const itemBag = Array.isArray(char.itemBag) ? [...char.itemBag] : [];
+  const idx = itemBag.findIndex((i: any) => i.id === itemId);
+  if (idx >= 0) {
+    itemBag.splice(idx, 1);
+    player.cachedGameState = { ...state, character: { ...char, itemBag } };
+    player.cacheDirty = true;
+  }
+}
+
+function addCachedItem(player: Player, item: Record<string, unknown>) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const itemBag = Array.isArray(char.itemBag) ? [...char.itemBag] : [];
+  itemBag.push(item);
+  player.cachedGameState = { ...state, character: { ...char, itemBag } };
+  player.cacheDirty = true;
+}
+
+function removeCachedChestById(player: Player, chestId: string) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const chestBag = Array.isArray(char.chestBag) ? [...char.chestBag] : [];
+  const idx = chestBag.findIndex((c: any) => c.id === chestId);
+  if (idx >= 0) {
+    chestBag.splice(idx, 1);
+    player.cachedGameState = { ...state, character: { ...char, chestBag } };
+    player.cacheDirty = true;
+  }
+}
+
+function addCachedChest(player: Player, chest: Record<string, unknown>) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const chestBag = Array.isArray(char.chestBag) ? [...char.chestBag] : [];
+  chestBag.push(chest);
+  player.cachedGameState = { ...state, character: { ...char, chestBag } };
   player.cacheDirty = true;
 }
 
@@ -678,11 +724,19 @@ async function handleMessage(player: Player, raw: string) {
     const pricePerUnit = Math.max(1, parseInt(msg.pricePerUnit) || 1);
     const version = (msg.material.version === null || msg.material.version === undefined)
       ? null : (parseInt(msg.material.version) || 0);
+    const material: BuyOrder["material"] = {
+      type: String(mat.type).slice(0, 20),
+      rarity: String(mat.rarity).slice(0, 20),
+      version,
+    };
+    if (mat.slot) material.slot = String(mat.slot).slice(0, 20);
+    if (mat.quality) material.quality = String(mat.quality).slice(0, 20);
+    if (mat.statPref) material.statPref = String(mat.statPref).slice(0, 20);
     const order: BuyOrder = {
       id: `bo-${Date.now()}-${player.id}`,
       buyerId: stableId(player),
       buyerName: player.name,
-      material: { type: String(mat.type).slice(0, 20), rarity: String(mat.rarity).slice(0, 20), version },
+      material,
       count,
       filled: 0,
       pricePerUnit,
@@ -710,9 +764,10 @@ async function handleMessage(player: Player, raw: string) {
     if (order.buyerId === stableId(player)) return;
 
     const remaining = order.count - order.filled;
-    const count = Math.max(1, Math.min(parseInt(msg.count) || 1, remaining));
-    const actualVersion = (msg.version !== null && msg.version !== undefined)
-      ? parseInt(msg.version) : (order.material.version ?? 0);
+    const isMaterial = !["Equipment", "Chest"].includes(order.material.type);
+    const count = isMaterial
+      ? Math.max(1, Math.min(parseInt(msg.count) || 1, remaining))
+      : 1;
     const goldEarned = count * order.pricePerUnit;
 
     order.filled += count;
@@ -723,34 +778,126 @@ async function handleMessage(player: Player, raw: string) {
       await dbSaveBuyOrder(order);
     }
 
-    updateCachedGold(player, goldEarned);
-    updateCachedMaterials(player, { type: order.material.type, rarity: order.material.rarity, version: actualVersion }, -count);
-    send(player.ws, {
-      type: "bo_sold",
-      orderId: order.id,
-      count,
-      goldEarned,
-      material: { type: order.material.type, rarity: order.material.rarity, version: actualVersion },
-    });
-
-    const buyerPlayer = getPlayerByStableId(order.buyerId);
-    const receivedPayload = {
-      orderId: order.id,
-      count,
-      material: { type: order.material.type, rarity: order.material.rarity, version: actualVersion },
-    };
-    if (buyerPlayer) {
-      updateCachedMaterials(buyerPlayer, { type: order.material.type, rarity: order.material.rarity, version: actualVersion }, count);
-      send(buyerPlayer.ws, { type: "bo_received", ...receivedPayload });
-    } else {
-      const buyerUname = order.buyerId.toLowerCase();
-      const buyerUser = await dbGetUser(buyerUname);
-      if (buyerUser) {
-        await dbQueueDelivery(buyerUname, "bo_received", receivedPayload as Record<string, unknown>);
+    // ── Material path ───────────────────────────────────────────────
+    if (isMaterial) {
+      const actualVersion = (msg.version !== null && msg.version !== undefined)
+        ? parseInt(msg.version) : (order.material.version ?? 0);
+      updateCachedGold(player, goldEarned);
+      updateCachedMaterials(player, { type: order.material.type, rarity: order.material.rarity, version: actualVersion }, -count);
+      send(player.ws, {
+        type: "bo_sold",
+        orderId: order.id,
+        count,
+        goldEarned,
+        material: { type: order.material.type, rarity: order.material.rarity, version: actualVersion },
+      });
+      const buyerPlayer = getPlayerByStableId(order.buyerId);
+      const receivedPayload = {
+        orderId: order.id,
+        count,
+        material: { type: order.material.type, rarity: order.material.rarity, version: actualVersion },
+      };
+      if (buyerPlayer) {
+        updateCachedMaterials(buyerPlayer, { type: order.material.type, rarity: order.material.rarity, version: actualVersion }, count);
+        send(buyerPlayer.ws, { type: "bo_received", ...receivedPayload });
+      } else {
+        const buyerUname = order.buyerId.toLowerCase();
+        const buyerUser = await dbGetUser(buyerUname);
+        if (buyerUser) {
+          await dbQueueDelivery(buyerUname, "bo_received", receivedPayload as Record<string, unknown>);
+        }
       }
+      broadcastBoUpdate();
+      return;
     }
 
-    broadcastBoUpdate();
+    // ── Equipment / Chest path ─────────────────────────────────────
+    const itemType = order.material.type;
+    if (itemType === "Equipment") {
+      const itemId = String(msg.itemId || "");
+      if (!itemId) { send(player.ws, { type: "bo_fill_fail", reason: "No item selected to sell." }); return; }
+      const sellerState = player.cachedGameState as Record<string, unknown> | undefined;
+      const sellerChar = (sellerState?.character ?? {}) as Record<string, unknown>;
+      const itemBag = Array.isArray(sellerChar.itemBag) ? sellerChar.itemBag : [];
+      const item = itemBag.find((i: any) => i.id === itemId);
+      if (!item) { send(player.ws, { type: "bo_fill_fail", reason: "Item not found in your bag." }); return; }
+      const slot = (item as any).slot ?? "";
+      const rarity = (item as any).rarity ?? "";
+      if (order.material.slot && order.material.slot !== slot) { send(player.ws, { type: "bo_fill_fail", reason: "Item slot does not match the order." }); return; }
+      if (order.material.rarity !== rarity) { send(player.ws, { type: "bo_fill_fail", reason: "Item rarity does not match the order." }); return; }
+      if (order.material.quality && order.material.quality !== (item as any).quality) { send(player.ws, { type: "bo_fill_fail", reason: "Item quality does not match the order." }); return; }
+      if (order.material.statPref) {
+        const statPref = order.material.statPref;
+        const itemStat = (item as any)[statPref] ?? 0;
+        const highest = Math.max(
+          (item as any).strength ?? 0,
+          (item as any).health ?? 0,
+          (item as any).defence ?? 0,
+          (item as any).speed ?? 0,
+        );
+        if (itemStat !== highest) { send(player.ws, { type: "bo_fill_fail", reason: "Item does not have the requested highest stat." }); return; }
+      }
+      removeCachedItemById(player, itemId);
+      updateCachedGold(player, goldEarned);
+      send(player.ws, {
+        type: "bo_sold",
+        orderId: order.id,
+        count: 1,
+        goldEarned,
+        material: { type: "Equipment", rarity, version: null },
+        item,
+      });
+      const buyerPlayer = getPlayerByStableId(order.buyerId);
+      if (buyerPlayer) {
+        addCachedItem(buyerPlayer, item as Record<string, unknown>);
+        send(buyerPlayer.ws, { type: "bo_received", orderId: order.id, count: 1, material: { type: "Equipment", rarity, version: null }, item });
+      } else {
+        const buyerUname = order.buyerId.toLowerCase();
+        const buyerUser = await dbGetUser(buyerUname);
+        if (buyerUser) {
+          await dbQueueDelivery(buyerUname, "bo_received", { orderId: order.id, count: 1, material: { type: "Equipment", rarity, version: null }, item } as Record<string, unknown>);
+        }
+      }
+      broadcastBoUpdate();
+      return;
+    }
+
+    if (itemType === "Chest") {
+      const chestId = String(msg.chestId || "");
+      if (!chestId) { send(player.ws, { type: "bo_fill_fail", reason: "No chest selected to sell." }); return; }
+      const sellerState = player.cachedGameState as Record<string, unknown> | undefined;
+      const sellerChar = (sellerState?.character ?? {}) as Record<string, unknown>;
+      const chestBag = Array.isArray(sellerChar.chestBag) ? sellerChar.chestBag : [];
+      const chest = chestBag.find((c: any) => c.id === chestId);
+      if (!chest) { send(player.ws, { type: "bo_fill_fail", reason: "Chest not found in your bag." }); return; }
+      const rarity = (chest as any).rarity ?? "";
+      const tier = (chest as any).tier ?? 0;
+      if (order.material.rarity !== rarity) { send(player.ws, { type: "bo_fill_fail", reason: "Chest rarity does not match the order." }); return; }
+      if (order.material.version !== null && order.material.version !== undefined && order.material.version !== tier) { send(player.ws, { type: "bo_fill_fail", reason: "Chest tier does not match the order." }); return; }
+      removeCachedChestById(player, chestId);
+      updateCachedGold(player, goldEarned);
+      send(player.ws, {
+        type: "bo_sold",
+        orderId: order.id,
+        count: 1,
+        goldEarned,
+        material: { type: "Chest", rarity, version: tier },
+        chest,
+      });
+      const buyerPlayer = getPlayerByStableId(order.buyerId);
+      if (buyerPlayer) {
+        addCachedChest(buyerPlayer, chest as Record<string, unknown>);
+        send(buyerPlayer.ws, { type: "bo_received", orderId: order.id, count: 1, material: { type: "Chest", rarity, version: tier }, chest });
+      } else {
+        const buyerUname = order.buyerId.toLowerCase();
+        const buyerUser = await dbGetUser(buyerUname);
+        if (buyerUser) {
+          await dbQueueDelivery(buyerUname, "bo_received", { orderId: order.id, count: 1, material: { type: "Chest", rarity, version: tier }, chest } as Record<string, unknown>);
+        }
+      }
+      broadcastBoUpdate();
+      return;
+    }
   }
 }
 
