@@ -861,12 +861,6 @@ export default function GameScreen() {
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
             cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
           }}
-          onClose={() => {
-            setAutoOpenChest(null);
-            const delay = pendingDropCooldownRef.current;
-            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
-          }}
         />
       )}
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />

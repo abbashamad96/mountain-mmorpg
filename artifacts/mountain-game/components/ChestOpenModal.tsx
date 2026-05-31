@@ -22,7 +22,7 @@ import { ItemImage } from "./ItemImage";
 interface ChestOpenModalProps {
   chest: ItemChest;
   onClaim: (item: GameItem) => void;
-  onClose: () => void;
+  onClose?: () => void;
   onSellOnAh?: () => void;
 }
 
@@ -141,11 +141,6 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                   <Pressable style={[styles.openBtn, { borderColor: rc }]} onPress={handleOpen}>
                     <Text style={[styles.openBtnTxt, { color: rc }]}>OPEN CHEST</Text>
                   </Pressable>
-                  {onSellOnAh && chest.tradable && (
-                    <Pressable style={styles.sellBtn} onPress={onSellOnAh}>
-                      <Text style={styles.sellBtnTxt}>SELL ON AH</Text>
-                    </Pressable>
-                  )}
                 </View>
               )}
 
@@ -156,8 +151,8 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                 </Text>
               )}
 
-              {/* CLOSE only in idle (before opening commit) */}
-              {phase === "idle" && (
+              {/* CLOSE only if onClose prop was provided (backpack chests, not forced drops) */}
+              {phase === "idle" && onClose && (
                 <Pressable style={styles.closeBtn} onPress={onClose}>
                   <Text style={styles.closeBtnTxt}>CLOSE</Text>
                 </Pressable>
