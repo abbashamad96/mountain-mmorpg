@@ -176,7 +176,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["materials", "equipment", "chests"]));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["Ore", "Wood", "Herb", "Leather", "chests", "Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
 
   const toggleSection = (key: string) => {
     setExpandedSections((prev) => {
@@ -376,10 +376,10 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                     const entries = groupedInventory[type];
                     if (entries.length === 0) return null;
                     const typeColor = TYPE_COLORS[type];
-                    const isOpen = expandedSections.has("materials");
+                    const isOpen = expandedSections.has(type);
                     return (
                       <View key={type} style={styles.sectionBlock}>
-                        <Pressable style={[styles.sectionHeader, { borderColor: typeColor }]} onPress={() => toggleSection("materials")}>
+                        <Pressable style={[styles.sectionHeader, { borderColor: typeColor }]} onPress={() => toggleSection(type)}>
                           <Text style={[styles.sectionIcon, { color: typeColor }]}>{TYPE_ICONS[type]}</Text>
                           <Text style={[styles.sectionName, { color: typeColor }]}>{type.toUpperCase()}</Text>
                           <Text style={styles.sectionCount}>×{entries.reduce((s, e) => s + e.count, 0)}</Text>
@@ -445,47 +445,48 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
 
                   {/* ── Equipment ── */}
                   {(() => {
-                    const isOpen = expandedSections.has("equipment");
                     const slots = ["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"];
                     const slotIcons: Record<string, string> = { Weapon: "⚔", Armor: "🛡", Boots: "👢", Helmet: "⛑", Amulet: "📿", Ring: "💍" };
                     return (
                       <View style={styles.sectionBlock}>
-                        <Pressable style={[styles.sectionHeader, { borderColor: Colors.game.purpleLight }]} onPress={() => toggleSection("equipment")}>
-                          <Text style={[styles.sectionIcon, { color: Colors.game.purpleLight }]}>⚔</Text>
-                          <Text style={[styles.sectionName, { color: Colors.game.purpleLight }]}>EQUIPMENT</Text>
-                          <Text style={styles.sectionCount}>×{char.itemBag?.length ?? 0}</Text>
-                          <Text style={styles.sectionChevron}>{isOpen ? "▼" : "▶"}</Text>
-                        </Pressable>
-                        {isOpen && slots.map((slot) => {
+                        {slots.map((slot) => {
                           const items = equipmentBySlot.get(slot) ?? [];
                           if (items.length === 0) return null;
+                          const isOpen = expandedSections.has(slot);
                           return (
-                            <View key={slot} style={styles.equipSubSection}>
-                              <Text style={styles.equipSubHeader}>{slotIcons[slot]} {slot.toUpperCase()} ×{items.length}</Text>
-                              <View style={styles.sectionGrid}>
-                                {items.map((item) => {
-                                  const rc = ITEM_RARITY_COLORS[item.rarity];
-                                  const qc = ITEM_QUALITY_COLORS[item.quality];
-                                  return (
-                                    <Pressable key={item.id} style={styles.compactCell} onPress={() => setSelectedBagItem(item)}>
-                                      <View style={[styles.compactCellImg, { borderColor: rc }]}>
-                                        <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={44} compact />
-                                      </View>
-                                      <Text style={[styles.compactCellLabel, { color: rc }]}>{item.name}</Text>
-                                      <Text style={[styles.compactCellSub, { color: qc }]}>{item.quality} · {item.slot}</Text>
-                                      <View style={[styles.compactCellBadge, { backgroundColor: rc }]}>
-                                        <Text style={styles.compactCellBadgeText}>
-                                          {item.stats.strength > 0 && `⚔${item.stats.strength} `}
-                                          {item.stats.health > 0 && `♥${item.stats.health} `}
-                                          {item.stats.defence > 0 && `🛡${item.stats.defence} `}
-                                          {item.stats.speed > 0 && `⚡${item.stats.speed} `}
-                                          {item.stats.strength === 0 && item.stats.health === 0 && item.stats.defence === 0 && item.stats.speed === 0 ? "No stats" : ""}
-                                        </Text>
-                                      </View>
-                                    </Pressable>
-                                  );
-                                })}
-                              </View>
+                            <View key={slot} style={{ marginBottom: 8 }}>
+                              <Pressable style={[styles.sectionHeader, { borderColor: Colors.game.purpleLight }]} onPress={() => toggleSection(slot)}>
+                                <Text style={[styles.sectionIcon, { color: Colors.game.purpleLight }]}>{slotIcons[slot]}</Text>
+                                <Text style={[styles.sectionName, { color: Colors.game.purpleLight }]}>{slot.toUpperCase()}</Text>
+                                <Text style={styles.sectionCount}>×{items.length}</Text>
+                                <Text style={styles.sectionChevron}>{isOpen ? "▼" : "▶"}</Text>
+                              </Pressable>
+                              {isOpen && (
+                                <View style={styles.sectionGrid}>
+                                  {items.map((item) => {
+                                    const rc = ITEM_RARITY_COLORS[item.rarity];
+                                    const qc = ITEM_QUALITY_COLORS[item.quality];
+                                    return (
+                                      <Pressable key={item.id} style={styles.compactCell} onPress={() => setSelectedBagItem(item)}>
+                                        <View style={[styles.compactCellImg, { borderColor: rc }]}>
+                                          <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={44} compact />
+                                        </View>
+                                        <Text style={[styles.compactCellLabel, { color: rc }]}>{item.name}</Text>
+                                        <Text style={[styles.compactCellSub, { color: qc }]}>{item.quality} · {item.slot}</Text>
+                                        <View style={[styles.compactCellBadge, { backgroundColor: rc }]}>
+                                          <Text style={styles.compactCellBadgeText}>
+                                            {item.stats.strength > 0 && `⚔${item.stats.strength} `}
+                                            {item.stats.health > 0 && `♥${item.stats.health} `}
+                                            {item.stats.defence > 0 && `🛡${item.stats.defence} `}
+                                            {item.stats.speed > 0 && `⚡${item.stats.speed} `}
+                                            {item.stats.strength === 0 && item.stats.health === 0 && item.stats.defence === 0 && item.stats.speed === 0 ? "No stats" : ""}
+                                          </Text>
+                                        </View>
+                                      </Pressable>
+                                    );
+                                  })}
+                                </View>
+                              )}
                             </View>
                           );
                         })}
