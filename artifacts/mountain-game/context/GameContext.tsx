@@ -262,7 +262,7 @@ export type NpcDropResult =
   | null
   | { type: "material"; material: Material; count: number }
   | { type: "item";    item: GameItem }
-  | { type: "chest";  chest: ItemChest; autoOpen: boolean };
+  | { type: "chest";  chest: ItemChest };
 
 export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
   const r = Math.random() * 100;
@@ -274,14 +274,13 @@ export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
     return { type: "item", item };
   }
 
-  if (r < 15) {
-    // 5% chest drop — 90% auto-opens immediately, 10% goes to bag
+  if (r < 11) {
+    // 1% chest drop — goes to bag via ChestDropModal
     const chest = rollChestFromMonster(npc.rarity, npc.version as ItemTier);
-    const autoOpen = Math.random() < 0.9;
-    return { type: "chest", chest, autoOpen };
+    return { type: "chest", chest };
   }
 
-  if (r < 15 + materialChance) {
+  if (r < 11 + materialChance) {
     // material drop
     const matType = MATERIAL_TYPES_DROP[Math.floor(Math.random() * MATERIAL_TYPES_DROP.length)];
     const rarity = npc.rarity;

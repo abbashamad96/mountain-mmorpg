@@ -632,17 +632,8 @@ export default function GameScreen() {
             addItemToBag(drop.item);
           } else if (drop?.type === "chest") {
             droppedChest = drop.chest;
-            if (drop.autoOpen) {
-              // 90%: auto-open, item goes straight to bag
-              const item = openChest(drop.chest);
-              addItemToBag(item);
-              droppedItem = item;
-              droppedChest = undefined;
-            } else {
-              // 10%: chest goes to bag as-is
-              pendingDropCooldownRef.current = 400;
-              setPendingDropChest(drop.chest);
-            }
+            pendingDropCooldownRef.current = 400;
+            setPendingDropChest(drop.chest);
           }
         }
 
