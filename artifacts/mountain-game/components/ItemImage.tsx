@@ -3,16 +3,69 @@ import { Animated, Image, StyleSheet, View } from "react-native";
 import { ITEM_QUALITY_COLORS, ITEM_RARITY_COLORS, ItemQuality, ItemRarity, ItemSlot, ItemTier } from "@/lib/items";
 
 // ─── Static require map (Metro bundler needs literal require calls) ────────────
+// 6 slots × 8 rarities = 48 images
 
-const EQUIPMENT_SPLASH: Record<ItemRarity, any> = {
-  Common:    require("../assets/splash/equipment_Common.png"),
-  Uncommon:  require("../assets/splash/equipment_Uncommon.png"),
-  Rare:      require("../assets/splash/equipment_Rare.png"),
-  Epic:      require("../assets/splash/equipment_Epic.png"),
-  Elite:     require("../assets/splash/equipment_Legendary.png"),
-  Legendary: require("../assets/splash/equipment_Mythic.png"),
-  Superior:  require("../assets/splash/equipment_Divine.png"),
-  Cosmic:    require("../assets/splash/equipment_Cosmic.png"),
+const EQUIPMENT_SPLASH: Record<ItemSlot, Record<ItemRarity, any>> = {
+  Weapon: {
+    Common:    require("../assets/splash/Weapon_Common.png"),
+    Uncommon:  require("../assets/splash/Weapon_Uncommon.png"),
+    Rare:      require("../assets/splash/Weapon_Rare.png"),
+    Epic:      require("../assets/splash/Weapon_Epic.png"),
+    Elite:     require("../assets/splash/Weapon_Elite.png"),
+    Legendary: require("../assets/splash/Weapon_Legendary.png"),
+    Superior:  require("../assets/splash/Weapon_Superior.png"),
+    Cosmic:    require("../assets/splash/Weapon_Cosmic.png"),
+  },
+  Armor: {
+    Common:    require("../assets/splash/Armor_Common.png"),
+    Uncommon:  require("../assets/splash/Armor_Uncommon.png"),
+    Rare:      require("../assets/splash/Armor_Rare.png"),
+    Epic:      require("../assets/splash/Armor_Epic.png"),
+    Elite:     require("../assets/splash/Armor_Elite.png"),
+    Legendary: require("../assets/splash/Armor_Legendary.png"),
+    Superior:  require("../assets/splash/Armor_Superior.png"),
+    Cosmic:    require("../assets/splash/Armor_Cosmic.png"),
+  },
+  Boots: {
+    Common:    require("../assets/splash/Boots_Common.png"),
+    Uncommon:  require("../assets/splash/Boots_Uncommon.png"),
+    Rare:      require("../assets/splash/Boots_Rare.png"),
+    Epic:      require("../assets/splash/Boots_Epic.png"),
+    Elite:     require("../assets/splash/Boots_Elite.png"),
+    Legendary: require("../assets/splash/Boots_Legendary.png"),
+    Superior:  require("../assets/splash/Boots_Superior.png"),
+    Cosmic:    require("../assets/splash/Boots_Cosmic.png"),
+  },
+  Helmet: {
+    Common:    require("../assets/splash/Helmet_Common.png"),
+    Uncommon:  require("../assets/splash/Helmet_Uncommon.png"),
+    Rare:      require("../assets/splash/Helmet_Rare.png"),
+    Epic:      require("../assets/splash/Helmet_Epic.png"),
+    Elite:     require("../assets/splash/Helmet_Elite.png"),
+    Legendary: require("../assets/splash/Helmet_Legendary.png"),
+    Superior:  require("../assets/splash/Helmet_Superior.png"),
+    Cosmic:    require("../assets/splash/Helmet_Cosmic.png"),
+  },
+  Amulet: {
+    Common:    require("../assets/splash/Amulet_Common.png"),
+    Uncommon:  require("../assets/splash/Amulet_Uncommon.png"),
+    Rare:      require("../assets/splash/Amulet_Rare.png"),
+    Epic:      require("../assets/splash/Amulet_Epic.png"),
+    Elite:     require("../assets/splash/Amulet_Elite.png"),
+    Legendary: require("../assets/splash/Amulet_Legendary.png"),
+    Superior:  require("../assets/splash/Amulet_Superior.png"),
+    Cosmic:    require("../assets/splash/Amulet_Cosmic.png"),
+  },
+  Ring: {
+    Common:    require("../assets/splash/Ring_Common.png"),
+    Uncommon:  require("../assets/splash/Ring_Uncommon.png"),
+    Rare:      require("../assets/splash/Ring_Rare.png"),
+    Epic:      require("../assets/splash/Ring_Epic.png"),
+    Elite:     require("../assets/splash/Ring_Elite.png"),
+    Legendary: require("../assets/splash/Ring_Legendary.png"),
+    Superior:  require("../assets/splash/Ring_Superior.png"),
+    Cosmic:    require("../assets/splash/Ring_Cosmic.png"),
+  },
 };
 
 // ─── Rarity effects ───────────────────────────────────────────────────────────
@@ -136,7 +189,7 @@ export function ItemImage({
         </>
       )}
 
-      {/* AI splash image tile */}
+      {/* AI splash image tile — slot + rarity specific */}
       <View style={[ss.bg, {
         width: imgSize, height: imgSize,
         borderRadius: imgSize * 0.16,
@@ -145,7 +198,7 @@ export function ItemImage({
         top: imgOffset, left: imgOffset,
       }]}>
         <Image
-          source={EQUIPMENT_SPLASH[rarity]}
+          source={EQUIPMENT_SPLASH[slot][rarity]}
           style={{ width: "100%", height: "100%", borderRadius: imgSize * 0.16 }}
           resizeMode="cover"
         />

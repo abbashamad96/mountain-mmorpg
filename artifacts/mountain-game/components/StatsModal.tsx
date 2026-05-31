@@ -431,7 +431,33 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                                           <Text style={[styles.equipTagText, { color: rc }]}>{item.rarity.toUpperCase()}</Text>
                                         </View>
                                       </View>
-                                      <Text style={[styles.equipCardName, { color: rc }]} numberOfLines={1}>{item.name}</Text>
+                                        <Text style={[styles.equipCardName, { color: rc }]} numberOfLines={1}>{item.name}</Text>
+                                      <View style={styles.equipStatRow}>
+                                        {item.stats.strength > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.red }]}>⚔ {item.stats.strength.toFixed(1)}</Text>
+                                        )}
+                                        {item.stats.health > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.green }]}>♥ {item.stats.health.toFixed(1)}</Text>
+                                        )}
+                                        {item.stats.defence > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.blue }]}>🛡 {item.stats.defence.toFixed(1)}</Text>
+                                        )}
+                                        {item.stats.speed > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.gold }]}>⚡ {item.stats.speed.toFixed(1)}</Text>
+                                        )}
+                                        {item.percentStats.strength > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.red + "99" }]}>⚔ +{(item.percentStats.strength * 100).toFixed(1)}%</Text>
+                                        )}
+                                        {item.percentStats.health > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.green + "99" }]}>♥ +{(item.percentStats.health * 100).toFixed(1)}%</Text>
+                                        )}
+                                        {item.percentStats.defence > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.blue + "99" }]}>🛡 +{(item.percentStats.defence * 100).toFixed(1)}%</Text>
+                                        )}
+                                        {item.percentStats.speed > 0 && (
+                                          <Text style={[styles.equipStatText, { color: Colors.game.gold + "99" }]}>⚡ +{(item.percentStats.speed * 100).toFixed(1)}%</Text>
+                                        )}
+                                      </View>
                                     </View>
                                   </Pressable>
                                 );
@@ -780,6 +806,8 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: "Inter_700Bold",
     letterSpacing: 0.2,
   },
+  equipStatRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 },
+  equipStatText: { fontSize: 10, fontFamily: "Inter_500Medium" },
 
   closeBtn: {
     backgroundColor: Colors.game.surface,

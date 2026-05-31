@@ -96,3 +96,291 @@ id = "uAPm0eA9uZtQUGca_5Saf"
 uri = "file://artifacts/mountain-game/assets/splash/chest_Cosmic.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "eS7qTqxr-n1okyyQhq5GX"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Common.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "u4A6r2oXTuM23JCx7_bhz"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Uncommon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "O7raw48hYOX9BSHlBOnFE"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Rare.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "0iPjS-ezbM8grqNyA8PCh"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Epic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "2G8xJ52ZoQC2WJ4ZZkdmV"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Elite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "HJ4aL5Rgt4zoDKkRjwCHD"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Legendary.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "VgOy9-D14cHh4yesIYepe"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Superior.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4sTpSlNmOSWxpy4EvSBd2"
+uri = "file://artifacts/mountain-game/assets/splash/Weapon_Cosmic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "GJxdV6KZRcabrLKSpmUOk"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Common.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "4rq2JBiRJBqV8Bk4jDV9C"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Uncommon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "50RGLsxn6vYt0Q5bvp8mB"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Rare.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "yg6GFS8Nt0oDpUj5p8TN_"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Epic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Ii-hOokAP-q0WIwEROupw"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Elite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "-SWDmal-vfOHdO9LltsEk"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Legendary.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "bJdhb8omqxzwyM_qcwSDP"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Superior.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "rE2D-D2Ox-WG8NnR9UFW6"
+uri = "file://artifacts/mountain-game/assets/splash/Armor_Cosmic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "czVIcO1Dt9nmOtBIGDynh"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Common.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "KxRDqSD4UP53QPVvgSBEL"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Uncommon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ovOM0hpUofgP3HFNwxXuJ"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Rare.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "EM1rm7ZUj1uX5koohsSIM"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Epic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "CIyLZ49dh4Aavyy1GYzuu"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Elite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "hUIPbMJtHTP_zL-Rhmsq2"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Legendary.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "tU7Svt4mVwzkVe6EPpty-"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Superior.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "3JDdu4Mrw89q5jX2Oz3Yx"
+uri = "file://artifacts/mountain-game/assets/splash/Boots_Cosmic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "qGBpmP4bT8AtaMfP233DA"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Common.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "31WBGWIOSZWSWtF_crQKW"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Uncommon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "RlFcIwWhr-5bfbmDrUUKH"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Rare.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "p5h8OMkTXO5GCL95ByRuE"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Epic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "fS9qhhfW4Qtq8s05LAmHK"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Elite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "R_4otsP3Ar7GtaPClU_dg"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Legendary.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Ao6pCVfA4ZZrgonZ68Omw"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Superior.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Q62eozGQR-cmshtK3Kz4J"
+uri = "file://artifacts/mountain-game/assets/splash/Helmet_Cosmic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Q_cZalNiT0RgWZNHw5rdX"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Common.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "zWl1HnoXY9zsOFDgmmpE8"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Uncommon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "AjikcSWgNUeSqXgFoWkIZ"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Rare.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "0t5P7ls8E4YZjcy2LQG__"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Epic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "-eP9Cc7O6aKLv6z1Ng1ez"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Elite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "-dVouNkgUCFGJDrm0M0zU"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Legendary.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "F2V2RvU760PED-oBbJue_"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Superior.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "qg7ujt98x3YAUS_EgfWRu"
+uri = "file://artifacts/mountain-game/assets/splash/Amulet_Cosmic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "SHtKRaTqiswAQ7TBPjzr8"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Common.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "fYV1dhhLC70Daq0X2C878"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Uncommon.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "py18dK0vyBjZY22Z1f8Ns"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Rare.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "SXDf4gsCBiv9iIagJey6G"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Epic.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "lmX0xhKnmvO5cCyhjnnQ3"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Elite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "LuKStxbwbWNfrCUi5oqut"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Legendary.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "USMW_Blcwj2q_2DcGDDhg"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Superior.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "FFnvZJnrdN1WMGn57ALsD"
+uri = "file://artifacts/mountain-game/assets/splash/Ring_Cosmic.png"
+type = "image"
+title = "generated_image"
