@@ -883,6 +883,7 @@ export default function GameScreen() {
               xpGained: 0,
               material: null,
               itemDrop: item,
+              chest: autoOpenChest,
             });
             setAutoOpenChest(null);
             const delay = pendingDropCooldownRef.current;
