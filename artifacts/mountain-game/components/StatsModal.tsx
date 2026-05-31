@@ -10,7 +10,7 @@ import {
 import Colors from "@/constants/colors";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
-import { GameItem, ITEM_RARITY_COLORS, ITEM_SLOT_ICONS, ITEM_SLOTS, ITEM_QUALITY_COLORS, ItemSlot } from "@/lib/items";
+import { GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_SLOT_ICONS, ITEM_SLOTS, ITEM_QUALITY_COLORS, ItemRarity, ItemSlot } from "@/lib/items";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
@@ -176,6 +176,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
+  const [expandedSlots, setExpandedSlots] = useState<Set<ItemSlot>>(new Set(ITEM_SLOTS));
 
   // Group inventory by material type, sort each group by rarity (highest first)
   const groupedInventory = useMemo(() => {
@@ -198,6 +199,15 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const handleListOnAhFromDetail = (entry: MaterialEntry) => {
     setSelectedEntry(null);
     onListOnAh?.(entry);
+  };
+
+  const toggleSlot = (slot: ItemSlot) => {
+    setExpandedSlots((prev) => {
+      const next = new Set(prev);
+      if (next.has(slot)) next.delete(slot);
+      else next.add(slot);
+      return next;
+    });
   };
 
   return (
@@ -378,7 +388,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                     );
                   })()}
 
-                  {/* ── Item Bag (categorized by slot) ── */}
+                  {/* ── Item Bag (collapsible by slot, then grouped by rarity) ── */}
                   {(char.itemBag?.length ?? 0) > 0 && (() => {
                     const bySlot = new Map<ItemSlot, GameItem[]>();
                     for (const slot of ITEM_SLOTS) bySlot.set(slot, []);
@@ -396,70 +406,99 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                           const items = bySlot.get(slot)!;
                           if (items.length === 0) return null;
                           const slotIcon = ITEM_SLOT_ICONS[slot];
+                          const isOpen = expandedSlots.has(slot);
+                          // Sort items: rarity descending (highest first), then tier descending
+                          items.sort((a, b) => {
+                            const ra = ITEM_RARITIES.indexOf(a.rarity);
+                            const rb = ITEM_RARITIES.indexOf(b.rarity);
+                            if (rb !== ra) return rb - ra;
+                            return b.tier - a.tier;
+                          });
+                          // Group by rarity
+                          const byRarity = new Map<ItemRarity, GameItem[]>();
+                          for (const r of ITEM_RARITIES) byRarity.set(r, []);
+                          for (const item of items) byRarity.get(item.rarity)!.push(item);
                           return (
                             <View key={slot} style={styles.equipSlotSection}>
-                              <View style={styles.equipSlotHeader}>
+                              <Pressable
+                                style={styles.equipSlotHeader}
+                                onPress={() => toggleSlot(slot)}
+                              >
                                 <Text style={styles.equipSlotIcon}>{slotIcon}</Text>
                                 <Text style={styles.equipSlotName}>{slot.toUpperCase()}</Text>
                                 <Text style={styles.equipSlotCount}>×{items.length}</Text>
-                              </View>
-                              {items.map((item) => {
-                                const rc = ITEM_RARITY_COLORS[item.rarity];
-                                const qc = ITEM_QUALITY_COLORS[item.quality];
+                                <Text style={styles.equipSlotChevron}>{isOpen ? "▼" : "▶"}</Text>
+                              </Pressable>
+                              {isOpen && ITEM_RARITIES.map((rarity) => {
+                                const rarityItems = byRarity.get(rarity)!;
+                                if (rarityItems.length === 0) return null;
+                                const rc = ITEM_RARITY_COLORS[rarity];
                                 return (
-                                  <Pressable
-                                    key={item.id}
-                                    style={[styles.equipCard, { borderColor: rc + "55" }]}
-                                    onPress={() => setSelectedBagItem(item)}
-                                  >
-                                    <View style={styles.equipCardImg}>
-                                      <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={58} compact />
+                                  <View key={rarity} style={styles.equipRarityGroup}>
+                                    <View style={[styles.equipRarityHeader, { borderColor: rc + "44" }]}>
+                                      <Text style={[styles.equipRarityHeaderText, { color: rc }]}>
+                                        {rarity.toUpperCase()} ×{rarityItems.length}
+                                      </Text>
                                     </View>
-                                    <View style={styles.equipCardRight}>
-                                      <View style={styles.equipTagRow}>
-                                        {item.tier > 0 && (
-                                          <View style={[styles.equipTag, { backgroundColor: rc + "22", borderColor: rc + "66" }]}>
-                                            <Text style={[styles.equipTagText, { color: rc }]}>T{item.tier}</Text>
+                                    {rarityItems.map((item) => {
+                                      const qc = ITEM_QUALITY_COLORS[item.quality];
+                                      return (
+                                        <Pressable
+                                          key={item.id}
+                                          style={[styles.equipCard, { borderColor: rc + "55" }]}
+                                          onPress={() => setSelectedBagItem(item)}
+                                        >
+                                          <View style={styles.equipCardImg}>
+                                            <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={58} compact />
                                           </View>
-                                        )}
-                                        {item.quality !== "Basic" && (
-                                          <View style={[styles.equipTag, { backgroundColor: qc + "22", borderColor: qc + "66" }]}>
-                                            <Text style={[styles.equipTagText, { color: qc }]}>{item.quality.toUpperCase()}</Text>
+                                          <View style={styles.equipCardRight}>
+                                            <View style={styles.equipTagRow}>
+                                              {item.tier > 0 && (
+                                                <View style={[styles.equipTag, { backgroundColor: rc + "22", borderColor: rc + "66" }]}>
+                                                  <Text style={[styles.equipTagText, { color: rc }]}>T{item.tier}</Text>
+                                                </View>
+                                              )}
+                                              {item.quality !== "Basic" && (
+                                                <View style={[styles.equipTag, { backgroundColor: qc + "22", borderColor: qc + "66" }]}>
+                                                  <Text style={[styles.equipTagText, { color: qc }]}>{item.quality.toUpperCase()}</Text>
+                                                </View>
+                                              )}
+                                              <View style={[styles.equipTag, { backgroundColor: rc + "22", borderColor: rc + "66" }]}>
+                                                <Text style={[styles.equipTagText, { color: rc }]}>{item.rarity.toUpperCase()}</Text>
+                                              </View>
+                                            </View>
+                                            <Text style={[styles.equipCardName, { color: rc }]} numberOfLines={1}>{item.name}</Text>
+                                            <View style={styles.equipStatRow}>
+                                              {item.stats.strength > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.red }]}>⚔ {item.stats.strength.toFixed(1)}</Text>
+                                              )}
+                                              {item.stats.health > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.green }]}>♥ {item.stats.health.toFixed(1)}</Text>
+                                              )}
+                                              {item.stats.defence > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.blue }]}>🛡 {item.stats.defence.toFixed(1)}</Text>
+                                              )}
+                                              {item.stats.speed > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.gold }]}>⚡ {item.stats.speed.toFixed(1)}</Text>
+                                              )}
+                                              {item.percentStats.strength > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.red + "99" }]}>⚔ +{(item.percentStats.strength * 100).toFixed(1)}%</Text>
+                                              )}
+                                              {item.percentStats.health > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.green + "99" }]}>♥ +{(item.percentStats.health * 100).toFixed(1)}%</Text>
+                                              )}
+                                              {item.percentStats.defence > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.blue + "99" }]}>🛡 +{(item.percentStats.defence * 100).toFixed(1)}%</Text>
+                                              )}
+                                              {item.percentStats.speed > 0 && (
+                                                <Text style={[styles.equipStatText, { color: Colors.game.gold + "99" }]}>⚡ +{(item.percentStats.speed * 100).toFixed(1)}%</Text>
+                                              )}
+                                            </View>
                                           </View>
-                                        )}
-                                        <View style={[styles.equipTag, { backgroundColor: rc + "22", borderColor: rc + "66" }]}>
-                                          <Text style={[styles.equipTagText, { color: rc }]}>{item.rarity.toUpperCase()}</Text>
-                                        </View>
-                                      </View>
-                                        <Text style={[styles.equipCardName, { color: rc }]} numberOfLines={1}>{item.name}</Text>
-                                      <View style={styles.equipStatRow}>
-                                        {item.stats.strength > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.red }]}>⚔ {item.stats.strength.toFixed(1)}</Text>
-                                        )}
-                                        {item.stats.health > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.green }]}>♥ {item.stats.health.toFixed(1)}</Text>
-                                        )}
-                                        {item.stats.defence > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.blue }]}>🛡 {item.stats.defence.toFixed(1)}</Text>
-                                        )}
-                                        {item.stats.speed > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.gold }]}>⚡ {item.stats.speed.toFixed(1)}</Text>
-                                        )}
-                                        {item.percentStats.strength > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.red + "99" }]}>⚔ +{(item.percentStats.strength * 100).toFixed(1)}%</Text>
-                                        )}
-                                        {item.percentStats.health > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.green + "99" }]}>♥ +{(item.percentStats.health * 100).toFixed(1)}%</Text>
-                                        )}
-                                        {item.percentStats.defence > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.blue + "99" }]}>🛡 +{(item.percentStats.defence * 100).toFixed(1)}%</Text>
-                                        )}
-                                        {item.percentStats.speed > 0 && (
-                                          <Text style={[styles.equipStatText, { color: Colors.game.gold + "99" }]}>⚡ +{(item.percentStats.speed * 100).toFixed(1)}%</Text>
-                                        )}
-                                      </View>
-                                    </View>
-                                  </Pressable>
+                                        </Pressable>
+                                      );
+                                    })}
+                                  </View>
                                 );
                               })}
                             </View>
@@ -777,7 +816,7 @@ const styles = StyleSheet.create({
   equipSlotSection: { marginBottom: 10, gap: 6 },
   equipSlotHeader: {
     flexDirection: "row", alignItems: "center",
-    gap: 8, paddingHorizontal: 4, paddingVertical: 4,
+    gap: 8, paddingHorizontal: 4, paddingVertical: 6,
   },
   equipSlotIcon: { fontSize: 14 },
   equipSlotName: {
@@ -787,6 +826,20 @@ const styles = StyleSheet.create({
   equipSlotCount: {
     fontSize: 10, fontFamily: "Inter_500Medium",
     color: Colors.game.textDim,
+  },
+  equipSlotChevron: {
+    fontSize: 10, color: Colors.game.textDim,
+    marginLeft: 4,
+  },
+  equipRarityGroup: { marginBottom: 6 },
+  equipRarityHeader: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 4, paddingHorizontal: 6,
+    borderBottomWidth: 1, marginBottom: 4,
+  },
+  equipRarityHeaderText: {
+    fontSize: 9, fontFamily: "Inter_700Bold",
+    letterSpacing: 1.2,
   },
   equipCard: {
     flexDirection: "row", alignItems: "center",
