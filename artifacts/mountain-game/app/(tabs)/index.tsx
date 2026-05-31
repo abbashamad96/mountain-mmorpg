@@ -717,9 +717,8 @@ export default function GameScreen() {
   const handleChestDropCollect = useCallback((chest: ItemChest) => {
     addChestToBag(chest);
     setPendingDropChest(null);
-    const delay = pendingDropCooldownRef.current;
     if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-    cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
+    cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
   }, [addChestToBag]);
 
   // ── Inactivity auto-logout (5 minutes) ────────────────────────────────────────
@@ -886,9 +885,8 @@ export default function GameScreen() {
               chest: autoOpenChest,
             });
             setAutoOpenChest(null);
-            const delay = pendingDropCooldownRef.current;
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
           }}
         />
       )}

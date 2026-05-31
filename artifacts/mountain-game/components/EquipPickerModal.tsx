@@ -44,16 +44,17 @@ export function EquipPickerModal({ slot, onClose, onEquip }: EquipPickerModalPro
     const items = char.itemBag.filter((i) => i.slot === slot);
     const meets = (i: GameItem) => char.level >= i.levelRequirement;
     return items.slice().sort((a, b) => {
-      // 1. Rarity descending
-      const rDiff = rarityScore(b.rarity) - rarityScore(a.rarity);
-      if (rDiff !== 0) return rDiff;
-      // 2. Total stat points descending
-      const sDiff = totalStatPoints(b) - totalStatPoints(a);
-      if (sDiff !== 0) return sDiff;
-      // 3. Level-requirement met first
+      // 1. Unlocked items first, locked at bottom
       const aOk = meets(a) ? 1 : 0;
       const bOk = meets(b) ? 1 : 0;
-      return bOk - aOk;
+      if (aOk !== bOk) return bOk - aOk;
+      // 2. Rarity descending
+      const rDiff = rarityScore(b.rarity) - rarityScore(a.rarity);
+      if (rDiff !== 0) return rDiff;
+      // 3. Total stat points descending
+      const sDiff = totalStatPoints(b) - totalStatPoints(a);
+      if (sDiff !== 0) return sDiff;
+      return 0;
     });
   }, [char.itemBag, slot, char.level]);
 
