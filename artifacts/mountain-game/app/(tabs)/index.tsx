@@ -15,6 +15,7 @@ import { OfflineOverlay } from "@/components/OfflineOverlay";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { ChestDropModal } from "@/components/ChestDropModal";
+import { ChestOpenModal } from "@/components/ChestOpenModal";
 import { GatheringModal } from "@/components/GatheringModal";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
@@ -34,7 +35,7 @@ import {
   useGame,
   getEffectiveStats,
 } from "@/context/GameContext";
-import { GameItem, ITEM_RARITY_COLORS, openChest } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -393,6 +394,7 @@ export default function GameScreen() {
   const [preSelectChestForAh, setPreSelectChestForAh] = useState<ItemChest | null>(null);
   const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(null);
   const pendingDropCooldownRef = useRef<number>(500);
+  const [autoOpenChest, setAutoOpenChest] = useState<ItemChest | null>(null);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
 
   const insets = useSafeAreaInsets();
@@ -552,22 +554,21 @@ export default function GameScreen() {
     } else if (roll.type === "item_chest" && roll.chest) {
       const autoOpen = Math.random() < 0.9;
       if (autoOpen) {
-        // 90%: open immediately, item straight to bag
-        const item = openChest(roll.chest);
-        addItemToBag(item);
+        // 90%: auto-open chest — player must tap OPEN CHEST to interact
+        pendingDropCooldownRef.current = duration;
+        setAutoOpenChest(roll.chest);
         addLogEntry({
           id: roll.id,
           timestamp: roll.timestamp,
           type: "item_chest",
-          summary: `Chest opened! Got ${item.name}`,
+          summary: `Found a ${roll.chest.rarity} Chest! (Tap to open)`,
           goldGained: 0,
           xpGained: 0,
           material: null,
           chest: roll.chest,
-          itemDrop: item,
         });
       } else {
-        // 10%: chest goes to bag
+        // 10%: collectable chest goes to bag
         pendingDropCooldownRef.current = duration;
         setPendingDropChest(roll.chest);
         addLogEntry({
@@ -850,6 +851,24 @@ export default function GameScreen() {
         preSelectedChest={preSelectChestForAh}
       />
       <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
+      {autoOpenChest && (
+        <ChestOpenModal
+          chest={autoOpenChest}
+          onClaim={(item) => {
+            addItemToBag(item);
+            setAutoOpenChest(null);
+            const delay = pendingDropCooldownRef.current;
+            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
+          }}
+          onClose={() => {
+            setAutoOpenChest(null);
+            const delay = pendingDropCooldownRef.current;
+            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
+          }}
+        />
+      )}
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
       <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
