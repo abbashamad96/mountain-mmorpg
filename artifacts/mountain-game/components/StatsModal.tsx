@@ -176,6 +176,16 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["materials", "equipment", "chests"]));
+
+  const toggleSection = (key: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   // Group inventory by material type, sort each group by rarity (highest first)
   const groupedInventory = useMemo(() => {
@@ -196,11 +206,6 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   }, [char.materials]);
 
   const totalItems = char.materials.length + (char.chestBag?.length ?? 0) + (char.itemBag?.length ?? 0);
-  const allMaterialEntries = useMemo(() => Object.values(groupedInventory).flat().sort((a, b) => {
-    const aIdx = RARITIES.indexOf(a.material.rarity);
-    const bIdx = RARITIES.indexOf(b.material.rarity);
-    return bIdx - aIdx;
-  }), [groupedInventory]);
   const chestStacks = useMemo(() => {
     const stacks = new Map<string, { rep: ItemChest; count: number }>();
     for (const c of char.chestBag ?? []) {
@@ -210,12 +215,23 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
     }
     return Array.from(stacks.values());
   }, [char.chestBag]);
-  const equipmentItems = useMemo(() => (char.itemBag ?? []).slice().sort((a, b) => {
-    const ra = ITEM_RARITIES.indexOf(a.rarity);
-    const rb = ITEM_RARITIES.indexOf(b.rarity);
-    if (rb !== ra) return rb - ra;
-    return b.tier - a.tier;
-  }), [char.itemBag]);
+  const equipmentBySlot = useMemo(() => {
+    const map = new Map<string, GameItem[]>();
+    const slots = ["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"];
+    for (const s of slots) map.set(s, []);
+    for (const item of char.itemBag ?? []) {
+      map.get(item.slot)?.push(item);
+    }
+    for (const items of map.values()) {
+      items.sort((a, b) => {
+        const ra = ITEM_RARITIES.indexOf(a.rarity);
+        const rb = ITEM_RARITIES.indexOf(b.rarity);
+        if (rb !== ra) return rb - ra;
+        return b.tier - a.tier;
+      });
+    }
+    return map;
+  }, [char.itemBag]);
 
   const handleListOnAhFromDetail = (entry: MaterialEntry) => {
     setSelectedEntry(null);
@@ -354,62 +370,128 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                   <Text style={styles.emptyInvSub}>Gather materials by exploring the mountain.</Text>
                 </View>
               ) : (
-                <View style={styles.unifiedGrid}>
+                <View style={styles.sectionGrid}>
                   {/* ── Materials ── */}
-                  {allMaterialEntries.map((entry) => {
-                    const rc = RARITY_COLORS[entry.material.rarity];
+                  {(Object.keys(groupedInventory) as MaterialType[]).map((type) => {
+                    const entries = groupedInventory[type];
+                    if (entries.length === 0) return null;
+                    const typeColor = TYPE_COLORS[type];
+                    const isOpen = expandedSections.has("materials");
                     return (
-                      <Pressable key={entry.key} style={styles.unifiedCell} onPress={() => setSelectedEntry(entry)}>
-                        <View style={[styles.unifiedCellImg, { borderColor: rc }]}>
-                          <MaterialImage type={entry.material.type} rarity={entry.material.rarity} version={entry.material.version} size={56} compact animateParticles={false} />
-                        </View>
-                        <Text style={[styles.unifiedCellLabel, { color: rc }]}>{entry.material.rarity}{entry.material.version > 0 ? ` T${entry.material.version}` : ""}</Text>
-                        <Text style={[styles.unifiedCellSub, { color: rc }]}>{entry.material.type}</Text>
-                        <View style={[styles.unifiedCellBadge, { backgroundColor: rc }]}>
-                          <Text style={styles.unifiedCellBadgeText}>×{entry.count}</Text>
-                        </View>
-                      </Pressable>
+                      <View key={type} style={styles.sectionBlock}>
+                        <Pressable style={[styles.sectionHeader, { borderColor: typeColor }]} onPress={() => toggleSection("materials")}>
+                          <Text style={[styles.sectionIcon, { color: typeColor }]}>{TYPE_ICONS[type]}</Text>
+                          <Text style={[styles.sectionName, { color: typeColor }]}>{type.toUpperCase()}</Text>
+                          <Text style={styles.sectionCount}>×{entries.reduce((s, e) => s + e.count, 0)}</Text>
+                          <Text style={styles.sectionChevron}>{isOpen ? "▼" : "▶"}</Text>
+                        </Pressable>
+                        {isOpen && (
+                          <View style={styles.sectionGrid}>
+                            {entries.map((entry) => {
+                              const rc = RARITY_COLORS[entry.material.rarity];
+                              return (
+                                <Pressable key={entry.key} style={styles.compactCell} onPress={() => setSelectedEntry(entry)}>
+                                  <View style={[styles.compactCellImg, { borderColor: rc }]}>
+                                    <MaterialImage type={entry.material.type} rarity={entry.material.rarity} version={entry.material.version} size={44} compact animateParticles={false} />
+                                  </View>
+                                  <Text style={[styles.compactCellLabel, { color: rc }]}>{entry.material.rarity}{entry.material.version > 0 ? ` T${entry.material.version}` : ""}</Text>
+                                  <Text style={[styles.compactCellSub, { color: rc }]}>{entry.material.type}</Text>
+                                  <View style={[styles.compactCellBadge, { backgroundColor: rc }]}>
+                                    <Text style={styles.compactCellBadgeText}>×{entry.count}</Text>
+                                  </View>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
                     );
                   })}
+
                   {/* ── Chests ── */}
-                  {chestStacks.map(({ rep, count }) => {
-                    const rc = ITEM_RARITY_COLORS[rep.rarity];
+                  {chestStacks.length > 0 && (() => {
+                    const isOpen = expandedSections.has("chests");
+                    const total = chestStacks.reduce((s, { count }) => s + count, 0);
                     return (
-                      <Pressable key={`${rep.rarity}-${rep.tier}`} style={styles.unifiedCell} onPress={() => setSelectedChest(rep)}>
-                        <View style={[styles.unifiedCellImg, { borderColor: rc }]}>
-                          <ChestImage rarity={rep.rarity} size={56} compact />
-                        </View>
-                        <Text style={[styles.unifiedCellLabel, { color: rc }]}>{rep.rarity} T{rep.tier}</Text>
-                        <Text style={[styles.unifiedCellSub, { color: rc }]}>Chest</Text>
-                        <View style={[styles.unifiedCellBadge, { backgroundColor: rc }]}>
-                          <Text style={styles.unifiedCellBadgeText}>×{count}</Text>
-                        </View>
-                      </Pressable>
+                      <View style={styles.sectionBlock}>
+                        <Pressable style={[styles.sectionHeader, { borderColor: Colors.game.gold }]} onPress={() => toggleSection("chests")}>
+                          <Text style={[styles.sectionIcon, { color: Colors.game.gold }]}>📦</Text>
+                          <Text style={[styles.sectionName, { color: Colors.game.gold }]}>CHESTS</Text>
+                          <Text style={styles.sectionCount}>×{total}</Text>
+                          <Text style={styles.sectionChevron}>{isOpen ? "▼" : "▶"}</Text>
+                        </Pressable>
+                        {isOpen && (
+                          <View style={styles.sectionGrid}>
+                            {chestStacks.map(({ rep, count }) => {
+                              const rc = ITEM_RARITY_COLORS[rep.rarity];
+                              return (
+                                <Pressable key={`${rep.rarity}-${rep.tier}`} style={styles.compactCell} onPress={() => setSelectedChest(rep)}>
+                                  <View style={[styles.compactCellImg, { borderColor: rc }]}>
+                                    <ChestImage rarity={rep.rarity} size={44} compact />
+                                  </View>
+                                  <Text style={[styles.compactCellLabel, { color: rc }]}>{rep.rarity} T{rep.tier}</Text>
+                                  <Text style={[styles.compactCellSub, { color: rc }]}>Chest</Text>
+                                  <View style={[styles.compactCellBadge, { backgroundColor: rc }]}>
+                                    <Text style={styles.compactCellBadgeText}>×{count}</Text>
+                                  </View>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
                     );
-                  })}
+                  })()}
+
                   {/* ── Equipment ── */}
-                  {equipmentItems.map((item) => {
-                    const rc = ITEM_RARITY_COLORS[item.rarity];
-                    const qc = ITEM_QUALITY_COLORS[item.quality];
+                  {(() => {
+                    const isOpen = expandedSections.has("equipment");
+                    const slots = ["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"];
+                    const slotIcons: Record<string, string> = { Weapon: "⚔", Armor: "🛡", Boots: "👢", Helmet: "⛑", Amulet: "📿", Ring: "💍" };
                     return (
-                      <Pressable key={item.id} style={styles.unifiedCell} onPress={() => setSelectedBagItem(item)}>
-                        <View style={[styles.unifiedCellImg, { borderColor: rc }]}>
-                          <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={56} compact />
-                        </View>
-                        <Text style={[styles.unifiedCellLabel, { color: rc }]}>{item.name}</Text>
-                        <Text style={[styles.unifiedCellSub, { color: qc }]}>{item.quality} · {item.slot}</Text>
-                        <View style={[styles.unifiedCellBadge, { backgroundColor: rc }]}>
-                          <Text style={styles.unifiedCellBadgeText}>
-                            {item.stats.strength > 0 && `⚔${item.stats.strength} `}
-                            {item.stats.health > 0 && `♥${item.stats.health} `}
-                            {item.stats.defence > 0 && `🛡${item.stats.defence} `}
-                            {item.stats.speed > 0 && `⚡${item.stats.speed} `}
-                            {item.stats.strength === 0 && item.stats.health === 0 && item.stats.defence === 0 && item.stats.speed === 0 ? "No stats" : ""}
-                          </Text>
-                        </View>
-                      </Pressable>
+                      <View style={styles.sectionBlock}>
+                        <Pressable style={[styles.sectionHeader, { borderColor: Colors.game.purpleLight }]} onPress={() => toggleSection("equipment")}>
+                          <Text style={[styles.sectionIcon, { color: Colors.game.purpleLight }]}>⚔</Text>
+                          <Text style={[styles.sectionName, { color: Colors.game.purpleLight }]}>EQUIPMENT</Text>
+                          <Text style={styles.sectionCount}>×{char.itemBag?.length ?? 0}</Text>
+                          <Text style={styles.sectionChevron}>{isOpen ? "▼" : "▶"}</Text>
+                        </Pressable>
+                        {isOpen && slots.map((slot) => {
+                          const items = equipmentBySlot.get(slot) ?? [];
+                          if (items.length === 0) return null;
+                          return (
+                            <View key={slot} style={styles.equipSubSection}>
+                              <Text style={styles.equipSubHeader}>{slotIcons[slot]} {slot.toUpperCase()} ×{items.length}</Text>
+                              <View style={styles.sectionGrid}>
+                                {items.map((item) => {
+                                  const rc = ITEM_RARITY_COLORS[item.rarity];
+                                  const qc = ITEM_QUALITY_COLORS[item.quality];
+                                  return (
+                                    <Pressable key={item.id} style={styles.compactCell} onPress={() => setSelectedBagItem(item)}>
+                                      <View style={[styles.compactCellImg, { borderColor: rc }]}>
+                                        <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={44} compact />
+                                      </View>
+                                      <Text style={[styles.compactCellLabel, { color: rc }]}>{item.name}</Text>
+                                      <Text style={[styles.compactCellSub, { color: qc }]}>{item.quality} · {item.slot}</Text>
+                                      <View style={[styles.compactCellBadge, { backgroundColor: rc }]}>
+                                        <Text style={styles.compactCellBadgeText}>
+                                          {item.stats.strength > 0 && `⚔${item.stats.strength} `}
+                                          {item.stats.health > 0 && `♥${item.stats.health} `}
+                                          {item.stats.defence > 0 && `🛡${item.stats.defence} `}
+                                          {item.stats.speed > 0 && `⚡${item.stats.speed} `}
+                                          {item.stats.strength === 0 && item.stats.health === 0 && item.stats.defence === 0 && item.stats.speed === 0 ? "No stats" : ""}
+                                        </Text>
+                                      </View>
+                                    </Pressable>
+                                  );
+                                })}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
                     );
-                  })}
+                  })()}
                 </View>
               )}
             </ScrollView>
@@ -713,42 +795,98 @@ const styles = StyleSheet.create({
   equipStatRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 },
   equipStatText: { fontSize: 10, fontFamily: "Inter_500Medium" },
 
-  // Unified inventory grid
-  unifiedGrid: {
-    flexDirection: "row", flexWrap: "wrap",
-    gap: 12,
-    paddingVertical: 8,
+  // Section-based inventory grid
+  sectionBlock: {
+    marginBottom: 12,
+    gap: 8,
   },
-  unifiedCell: {
-    width: "30%", flexGrow: 1,
-    alignItems: "center", gap: 4,
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     backgroundColor: Colors.game.surface,
-    borderRadius: 14,
-    padding: 8,
+  },
+  sectionIcon: { fontSize: 16 },
+  sectionName: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.5,
+    flex: 1,
+  },
+  sectionCount: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textDim,
+  },
+  sectionChevron: {
+    fontSize: 10,
+    color: Colors.game.textDim,
+    marginLeft: 4,
+  },
+  sectionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  equipSubSection: {
+    marginBottom: 8,
+    gap: 6,
+  },
+  equipSubHeader: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+    letterSpacing: 1.2,
+    paddingHorizontal: 4,
+  },
+  compactCell: {
+    width: "30%",
+    flexGrow: 1,
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12,
+    padding: 6,
     borderWidth: 1,
     borderColor: Colors.game.border,
   },
-  unifiedCellImg: {
-    width: 64, height: 64, borderRadius: 12,
-    borderWidth: 2, overflow: "visible",
-    alignItems: "center", justifyContent: "center",
+  compactCellImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 2,
+    overflow: "visible",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.game.surfaceAlt,
   },
-  unifiedCellLabel: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    textAlign: "center", letterSpacing: 0.5,
+  compactCellLabel: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
-  unifiedCellSub: {
-    fontSize: 9, fontFamily: "Inter_500Medium",
+  compactCellSub: {
+    fontSize: 8,
+    fontFamily: "Inter_500Medium",
     textAlign: "center",
   },
-  unifiedCellBadge: {
-    borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2,
-    minWidth: 24, alignItems: "center",
+  compactCellBadge: {
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 20,
+    alignItems: "center",
   },
-  unifiedCellBadgeText: {
-    fontSize: 8, fontFamily: "Inter_700Bold",
-    color: "#000", textAlign: "center",
+  compactCellBadgeText: {
+    fontSize: 7,
+    fontFamily: "Inter_700Bold",
+    color: "#000",
+    textAlign: "center",
   },
 
   closeBtn: {
