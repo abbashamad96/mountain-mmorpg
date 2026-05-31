@@ -142,6 +142,11 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                   <Pressable style={[styles.openBtn, { borderColor: rc }]} onPress={handleOpen}>
                     <Text style={[styles.openBtnTxt, { color: rc }]}>OPEN CHEST</Text>
                   </Pressable>
+                  {onSellOnAh && (
+                    <Pressable style={[styles.sellBtn, { borderColor: "#F59E0B" }]} onPress={onSellOnAh}>
+                      <Text style={[styles.sellBtnTxt, { color: "#F59E0B" }]}>SELL ON AH</Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
 
