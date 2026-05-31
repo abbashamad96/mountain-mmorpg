@@ -14,6 +14,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
+import { ChestDropModal } from "@/components/ChestDropModal";
 import { GatheringModal } from "@/components/GatheringModal";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
@@ -390,6 +391,8 @@ export default function GameScreen() {
   const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
   const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(null);
   const [preSelectChestForAh, setPreSelectChestForAh] = useState<ItemChest | null>(null);
+  const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(null);
+  const pendingDropCooldownRef = useRef<number>(500);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
 
   const insets = useSafeAreaInsets();
@@ -547,7 +550,8 @@ export default function GameScreen() {
       setBattleNpc(roll.npc);
       setShowBattle(true);
     } else if (roll.type === "item_chest" && roll.chest) {
-      addChestToBag(roll.chest);
+      pendingDropCooldownRef.current = duration;
+      setPendingDropChest(roll.chest);
       addLogEntry({
         id: roll.id,
         timestamp: roll.timestamp,
@@ -558,10 +562,8 @@ export default function GameScreen() {
         material: null,
         chest: roll.chest,
       });
-      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-      cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     }
-  }, [isInteracting, char, applyGoldXp, addMaterials, addLogEntry, incrementEvents, setScene, addChestToBag]);
+  }, [isInteracting, char, applyGoldXp, addMaterials, addLogEntry, incrementEvents, setScene]);
 
   const handleGatherComplete = useCallback(
     (gathered: Material[]) => {
@@ -611,7 +613,8 @@ export default function GameScreen() {
             addItemToBag(drop.item);
           } else if (drop?.type === "chest") {
             droppedChest = drop.chest;
-            addChestToBag(drop.chest);
+            pendingDropCooldownRef.current = 400;
+            setPendingDropChest(drop.chest);
           }
         }
 
@@ -637,10 +640,14 @@ export default function GameScreen() {
           itemDrop: droppedItem,
           chest: droppedChest,
         });
+        if (!droppedChest) {
+          cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+        }
+      } else {
+        cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
       }
-      cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
-    [applyGoldXp, addLogEntry, addMaterials, addItemToBag, addChestToBag]
+    [applyGoldXp, addLogEntry, addMaterials, addItemToBag]
   );
 
   // ── List item from inventory → AH ─────────────────────────────────────────
@@ -670,6 +677,14 @@ export default function GameScreen() {
     setPreSelectChestForAh(chest);
     setShowAuction(true);
   }, []);
+
+  const handleChestDropCollect = useCallback((chest: ItemChest) => {
+    addChestToBag(chest);
+    setPendingDropChest(null);
+    const delay = pendingDropCooldownRef.current;
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    cooldownTimer.current = setTimeout(() => setIsInteracting(false), delay);
+  }, [addChestToBag]);
 
   // ── Inactivity auto-logout (5 minutes) ────────────────────────────────────────
   // Any press anywhere on the screen resets the 5-minute timer.  If the
@@ -815,6 +830,7 @@ export default function GameScreen() {
         preSelectedItem={preSelectItemForAh}
         preSelectedChest={preSelectChestForAh}
       />
+      <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
       <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />

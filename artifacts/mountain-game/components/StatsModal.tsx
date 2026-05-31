@@ -10,7 +10,7 @@ import {
 import Colors from "@/constants/colors";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
-import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS, ITEM_SLOT_ICONS, ITEM_SLOTS, ITEM_QUALITY_COLORS, ItemSlot } from "@/lib/items";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
@@ -333,79 +333,115 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                 </View>
               ) : (
                 <>
-                  {/* ── Chests ── */}
-                  {(char.chestBag?.length ?? 0) > 0 && (
-                    <View style={styles.typeSection}>
-                      <View style={[styles.typeHeader, { borderColor: Colors.game.gold }]}>
-                        <Text style={[styles.typeHeaderIcon, { color: Colors.game.gold }]}>📦</Text>
-                        <Text style={[styles.typeHeaderName, { color: Colors.game.gold }]}>CHESTS</Text>
-                        <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.gold }]}>
-                          <Text style={styles.typeHeaderBadgeText}>×{char.chestBag!.length}</Text>
+                  {/* ── Chests (stacked by rarity+tier) ── */}
+                  {(char.chestBag?.length ?? 0) > 0 && (() => {
+                    const stacks = new Map<string, { rep: ItemChest; count: number }>();
+                    for (const c of char.chestBag!) {
+                      const key = `${c.rarity}-${c.tier}`;
+                      if (!stacks.has(key)) stacks.set(key, { rep: c, count: 0 });
+                      stacks.get(key)!.count++;
+                    }
+                    return (
+                      <View style={styles.typeSection}>
+                        <View style={[styles.typeHeader, { borderColor: Colors.game.gold }]}>
+                          <Text style={[styles.typeHeaderIcon, { color: Colors.game.gold }]}>📦</Text>
+                          <Text style={[styles.typeHeaderName, { color: Colors.game.gold }]}>CHESTS</Text>
+                          <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.gold }]}>
+                            <Text style={styles.typeHeaderBadgeText}>×{char.chestBag!.length}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.inventoryGrid}>
+                          {Array.from(stacks.values()).map(({ rep, count }) => {
+                            const rc = ITEM_RARITY_COLORS[rep.rarity];
+                            return (
+                              <Pressable
+                                key={`${rep.rarity}-${rep.tier}`}
+                                style={styles.invSlotWrap}
+                                onPress={() => setSelectedChest(rep)}
+                              >
+                                <View style={[styles.invSlot, { borderColor: rc, padding: 0, alignItems: "center", justifyContent: "center" }]}>
+                                  <ChestImage rarity={rep.rarity} size={66} compact />
+                                </View>
+                                <View style={[styles.countBadge, { backgroundColor: rc }]}>
+                                  <Text style={styles.countText}>×{count}</Text>
+                                </View>
+                                <View style={styles.typeLabel}>
+                                  <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.6}>
+                                    {rep.rarity}{"\n"}T{rep.tier}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })}
                         </View>
                       </View>
-                      <View style={styles.inventoryGrid}>
-                        {char.chestBag!.map((chest) => {
-                          const rc = ITEM_RARITY_COLORS[chest.rarity];
-                          return (
-                            <Pressable
-                              key={chest.id}
-                              style={styles.invSlotWrap}
-                              onPress={() => setSelectedChest(chest)}
-                            >
-                              <View style={[styles.invSlot, { borderColor: rc, padding: 0, alignItems: "center", justifyContent: "center" }]}>
-                                <ChestImage rarity={chest.rarity} size={66} compact />
-                              </View>
-                              <View style={[styles.countBadge, { backgroundColor: rc }]}>
-                                <Text style={styles.countText} numberOfLines={1}>OPEN</Text>
-                              </View>
-                              <View style={styles.typeLabel}>
-                                <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.6}>
-                                  {chest.rarity} T{chest.tier}
-                                </Text>
-                              </View>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  )}
+                    );
+                  })()}
 
-                  {/* ── Item Bag (unequipped equipment) ── */}
-                  {(char.itemBag?.length ?? 0) > 0 && (
-                    <View style={styles.typeSection}>
-                      <View style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]}>
-                        <Text style={[styles.typeHeaderIcon, { color: Colors.game.purpleLight }]}>⚔</Text>
-                        <Text style={[styles.typeHeaderName, { color: Colors.game.purpleLight }]}>EQUIPMENT BAG</Text>
-                        <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.purpleLight }]}>
-                          <Text style={styles.typeHeaderBadgeText}>×{char.itemBag!.length}</Text>
+                  {/* ── Item Bag (categorized by slot) ── */}
+                  {(char.itemBag?.length ?? 0) > 0 && (() => {
+                    const bySlot = new Map<ItemSlot, GameItem[]>();
+                    for (const slot of ITEM_SLOTS) bySlot.set(slot, []);
+                    for (const item of char.itemBag!) bySlot.get(item.slot)!.push(item);
+                    return (
+                      <View style={styles.typeSection}>
+                        <View style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]}>
+                          <Text style={[styles.typeHeaderIcon, { color: Colors.game.purpleLight }]}>⚔</Text>
+                          <Text style={[styles.typeHeaderName, { color: Colors.game.purpleLight }]}>EQUIPMENT BAG</Text>
+                          <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.purpleLight }]}>
+                            <Text style={styles.typeHeaderBadgeText}>×{char.itemBag!.length}</Text>
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.inventoryGrid}>
-                        {char.itemBag!.map((item) => {
-                          const rc = ITEM_RARITY_COLORS[item.rarity];
+                        {ITEM_SLOTS.map((slot) => {
+                          const items = bySlot.get(slot)!;
+                          if (items.length === 0) return null;
+                          const slotIcon = ITEM_SLOT_ICONS[slot];
                           return (
-                            <Pressable
-                              key={item.id}
-                              style={styles.invSlotWrap}
-                              onPress={() => setSelectedBagItem(item)}
-                            >
-                              <View style={[styles.invSlot, { borderColor: rc, padding: 2 }]}>
-                                <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={66} compact />
+                            <View key={slot} style={styles.equipSlotSection}>
+                              <View style={styles.equipSlotHeader}>
+                                <Text style={styles.equipSlotIcon}>{slotIcon}</Text>
+                                <Text style={styles.equipSlotName}>{slot.toUpperCase()}</Text>
+                                <Text style={styles.equipSlotCount}>×{items.length}</Text>
                               </View>
-                              <View style={[styles.countBadge, { backgroundColor: rc }]}>
-                                <Text style={styles.countText} numberOfLines={1}>TAP</Text>
-                              </View>
-                              <View style={styles.typeLabel}>
-                                <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={2}>
-                                  {item.rarity}{"\n"}{item.slot}
-                                </Text>
-                              </View>
-                            </Pressable>
+                              {items.map((item) => {
+                                const rc = ITEM_RARITY_COLORS[item.rarity];
+                                const qc = ITEM_QUALITY_COLORS[item.quality];
+                                return (
+                                  <Pressable
+                                    key={item.id}
+                                    style={[styles.equipCard, { borderColor: rc + "55" }]}
+                                    onPress={() => setSelectedBagItem(item)}
+                                  >
+                                    <View style={styles.equipCardImg}>
+                                      <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={58} compact />
+                                    </View>
+                                    <View style={styles.equipCardRight}>
+                                      <View style={styles.equipTagRow}>
+                                        {item.tier > 0 && (
+                                          <View style={[styles.equipTag, { backgroundColor: rc + "22", borderColor: rc + "66" }]}>
+                                            <Text style={[styles.equipTagText, { color: rc }]}>T{item.tier}</Text>
+                                          </View>
+                                        )}
+                                        {item.quality !== "Basic" && (
+                                          <View style={[styles.equipTag, { backgroundColor: qc + "22", borderColor: qc + "66" }]}>
+                                            <Text style={[styles.equipTagText, { color: qc }]}>{item.quality.toUpperCase()}</Text>
+                                          </View>
+                                        )}
+                                        <View style={[styles.equipTag, { backgroundColor: rc + "22", borderColor: rc + "66" }]}>
+                                          <Text style={[styles.equipTagText, { color: rc }]}>{item.rarity.toUpperCase()}</Text>
+                                        </View>
+                                      </View>
+                                      <Text style={[styles.equipCardName, { color: rc }]} numberOfLines={1}>{item.name}</Text>
+                                    </View>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
                           );
                         })}
                       </View>
-                    </View>
-                  )}
+                    );
+                  })()}
 
                   {/* ── Materials ── */}
                   {(Object.keys(groupedInventory) as MaterialType[]).map((type) => {
@@ -709,6 +745,40 @@ const styles = StyleSheet.create({
   typeLabelText: {
     fontSize: 9, fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted, letterSpacing: 0.5, textAlign: "center",
+  },
+
+  // Equipment slot sections
+  equipSlotSection: { marginBottom: 10, gap: 6 },
+  equipSlotHeader: {
+    flexDirection: "row", alignItems: "center",
+    gap: 8, paddingHorizontal: 4, paddingVertical: 4,
+  },
+  equipSlotIcon: { fontSize: 14 },
+  equipSlotName: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 1.5, flex: 1,
+  },
+  equipSlotCount: {
+    fontSize: 10, fontFamily: "Inter_500Medium",
+    color: Colors.game.textDim,
+  },
+  equipCard: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.game.surface,
+    borderRadius: 14, borderWidth: 1,
+    paddingVertical: 8, paddingHorizontal: 10, gap: 12,
+  },
+  equipCardImg: { alignItems: "center", justifyContent: "center" },
+  equipCardRight: { flex: 1, gap: 5 },
+  equipTagRow: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
+  equipTag: {
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 5, borderWidth: 1,
+  },
+  equipTagText: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },
+  equipCardName: {
+    fontSize: 13, fontFamily: "Inter_700Bold",
+    letterSpacing: 0.2,
   },
 
   closeBtn: {

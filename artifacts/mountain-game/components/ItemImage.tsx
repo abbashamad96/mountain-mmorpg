@@ -1,16 +1,19 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, View } from "react-native";
-import Svg, {
-  Circle,
-  Defs,
-  G,
-  Path,
-  Polygon,
-  RadialGradient,
-  Rect,
-  Stop,
-} from "react-native-svg";
+import { Animated, Image, StyleSheet, View } from "react-native";
 import { ITEM_QUALITY_COLORS, ITEM_RARITY_COLORS, ItemQuality, ItemRarity, ItemSlot, ItemTier } from "@/lib/items";
+
+// ─── Static require map (Metro bundler needs literal require calls) ────────────
+
+const EQUIPMENT_SPLASH: Record<ItemRarity, any> = {
+  Common:    require("../assets/splash/equipment_Common.png"),
+  Uncommon:  require("../assets/splash/equipment_Uncommon.png"),
+  Rare:      require("../assets/splash/equipment_Rare.png"),
+  Epic:      require("../assets/splash/equipment_Epic.png"),
+  Elite:     require("../assets/splash/equipment_Legendary.png"),
+  Legendary: require("../assets/splash/equipment_Mythic.png"),
+  Superior:  require("../assets/splash/equipment_Divine.png"),
+  Cosmic:    require("../assets/splash/equipment_Cosmic.png"),
+};
 
 // ─── Rarity effects ───────────────────────────────────────────────────────────
 
@@ -20,26 +23,19 @@ const RARITY_GLOW_RINGS: Record<ItemRarity, number> = {
 };
 
 const RARITY_GLOW_OPACITY: Record<ItemRarity, number> = {
-  Common: 0.12, Uncommon: 0.20, Rare: 0.28, Epic: 0.38,
-  Elite: 0.45, Legendary: 0.55, Superior: 0.65, Cosmic: 0.80,
-};
-
-const QUALITY_SHINE: Record<ItemQuality, number> = {
-  Basic: 0, Good: 0.10, Excellent: 0.22,
+  Common: 0.10, Uncommon: 0.18, Rare: 0.26, Epic: 0.36,
+  Elite: 0.42, Legendary: 0.52, Superior: 0.62, Cosmic: 0.78,
 };
 
 // ─── Tier sparkle positions (as [left_frac, top_frac] of total size) ──────────
 
 const SPARKLE_POSITIONS: [number, number][][] = [
   [],
-  // Tier 1 – 4 corners
   [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]],
-  // Tier 2 – corners + edge midpoints
   [[0.05, 0.05], [0.50, 0.04], [0.95, 0.05],
    [0.96, 0.50],
    [0.95, 0.95], [0.50, 0.96], [0.05, 0.95],
    [0.04, 0.50]],
-  // Tier 3 – 12 points
   [[0.05, 0.05], [0.38, 0.04], [0.62, 0.04], [0.95, 0.05],
    [0.96, 0.35], [0.96, 0.65],
    [0.95, 0.95], [0.62, 0.96], [0.38, 0.96], [0.05, 0.95],
@@ -47,108 +43,6 @@ const SPARKLE_POSITIONS: [number, number][][] = [
 ];
 
 const SPARKLE_SIZES: number[] = [0, 3.5, 4.5, 6];
-
-// ─── Slot shapes (100×100 viewBox) ────────────────────────────────────────────
-
-function WeaponShape({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <G>
-      <Polygon points="50,6 58,22 56,72 44,72 42,22" fill={fill} stroke={stroke} strokeWidth="1.5" />
-      <Polygon points="50,4 57,20 43,20" fill={stroke} opacity={0.9} />
-      <Rect x="47.5" y="28" width="5" height="38" rx="2" fill={stroke} opacity={0.35} />
-      <Rect x="24" y="70" width="52" height="8" rx="3.5" fill={stroke} stroke={fill} strokeWidth="1" />
-      <Rect x="43" y="78" width="14" height="16" rx="4" fill={fill} stroke={stroke} strokeWidth="1" />
-      <Circle cx="50" cy="97" r="5.5" fill={stroke} />
-    </G>
-  );
-}
-
-function ArmorShape({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <G>
-      <Rect x="6" y="22" width="18" height="22" rx="7" fill={stroke} opacity={0.55} />
-      <Rect x="76" y="22" width="18" height="22" rx="7" fill={stroke} opacity={0.55} />
-      <Polygon points="50,10 80,20 90,54 78,86 50,96 22,86 10,54 20,20" fill={fill} stroke={stroke} strokeWidth="1.5" />
-      <Path d="M 50,12 L 64,18 L 67,30 L 57,34 L 50,38 L 43,34 L 33,30 L 36,18 Z" fill="rgba(0,0,0,0.45)" />
-      <Rect x="47" y="38" width="6" height="40" rx="2.5" fill={stroke} opacity={0.40} />
-      <Rect x="20" y="74" width="60" height="9" rx="3.5" fill={stroke} opacity={0.50} />
-    </G>
-  );
-}
-
-function HelmetShape({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <G>
-      <Path d="M 14,66 Q 14,18 50,18 Q 86,18 86,66 Z" fill={fill} stroke={stroke} strokeWidth="1.5" />
-      <Path d="M 14,66 L 14,82 Q 14,88 22,88 L 32,88 L 34,66 Z" fill={stroke} opacity={0.6} />
-      <Path d="M 86,66 L 86,82 Q 86,88 78,88 L 68,88 L 66,66 Z" fill={stroke} opacity={0.6} />
-      <Rect x="14" y="64" width="72" height="11" rx="2.5" fill={stroke} opacity={0.85} />
-      <Rect x="18" y="67" width="64" height="5" rx="1.5" fill="rgba(0,0,0,0.55)" />
-      <Rect x="44" y="8" width="12" height="24" rx="4" fill={stroke} />
-      <Path d="M 8,66 L 92,66 L 90,73 L 10,73 Z" fill={stroke} opacity={0.38} />
-    </G>
-  );
-}
-
-function BootsShape({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <G>
-      <Rect x="30" y="10" width="26" height="54" rx="6" fill={fill} stroke={stroke} strokeWidth="1.5" />
-      <Rect x="28" y="10" width="30" height="9" rx="5" fill={stroke} opacity={0.65} />
-      <Path
-        d="M 30,60 L 30,80 Q 30,86 35,86 L 76,86 Q 82,86 82,80 L 82,68 Q 77,62 70,62 L 56,62 L 56,60 Z"
-        fill={fill} stroke={stroke} strokeWidth="1.5"
-      />
-      <Path d="M 30,84 L 30,88 L 76,88 Q 82,88 82,84 Z" fill={stroke} opacity={0.42} />
-      <Path d="M 72,62 Q 82,64 82,72 L 82,80 Q 74,68 70,65 Z" fill={stroke} opacity={0.32} />
-      <Rect x="28" y="34" width="30" height="6" rx="2.5" fill={stroke} opacity={0.42} />
-    </G>
-  );
-}
-
-function AmuletShape({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <G>
-      <Path d="M 34,14 Q 50,22 66,14" stroke={stroke} strokeWidth="3.5" fill="none" opacity={0.55} />
-      <Circle cx="34" cy="14" r="4.5" fill={stroke} opacity={0.55} />
-      <Circle cx="66" cy="14" r="4.5" fill={stroke} opacity={0.55} />
-      <Circle cx="50" cy="22" r="3.5" fill={stroke} opacity={0.45} />
-      <Path d="M 50,22 L 50,36" stroke={stroke} strokeWidth="3" opacity={0.55} />
-      <Polygon points="50,36 70,56 50,76 30,56" fill={fill} stroke={stroke} strokeWidth="1.5" />
-      <Polygon points="50,36 70,56 50,56" fill={stroke} opacity={0.28} />
-      <Polygon points="50,76 30,56 50,56" fill={stroke} opacity={0.14} />
-      <Polygon points="50,44 60,56 50,64 40,56" fill={stroke} opacity={0.38} />
-      <Polygon points="50,76 56,84 50,92 44,84" fill={stroke} opacity={0.65} />
-    </G>
-  );
-}
-
-function RingShape({ fill, stroke }: { fill: string; stroke: string }) {
-  return (
-    <G>
-      <Circle cx="50" cy="60" r="34" fill="none" stroke={fill} strokeWidth="16" />
-      <Circle cx="50" cy="60" r="34" fill="none" stroke={stroke} strokeWidth="2" opacity={0.45} />
-      <Circle cx="50" cy="60" r="26" fill="none" stroke={stroke} strokeWidth="1" opacity={0.22} />
-      <Polygon points="50,14 64,28 50,38 36,28" fill={stroke} opacity={0.75} />
-      <Polygon points="50,16 62,28 50,36 38,28" fill={fill} stroke={stroke} strokeWidth="1.5" />
-      <Polygon points="50,16 62,28 50,28" fill={stroke} opacity={0.38} />
-      <Rect x="32" y="24" width="6" height="10" rx="2.5" fill={stroke} opacity={0.55} />
-      <Rect x="62" y="24" width="6" height="10" rx="2.5" fill={stroke} opacity={0.55} />
-    </G>
-  );
-}
-
-function SlotShape({ slot, fill, stroke }: { slot: ItemSlot; fill: string; stroke: string }) {
-  switch (slot) {
-    case "Weapon": return <WeaponShape fill={fill} stroke={stroke} />;
-    case "Armor":  return <ArmorShape  fill={fill} stroke={stroke} />;
-    case "Helmet": return <HelmetShape fill={fill} stroke={stroke} />;
-    case "Boots":  return <BootsShape  fill={fill} stroke={stroke} />;
-    case "Amulet": return <AmuletShape fill={fill} stroke={stroke} />;
-    case "Ring":   return <RingShape   fill={fill} stroke={stroke} />;
-    default:       return <WeaponShape fill={fill} stroke={stroke} />;
-  }
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -167,12 +61,16 @@ export function ItemImage({
   const rc = ITEM_RARITY_COLORS[rarity];
   const rings = RARITY_GLOW_RINGS[rarity];
   const baseOpacity = RARITY_GLOW_OPACITY[rarity];
-  const shine = QUALITY_SHINE[quality];
 
-  const fill   = rc + "55";
-  const stroke = rc;
+  const isGood      = quality === "Good";
+  const isExcellent = quality === "Excellent";
+  const qBorderColor = isExcellent
+    ? ITEM_QUALITY_COLORS.Excellent
+    : isGood
+    ? ITEM_QUALITY_COLORS.Good
+    : rc;
+  const innerBorderWidth = (isGood || isExcellent) ? 2 : 1.5;
 
-  // Sparkle animation for tier > 0 (non-compact only)
   const sparkleAnim = useRef(new Animated.Value(0.55)).current;
   useEffect(() => {
     if (compact || tier === 0) { sparkleAnim.setValue(0.55); return; }
@@ -186,35 +84,24 @@ export function ItemImage({
     return () => loop.stop();
   }, [compact, tier, sparkleAnim]);
 
-  // Quality border styling
-  const isGood      = quality === "Good";
-  const isExcellent = quality === "Excellent";
-  const qBorderColor = isExcellent
-    ? ITEM_QUALITY_COLORS.Excellent
-    : isGood
-    ? ITEM_QUALITY_COLORS.Good
-    : rc;
-  const innerBorderWidth = (isGood || isExcellent) ? 2 : compact ? 1.5 : 2;
-
-  // Tier sparkles
   const sparklePts  = SPARKLE_POSITIONS[tier] ?? [];
   const sparkleSize = SPARKLE_SIZES[tier] ?? 0;
 
+  const imgSize = size * 0.90;
+  const imgOffset = (size - imgSize) / 2;
+
   return (
     <View style={[ss.root, { width: size, height: size }]}>
-      {/* Rarity glow rings (behind everything) */}
+      {/* Rarity glow rings */}
       {Array.from({ length: rings }).map((_, i) => {
         const s = size * (0.90 - i * 0.09);
         const offset = (size - s) / 2;
         return (
-          <View
-            key={i}
-            style={[ss.ring, {
-              width: s, height: s, borderRadius: s / 2,
-              borderColor: rc, opacity: baseOpacity - i * 0.12,
-              top: offset, left: offset,
-            }]}
-          />
+          <View key={i} style={[ss.ring, {
+            width: s, height: s, borderRadius: s * 0.16,
+            borderColor: rc, opacity: baseOpacity - i * 0.10,
+            top: offset, left: offset,
+          }]} />
         );
       })}
 
@@ -249,52 +136,38 @@ export function ItemImage({
         </>
       )}
 
-      {/* Background tile */}
+      {/* AI splash image tile */}
       <View style={[ss.bg, {
-        width: size * 0.90,
-        height: size * 0.90,
-        borderRadius: size * 0.15,
-        backgroundColor: isExcellent
-          ? ITEM_QUALITY_COLORS.Excellent + "14"
-          : isGood
-          ? ITEM_QUALITY_COLORS.Good + "11"
-          : rc + "1A",
-        borderColor: (isGood || isExcellent) ? qBorderColor + "88" : rc + "66",
+        width: imgSize, height: imgSize,
+        borderRadius: imgSize * 0.16,
+        borderColor: (isGood || isExcellent) ? qBorderColor + "88" : rc + "55",
         borderWidth: innerBorderWidth,
+        top: imgOffset, left: imgOffset,
       }]}>
-        <Svg viewBox="0 0 100 100" width={size * 0.76} height={size * 0.76}>
-          <Defs>
-            <RadialGradient id={`bg_${rarity}_${quality}`} cx="50%" cy="50%" r="50%">
-              <Stop offset="0%"   stopColor={rc} stopOpacity={0.18} />
-              <Stop offset="100%" stopColor={rc} stopOpacity={0.04} />
-            </RadialGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100" height="100" fill={`url(#bg_${rarity}_${quality})`} />
-          <SlotShape slot={slot} fill={fill} stroke={stroke} />
-          {/* Quality shine overlay */}
-          {shine > 0 && <Polygon points="0,0 100,0 55,42 0,20" fill="white" opacity={shine} />}
-          {/* Extra Excellent shine streak */}
-          {isExcellent && <Polygon points="0,0 65,0 28,30 0,12" fill={ITEM_QUALITY_COLORS.Excellent} opacity={0.07} />}
-        </Svg>
+        <Image
+          source={EQUIPMENT_SPLASH[rarity]}
+          style={{ width: "100%", height: "100%", borderRadius: imgSize * 0.16 }}
+          resizeMode="cover"
+        />
+        {/* Rarity colour tint overlay */}
+        <View style={[ss.tint, { borderRadius: imgSize * 0.16, backgroundColor: rc + "18" }]} />
+        {/* Excellent quality shimmer */}
+        {isExcellent && (
+          <View style={[ss.shimmer, { borderRadius: imgSize * 0.16, backgroundColor: ITEM_QUALITY_COLORS.Excellent + "12" }]} />
+        )}
       </View>
 
-      {/* Tier sparkle dots along border */}
+      {/* Tier sparkle dots */}
       {sparklePts.map(([lf, tf], i) => (
-        <Animated.View
-          key={i}
-          style={[ss.sparkle, {
-            width: sparkleSize,
-            height: sparkleSize,
-            backgroundColor: rc,
-            left: lf * size - sparkleSize / 2,
-            top: tf * size - sparkleSize / 2,
-            opacity: compact ? (0.3 + tier * 0.15) : sparkleAnim,
-            shadowColor: rc,
-            shadowOpacity: 0.85,
-            shadowRadius: sparkleSize * 1.2,
-            elevation: 3,
-          }]}
-        />
+        <Animated.View key={i} style={[ss.sparkle, {
+          width: sparkleSize, height: sparkleSize,
+          backgroundColor: rc,
+          left: lf * size - sparkleSize / 2,
+          top: tf * size - sparkleSize / 2,
+          opacity: compact ? (0.3 + tier * 0.15) : sparkleAnim,
+          shadowColor: rc, shadowOpacity: 0.85,
+          shadowRadius: sparkleSize * 1.2, elevation: 3,
+        }]} />
       ))}
     </View>
   );
@@ -303,9 +176,11 @@ export function ItemImage({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const ss = StyleSheet.create({
-  root:    { alignItems: "center", justifyContent: "center" },
-  ring:    { position: "absolute", borderWidth: 1 },
-  qualRing:{ position: "absolute" },
-  bg:      { alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  sparkle: { position: "absolute", transform: [{ rotate: "45deg" }] },
+  root:     { alignItems: "center", justifyContent: "center" },
+  ring:     { position: "absolute", borderWidth: 1 },
+  qualRing: { position: "absolute" },
+  bg:       { position: "absolute", overflow: "hidden" },
+  tint:     { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  shimmer:  { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  sparkle:  { position: "absolute", transform: [{ rotate: "45deg" }] },
 });
