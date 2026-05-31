@@ -193,10 +193,8 @@ const NPC_NAMES: Record<RarityName, string[]> = {
 
 // Monster stat total = base * tier * level * weakness
 // Base: T0 Common = 0.7, +0.1 per rarity step
-// Tier: +10% per tier level (T1 = 1.1×, T2 = 1.21×, T3 = 1.331×)
-// Base minimums: HP ≥2, STR ≥2, SPD ≥5
-// At levels 1-4 these minimums add ON TOP of the pool; at level 5+ they are just floors
-const MONSTER_WEAKNESS = 0.6;
+// Tier: T0=1.0, T1=1.1, T2=1.2, T3=1.35
+// HP stat counts as 5 HP per point
 const NPC_GOLD_BASE = [3, 8, 20, 50, 120, 300, 650, 1500];
 const NPC_GOLD_RANGE = [5, 12, 30, 70, 180, 420, 950, 2000];
 const NPC_XP_PCT = [1.2, 2.8, 5, 8, 13, 20, 30, 45];
@@ -216,23 +214,19 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
   const level = Math.max(1, playerLevel + 1);
 
   const baseMultiplier = 0.7 + idx * 0.1;
-  const tierMultiplier = Math.pow(1.1, version);
-  const totalPool = Math.max(3, baseMultiplier * tierMultiplier * level * MONSTER_WEAKNESS);
-
-  // Base minimums: HP ≥2, STR ≥2, SPD ≥5
-  // At levels 1-4 they add on top of the pool; at level 5+ they are just floors
-  const baseMinHP  = level <= 4 ? 2 : 0;
-  const baseMinStr = level <= 4 ? 2 : 0;
-  const baseMinSpd = level <= 4 ? 5 : 0;
+  const tierMultiplier = [1.0, 1.1, 1.2, 1.35][version];
+  const totalPool = Math.max(3, baseMultiplier * tierMultiplier * level);
 
   const [randHP, randStr, randSpd, randDef] = randomSplit(totalPool);
 
-  const maxHp = Math.max(2, Math.floor(baseMinHP + randHP));
-  const atk   = Math.max(2, Math.floor(baseMinStr + randStr));
-  const spd   = Math.max(5, Math.floor(baseMinSpd + randSpd));
+  const hpStat = Math.max(2, Math.floor(randHP));
+  const atk   = Math.max(2, Math.floor(randStr));
+  const spd   = Math.max(5, Math.floor(randSpd));
   const def   = Math.max(0, Math.floor(randDef));
 
-  // Gold & XP unchanged
+  // HP stat is 5 HP per point
+  const maxHp = hpStat * 5;
+
   const vm = version === 3 ? 2 : version === 2 ? 1.5 : version === 1 ? 1.2 : 1;
   const names = NPC_NAMES[rarity];
   const name = names[Math.floor(Math.random() * names.length)];

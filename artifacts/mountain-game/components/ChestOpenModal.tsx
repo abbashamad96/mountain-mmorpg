@@ -11,6 +11,7 @@ import {
 import Colors from "@/constants/colors";
 import { GameItem, ItemChest } from "@/context/GameContext";
 import {
+  formatChestName,
   formatItemName,
   ITEM_QUALITY_COLORS,
   ITEM_RARITY_COLORS,
@@ -109,8 +110,8 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
 
   return (
     <Modal transparent visible animationType="fade">
-      <Pressable style={styles.overlay}>
-        <Pressable style={[styles.card, { borderColor: rc }]} onPress={(e) => e.stopPropagation()}>
+      <View style={styles.overlay}>
+        <View style={[styles.card, { borderColor: rc }]}>
 
           {/* ── Chest phase ── */}
           {phase !== "revealed" && (
@@ -229,8 +230,8 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
               {/* No CLOSE here — must claim the item */}
             </Animated.View>
           )}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

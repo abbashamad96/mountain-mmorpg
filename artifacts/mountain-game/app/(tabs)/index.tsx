@@ -35,7 +35,7 @@ import {
   useGame,
   getEffectiveStats,
 } from "@/context/GameContext";
-import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName } from "@/lib/items";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         )}
 
         {/* Chest found exploration event */}
-        {entry.type === "item_chest" && chest && (
+        {entry.type === "item_chest" && chest && !itemDrop && (
           <View style={logStackStyles.battleBlock}>
             <View style={logStackStyles.inlineRow}>
               <Text style={logStackStyles.dimLabel}>Found</Text>
@@ -144,6 +144,22 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               </View>
             </View>
             <Text style={logStackStyles.dimLabel}>Added to bag — open from ITEMS tab</Text>
+          </View>
+        )}
+
+        {/* Chest opened item drop */}
+        {entry.type === "item_chest" && itemDrop && (
+          <View style={logStackStyles.battleBlock}>
+            <View style={logStackStyles.inlineRow}>
+              <Text style={logStackStyles.dimLabel}>Opened</Text>
+              <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[chest!.rarity] }]}>
+                {formatChestName(chest!)}
+              </Text>
+              <Text style={logStackStyles.dimLabel}>Got</Text>
+              <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[itemDrop.rarity] }]}>
+                {formatItemName(itemDrop)}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -853,9 +869,21 @@ export default function GameScreen() {
       <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
       {autoOpenChest && (
         <ChestOpenModal
+          key={autoOpenChest.id}
           chest={autoOpenChest}
           onClaim={(item) => {
             addItemToBag(item);
+            pushToast(`Chest opened! Got ${formatItemName(item)}`, false);
+            addLogEntry({
+              id: `c-${Date.now()}`,
+              timestamp: Date.now(),
+              type: "item_chest",
+              summary: `You opened ${formatChestName(autoOpenChest)} and got ${formatItemName(item)}`,
+              goldGained: 0,
+              xpGained: 0,
+              material: null,
+              itemDrop: item,
+            });
             setAutoOpenChest(null);
             const delay = pendingDropCooldownRef.current;
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);

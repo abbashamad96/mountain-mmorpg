@@ -196,6 +196,33 @@ export function EquipmentTab() {
                       </Text>
                     </View>
                   </View>
+                  {/* Per-item stat amounts */}
+                  <View style={styles.slotStatRow}>
+                    {item.stats.strength > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.red }]}>⚔{item.stats.strength}</Text>
+                    )}
+                    {item.stats.health > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.green }]}>♥{item.stats.health}</Text>
+                    )}
+                    {item.stats.defence > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.blue }]}>🛡{item.stats.defence}</Text>
+                    )}
+                    {item.stats.speed > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.gold }]}>⚡{item.stats.speed}</Text>
+                    )}
+                    {item.percentStats.strength > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.red }]}>⚔+{(item.percentStats.strength * 100).toFixed(0)}%</Text>
+                    )}
+                    {item.percentStats.health > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.green }]}>♥+{(item.percentStats.health * 100).toFixed(0)}%</Text>
+                    )}
+                    {item.percentStats.defence > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.blue }]}>🛡+{(item.percentStats.defence * 100).toFixed(0)}%</Text>
+                    )}
+                    {item.percentStats.speed > 0 && (
+                      <Text style={[styles.slotStatTxt, { color: Colors.game.gold }]}>⚡+{(item.percentStats.speed * 100).toFixed(0)}%</Text>
+                    )}
+                  </View>
                 </>
               ) : (
                 <Text style={styles.slotEmpty}>Empty</Text>
@@ -304,6 +331,17 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   slotBadgeTxt: {
+    fontSize: 8,
+    fontFamily: "Inter_700Bold",
+  },
+  slotStatRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 2,
+    justifyContent: "center",
+  },
+  slotStatTxt: {
     fontSize: 8,
     fontFamily: "Inter_700Bold",
   },

@@ -81,6 +81,32 @@ export function EquipPickerModal({ slot, onClose, onEquip }: EquipPickerModalPro
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[styles.itemName, { color: rc }]}>{formatItemName(current)}</Text>
                   <Text style={styles.itemStats}>{totalStatPoints(current)} pts</Text>
+                  <View style={styles.statChipRow}>
+                    {current.stats.strength > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.red }]}>⚔{current.stats.strength}</Text>
+                    )}
+                    {current.stats.health > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.green }]}>♥{current.stats.health}</Text>
+                    )}
+                    {current.stats.defence > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.blue }]}>🛡{current.stats.defence}</Text>
+                    )}
+                    {current.stats.speed > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.gold }]}>⚡{current.stats.speed}</Text>
+                    )}
+                    {current.percentStats.strength > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.red }]}>⚔+{(current.percentStats.strength * 100).toFixed(0)}%</Text>
+                    )}
+                    {current.percentStats.health > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.green }]}>♥+{(current.percentStats.health * 100).toFixed(0)}%</Text>
+                    )}
+                    {current.percentStats.defence > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.blue }]}>🛡+{(current.percentStats.defence * 100).toFixed(0)}%</Text>
+                    )}
+                    {current.percentStats.speed > 0 && (
+                      <Text style={[styles.statChip, { color: Colors.game.gold }]}>⚡+{(current.percentStats.speed * 100).toFixed(0)}%</Text>
+                    )}
+                  </View>
                 </View>
               </View>
             ) : (
@@ -125,6 +151,33 @@ export function EquipPickerModal({ slot, onClose, onEquip }: EquipPickerModalPro
                         )}
                         {!meets && (
                           <Text style={styles.reqBadge}>Lv {item.levelRequirement}</Text>
+                        )}
+                      </View>
+                      {/* Stat chips */}
+                      <View style={styles.statChipRow}>
+                        {item.stats.strength > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.red }]}>⚔{item.stats.strength}</Text>
+                        )}
+                        {item.stats.health > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.green }]}>♥{item.stats.health}</Text>
+                        )}
+                        {item.stats.defence > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.blue }]}>🛡{item.stats.defence}</Text>
+                        )}
+                        {item.stats.speed > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.gold }]}>⚡{item.stats.speed}</Text>
+                        )}
+                        {item.percentStats.strength > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.red }]}>⚔+{(item.percentStats.strength * 100).toFixed(0)}%</Text>
+                        )}
+                        {item.percentStats.health > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.green }]}>♥+{(item.percentStats.health * 100).toFixed(0)}%</Text>
+                        )}
+                        {item.percentStats.defence > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.blue }]}>🛡+{(item.percentStats.defence * 100).toFixed(0)}%</Text>
+                        )}
+                        {item.percentStats.speed > 0 && (
+                          <Text style={[styles.statChip, { color: Colors.game.gold }]}>⚡+{(item.percentStats.speed * 100).toFixed(0)}%</Text>
                         )}
                       </View>
                     </View>
@@ -239,6 +292,16 @@ const styles = StyleSheet.create({
   lockedTxt: {
     fontSize: 14,
     opacity: 0.4,
+  },
+  statChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: 2,
+  },
+  statChip: {
+    fontSize: 8,
+    fontFamily: "Inter_700Bold",
   },
   emptyText: {
     fontSize: 12,
