@@ -34,7 +34,7 @@ import {
   useGame,
   getEffectiveStats,
 } from "@/context/GameContext";
-import { GameItem, ITEM_RARITY_COLORS } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS, openChest } from "@/lib/items";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -550,20 +550,39 @@ export default function GameScreen() {
       setBattleNpc(roll.npc);
       setShowBattle(true);
     } else if (roll.type === "item_chest" && roll.chest) {
-      pendingDropCooldownRef.current = duration;
-      setPendingDropChest(roll.chest);
-      addLogEntry({
-        id: roll.id,
-        timestamp: roll.timestamp,
-        type: "item_chest",
-        summary: `Found a ${roll.chest.rarity} Chest!`,
-        goldGained: 0,
-        xpGained: 0,
-        material: null,
-        chest: roll.chest,
-      });
+      const autoOpen = Math.random() < 0.9;
+      if (autoOpen) {
+        // 90%: open immediately, item straight to bag
+        const item = openChest(roll.chest);
+        addItemToBag(item);
+        addLogEntry({
+          id: roll.id,
+          timestamp: roll.timestamp,
+          type: "item_chest",
+          summary: `Chest opened! Got ${item.name}`,
+          goldGained: 0,
+          xpGained: 0,
+          material: null,
+          chest: roll.chest,
+          itemDrop: item,
+        });
+      } else {
+        // 10%: chest goes to bag
+        pendingDropCooldownRef.current = duration;
+        setPendingDropChest(roll.chest);
+        addLogEntry({
+          id: roll.id,
+          timestamp: roll.timestamp,
+          type: "item_chest",
+          summary: `Found a ${roll.chest.rarity} Chest!`,
+          goldGained: 0,
+          xpGained: 0,
+          material: null,
+          chest: roll.chest,
+        });
+      }
     }
-  }, [isInteracting, char, applyGoldXp, addMaterials, addLogEntry, incrementEvents, setScene]);
+  }, [isInteracting, char, applyGoldXp, addMaterials, addItemToBag, addLogEntry, incrementEvents, setScene]);
 
   const handleGatherComplete = useCallback(
     (gathered: Material[]) => {
@@ -613,8 +632,17 @@ export default function GameScreen() {
             addItemToBag(drop.item);
           } else if (drop?.type === "chest") {
             droppedChest = drop.chest;
-            pendingDropCooldownRef.current = 400;
-            setPendingDropChest(drop.chest);
+            if (drop.autoOpen) {
+              // 90%: auto-open, item goes straight to bag
+              const item = openChest(drop.chest);
+              addItemToBag(item);
+              droppedItem = item;
+              droppedChest = undefined;
+            } else {
+              // 10%: chest goes to bag as-is
+              pendingDropCooldownRef.current = 400;
+              setPendingDropChest(drop.chest);
+            }
           }
         }
 
