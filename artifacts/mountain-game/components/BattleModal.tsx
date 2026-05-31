@@ -73,6 +73,8 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   const phaseRef         = useRef<BattlePhase>("intro");
   const npcRef           = useRef(npc);
   npcRef.current = npc;
+  const playerStatsRef   = useRef(playerStats);
+  playerStatsRef.current = playerStats;
 
   // Cancellation handle for the single yield timeout (safety cap only)
   const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,7 +125,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     const n = npcRef.current;
     if (!n || phaseRef.current !== "fighting") return;
 
-    const pCost = actionCost(playerStats.speed);
+    const pCost = actionCost(playerStatsRef.current.speed);
     const nCost = actionCost(n.spd);
 
     let iters = 0;
@@ -145,7 +147,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
         setBarPct(0);
 
         const dmg     = rolled(n.atk);
-        const blocked = Math.random() * 100 < calcBlock(playerStats.defence);
+        const blocked = Math.random() * 100 < calcBlock(playerStatsRef.current.defence);
         const finalDmg = blocked ? 0 : dmg;
         const newHp   = Math.max(0, playerHpRef.current - finalDmg);
         playerHpRef.current = newHp;
@@ -170,7 +172,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     const n = npcRef.current;
     if (!n) return;
 
-    const dmg   = rolled(playerStats.strength);
+    const dmg   = rolled(playerStatsRef.current.strength);
     const newHp = Math.max(0, npcHpRef.current - dmg);
     npcHpRef.current = newHp;
     setNpcHp(newHp);
@@ -180,7 +182,7 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     if (newHp <= 0) { endBattle("victory"); return; }
 
     // Advance player's timeline by their action cost, then resolve again
-    playerTimeline.current += actionCost(playerStats.speed);
+    playerTimeline.current += actionCost(playerStatsRef.current.speed);
     setBarPct(0);
     resolveNextTurn();
   }
@@ -214,11 +216,11 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
     if (visible && npc) {
       clearPending();
       stopPulse();
-      const maxHp = Math.max(1, Math.floor(playerStats.health * 10));
+      const maxHp = Math.max(1, Math.floor(playerStatsRef.current.health * 10));
       playerHpRef.current = maxHp;
       npcHpRef.current    = npc.hp;
       // Both start with their first action cost — whoever is lower goes first
-      playerTimeline.current = actionCost(playerStats.speed);
+      playerTimeline.current = actionCost(playerStatsRef.current.speed);
       npcTimeline.current    = actionCost(npc.spd);
       phaseRef.current = "intro";
       setPhase("intro");
