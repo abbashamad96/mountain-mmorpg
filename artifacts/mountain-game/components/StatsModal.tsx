@@ -352,7 +352,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                   <Text style={styles.emptyInvSub}>Gather materials by exploring the mountain.</Text>
                 </View>
               ) : (
-                <View style={styles.inventoryGrid}>
+                <View style={{ flexDirection: "column", gap: 0 }}>
                   {/* ── Materials ── */}
                   {(Object.keys(groupedInventory) as MaterialType[]).map((type) => {
                     const entries = groupedInventory[type];

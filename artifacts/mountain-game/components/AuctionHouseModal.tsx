@@ -153,8 +153,16 @@ function BuyOrderCard({
       <View style={styles.listingImg}>
         {isEquip && matchItem ? (
           <ItemImage slot={matchItem.slot} rarity={matchItem.rarity} quality={matchItem.quality} tier={matchItem.tier} size={54} />
+        ) : isEquip ? (
+          <View style={[styles.equipPlaceholder, { borderColor: rarityColor }]}>
+            <Text style={[styles.equipPlaceholderText, { color: rarityColor }]}>{ITEM_SLOT_ICONS[order.material.slot as ItemSlot] ?? "⚔"}</Text>
+          </View>
         ) : isChest && matchChest ? (
           <ChestImage rarity={matchChest.rarity} size={54} />
+        ) : isChest ? (
+          <View style={[styles.equipPlaceholder, { borderColor: rarityColor }]}>
+            <Text style={[styles.equipPlaceholderText, { color: rarityColor }]}>📦</Text>
+          </View>
         ) : (
           <MaterialImage
             type={order.material.type as MaterialType}
@@ -1925,4 +1933,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.gold,
   },
   boSummaryTxt: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  equipPlaceholder: {
+    width: 54, height: 54, borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: Colors.game.surface,
+  },
+  equipPlaceholderText: {
+    fontSize: 24,
+  },
 });
