@@ -62,6 +62,12 @@ export function CharacterPanel({ character, onStatAllocPress }: CharacterPanelPr
           <StatBar label="Speed" value={character.stats.speed} color={Colors.game.gold} icon="⚡" />
         </View>
       </View>
+
+      <View style={styles.blockRow}>
+        <Text style={styles.blockIcon}>🛡</Text>
+        <Text style={styles.blockLabel}>Block Rate</Text>
+        <Text style={styles.blockValue}>{((character.stats.defence / (character.stats.defence + 15000)) * 100).toFixed(1)}%</Text>
+      </View>
     </View>
   );
 }
@@ -176,5 +182,28 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: Colors.game.border,
     marginHorizontal: 12,
+  },
+  blockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: Colors.game.surfaceAlt,
+    borderRadius: 10,
+  },
+  blockIcon: {
+    fontSize: 14,
+  },
+  blockLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.game.textDim,
+  },
+  blockValue: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.blue,
   },
 });

@@ -222,7 +222,7 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
   const hpStat = Math.max(2, Math.floor(randHP));
   const atk   = Math.max(2, Math.floor(randStr));
   const spd   = Math.max(5, Math.floor(randSpd));
-  const def   = Math.max(0, Math.floor(randDef));
+  const def   = 0;
 
   // HP stat is 5 HP per point
   const maxHp = hpStat * 5;
