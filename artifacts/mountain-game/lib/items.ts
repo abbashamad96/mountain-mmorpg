@@ -319,8 +319,8 @@ export function rollChestFromMonster(monsterRarity: ItemRarity, monsterTier: Ite
   return { id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rarity, tier, tradable: true };
 }
 
-export function rollExplorationChest(rarity: ItemRarity): ItemChest {
-  return { id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rarity, tier: 0, tradable: true };
+export function rollExplorationChest(rarity: ItemRarity, tier: ItemTier): ItemChest {
+  return { id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rarity, tier, tradable: true };
 }
 
 export function openChest(chest: ItemChest): GameItem {

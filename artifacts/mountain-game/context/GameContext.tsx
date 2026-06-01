@@ -407,7 +407,7 @@ export function rollEvent(char: Character): EventRoll {
   }
 
   if (type === "item_chest") {
-    const chest = rollExplorationChest(rollRarity());
+    const chest = rollExplorationChest(rollRarity(), rollVersion());
     const scene = GOLD_XP_SCENES[Math.floor(Math.random() * GOLD_XP_SCENES.length)];
     return {
       id, type, timestamp: ts, sceneType: scene,
