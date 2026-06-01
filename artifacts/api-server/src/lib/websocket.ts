@@ -934,7 +934,12 @@ async function handleMessage(player: Player, raw: string) {
 // ─── Connection lifecycle ─────────────────────────────────────────────────────
 
 function handleClose(player: Player) {
-  if (player.username) userIdMap.delete(player.username.toLowerCase());
+  if (player.username) {
+    const mappedId = userIdMap.get(player.username.toLowerCase());
+    if (mappedId === player.id) {
+      userIdMap.delete(player.username.toLowerCase());
+    }
+  }
   players.delete(player.id);
   if (player.name) {
     for (const p of players.values()) {
