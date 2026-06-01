@@ -74,7 +74,7 @@ export interface NpcBattleStats {
   xpReward: number;
 }
 
-export type EventType = "gold_xp" | "gather" | "battle" | "item_chest";
+export type EventType = "gold_xp" | "gather" | "battle" | "item_chest" | "system";
 
 export interface EventRoll {
   id: string;

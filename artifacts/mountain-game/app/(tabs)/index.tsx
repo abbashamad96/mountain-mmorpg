@@ -376,7 +376,7 @@ export default function GameScreen() {
     ahEvents, consumeAhEvent,
     isAuthenticated, authUsername, serverGameState, clearServerGameState,
     saveGameState, accountSwitched, consumeAccountSwitch,
-    sessionExpired,
+    sessionExpired, kicked, clearKicked,
     status, isOnline,
     unreadCount,
     logout,
@@ -431,6 +431,20 @@ export default function GameScreen() {
       resetGameState();
     }
   }, [sessionExpired, resetGameState]);
+
+  // ── Show kick notification when logged in from another location ───────────
+  useEffect(() => {
+    if (kicked) {
+      addLogEntry({
+        id: `kick-${Date.now()}`,
+        timestamp: Date.now(),
+        type: "system",
+        summary: "You were logged out: account opened in another location.",
+        goldGained: 0, xpGained: 0, material: null,
+      });
+      clearKicked();
+    }
+  }, [kicked, clearKicked, addLogEntry]);
 
   // ── Load server state on login — always reset local first so server wins ──
   useEffect(() => {

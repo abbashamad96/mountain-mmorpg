@@ -488,6 +488,16 @@ async function handleMessage(player: Player, raw: string) {
     const token = generateToken();
     await dbCreateSession(token, username.toLowerCase());
 
+    const existingId = userIdMap.get(username.toLowerCase());
+    if (existingId && existingId !== player.id) {
+      const oldPlayer = players.get(existingId);
+      if (oldPlayer) {
+        send(oldPlayer.ws, { type: "kicked", reason: "Logged in from another location." });
+        oldPlayer.ws.close();
+        if (oldPlayer.username) userIdMap.delete(oldPlayer.username.toLowerCase());
+        players.delete(oldPlayer.id);
+      }
+    }
     reassignOwnedEntries(player.id, username);
     player.username = username;
     player.name = username;
@@ -511,6 +521,16 @@ async function handleMessage(player: Player, raw: string) {
     const token = generateToken();
     await dbCreateSession(token, uname);
 
+    const existingLoginId = userIdMap.get(uname);
+    if (existingLoginId && existingLoginId !== player.id) {
+      const oldPlayer = players.get(existingLoginId);
+      if (oldPlayer) {
+        send(oldPlayer.ws, { type: "kicked", reason: "Logged in from another location." });
+        oldPlayer.ws.close();
+        if (oldPlayer.username) userIdMap.delete(oldPlayer.username.toLowerCase());
+        players.delete(oldPlayer.id);
+      }
+    }
     reassignOwnedEntries(player.id, user.username);
     player.username = user.username;
     player.name = user.username;
@@ -541,6 +561,16 @@ async function handleMessage(player: Player, raw: string) {
     const newToken = generateToken();
     await dbCreateSession(newToken, session.usernameLower);
 
+    const existingAuthId = userIdMap.get(session.usernameLower);
+    if (existingAuthId && existingAuthId !== player.id) {
+      const oldPlayer = players.get(existingAuthId);
+      if (oldPlayer) {
+        send(oldPlayer.ws, { type: "kicked", reason: "Logged in from another location." });
+        oldPlayer.ws.close();
+        if (oldPlayer.username) userIdMap.delete(oldPlayer.username.toLowerCase());
+        players.delete(oldPlayer.id);
+      }
+    }
     reassignOwnedEntries(player.id, user.username);
     player.username = user.username;
     player.name = user.username;

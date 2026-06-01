@@ -90,6 +90,8 @@ interface MultiplayerContextType {
   consumeAccountSwitch: () => void;
   sessionExpired: boolean;
   clearSessionExpired: () => void;
+  kicked: boolean;
+  clearKicked: () => void;
   forgotPasswordSent: boolean;
   forgotPasswordError: string | null;
   register: (username: string, password: string, gameState: unknown, email: string) => void;
@@ -125,6 +127,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
   const [serverGameState, setServerGameState] = useState<unknown | null>(null);
   const [accountSwitched, setAccountSwitched] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [kicked, setKicked] = useState(false);
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
 
@@ -396,6 +399,13 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         AsyncStorage.removeItem(AUTH_TOKEN_KEY);
         AsyncStorage.removeItem("@mountain_auth_user_v1");
         if (wasRestoring) setSessionExpired(true);
+      } else if (msg.type === "kicked") {
+        setIsAuthenticated(false);
+        setAuthUsername(null);
+        authTokenRef.current = null;
+        AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+        AsyncStorage.removeItem("@mountain_auth_user_v1");
+        setKicked(true);
       }
     };
 
@@ -484,6 +494,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     setSessionExpired(false);
   }, []);
 
+  const clearKicked = useCallback(() => {
+    setKicked(false);
+  }, []);
+
   const register = useCallback((username: string, password: string, gameState: unknown, email: string) => {
     setAuthPending(true);
     setAuthError(null);
@@ -560,6 +574,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
       serverGameState, clearServerGameState,
       accountSwitched, consumeAccountSwitch,
       sessionExpired, clearSessionExpired,
+      kicked, clearKicked,
       forgotPasswordSent, forgotPasswordError,
       register, login, logout, saveGameState,
       forgotPassword, clearForgotState,
