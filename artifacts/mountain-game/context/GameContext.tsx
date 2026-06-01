@@ -199,12 +199,11 @@ const NPC_GOLD_BASE = [3, 8, 20, 50, 120, 300, 650, 1500];
 const NPC_GOLD_RANGE = [5, 12, 30, 70, 180, 420, 950, 2000];
 const NPC_XP_PCT = [1.2, 2.8, 5, 8, 13, 20, 30, 45];
 
-function randomSplit(total: number): [number, number, number, number] {
+function randomSplit3(total: number): [number, number, number] {
   const a = Math.random() * total;
   const b = Math.random() * (total - a);
-  const c = Math.random() * (total - a - b);
-  const d = total - a - b - c;
-  return [a, b, c, d];
+  const c = total - a - b;
+  return [a, b, c];
 }
 
 export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): NpcBattleStats {
@@ -217,7 +216,7 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
   const tierMultiplier = [1.0, 1.1, 1.2, 1.35][version];
   const totalPool = Math.max(3, baseMultiplier * tierMultiplier * level);
 
-  const [randHP, randStr, randSpd, randDef] = randomSplit(totalPool);
+  const [randHP, randStr, randSpd] = randomSplit3(totalPool);
 
   const hpStat = Math.max(2, Math.floor(randHP));
   const atk   = Math.max(2, Math.floor(randStr));
