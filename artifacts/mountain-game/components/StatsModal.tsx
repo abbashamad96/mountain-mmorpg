@@ -468,7 +468,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                                           <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={68} compact />
                                         </View>
                                         <View style={[styles.countBadge, { backgroundColor: rc }]}>
-                                          <Text style={styles.countText} numberOfLines={1}>{item.quality}</Text>
+                                          <Text style={styles.countText} numberOfLines={1}>{item.rarity} · {item.quality}</Text>
                                         </View>
                                         <View style={styles.typeLabel}>
                                           <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.7}>
