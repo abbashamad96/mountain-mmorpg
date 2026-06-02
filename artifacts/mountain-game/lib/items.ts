@@ -306,7 +306,7 @@ export function rollItemRarityFromMonster(monsterRarity: ItemRarity, monsterTier
 
 export function rollItemDropFromMonster(monsterRarity: ItemRarity, monsterTier: ItemTier): GameItem {
   const itemRarity = rollItemRarityFromMonster(monsterRarity, monsterTier);
-  const itemTier   = rollItemTierFixed();
+  const itemTier   = rollItemTier(monsterTier);
   const quality    = rollItemQuality();
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
   return generateItem(slot, itemRarity, itemTier, quality);
@@ -331,7 +331,7 @@ export function rollExplorationChest(rarity: ItemRarity, tier: ItemTier): ItemCh
 
 export function openChest(chest: ItemChest): GameItem {
   const itemRarity = rollItemRarityFromMonster(chest.rarity, chest.tier);
-  const itemTier   = rollItemTierFixed();
+  const itemTier   = rollItemTier(chest.tier);
   const quality    = rollItemQuality();
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
   return generateItem(slot, itemRarity, itemTier, quality);
