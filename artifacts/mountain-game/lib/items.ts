@@ -272,6 +272,8 @@ const ITEM_TIER_DROP_WEIGHTS: number[][] = [
   [15, 30, 40, 15],
 ];
 
+const FIXED_TIER_WEIGHTS = [84, 10, 5, 1];
+
 const ITEM_QUALITY_WEIGHTS = [65, 25, 10];
 
 // ─── Roll Helpers ─────────────────────────────────────────────────────────────
@@ -294,13 +296,17 @@ export function rollItemTier(monsterTier: ItemTier): ItemTier {
   return rollFromWeights([0, 1, 2, 3] as const, ITEM_TIER_DROP_WEIGHTS[monsterTier]);
 }
 
+export function rollItemTierFixed(): ItemTier {
+  return rollFromWeights([0, 1, 2, 3] as const, FIXED_TIER_WEIGHTS);
+}
+
 export function rollItemRarityFromMonster(monsterRarity: ItemRarity, monsterTier: ItemTier): ItemRarity {
   return rollFromWeights(ITEM_RARITIES, ITEM_DROP_TABLE[monsterRarity][monsterTier]);
 }
 
 export function rollItemDropFromMonster(monsterRarity: ItemRarity, monsterTier: ItemTier): GameItem {
   const itemRarity = rollItemRarityFromMonster(monsterRarity, monsterTier);
-  const itemTier   = rollItemTier(monsterTier);
+  const itemTier   = rollItemTierFixed();
   const quality    = rollItemQuality();
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
   return generateItem(slot, itemRarity, itemTier, quality);
@@ -325,7 +331,7 @@ export function rollExplorationChest(rarity: ItemRarity, tier: ItemTier): ItemCh
 
 export function openChest(chest: ItemChest): GameItem {
   const itemRarity = rollItemRarityFromMonster(chest.rarity, chest.tier);
-  const itemTier   = rollItemTier(chest.tier);
+  const itemTier   = rollItemTierFixed();
   const quality    = rollItemQuality();
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
   return generateItem(slot, itemRarity, itemTier, quality);
