@@ -216,14 +216,14 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
   const tierMultiplier = [1.0, 1.1, 1.2, 1.35][version];
   const totalPool = Math.max(3, baseMultiplier * tierMultiplier * level);
 
-  const minHP  = totalPool * 0.1;
-  const minStr = totalPool * 0.1;
-  const remaining = totalPool * 0.8;
-  const [randHP, randStr, randSpd] = randomSplit3(remaining);
+  const minHP  = 5;
+  const minStr = 5;
+  const minSpd = 2;
+  const [randHP, randStr, randSpd] = randomSplit3(totalPool);
 
-  const hpStat = Math.max(2, Math.floor(minHP + randHP));
-  const atk   = Math.max(2, Math.floor(minStr + randStr));
-  const spd   = Math.max(5, Math.floor(randSpd));
+  const hpStat = Math.floor(minHP + randHP);
+  const atk   = Math.floor(minStr + randStr);
+  const spd   = Math.floor(minSpd + randSpd);
   const def   = 0;
 
   // HP stat is 5 HP per point
