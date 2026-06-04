@@ -212,7 +212,7 @@ export function buildNpcBattle(xpToNextVal: number, playerLevel: number = 1): Np
   const idx = RARITIES.indexOf(rarity);
   const level = Math.max(1, playerLevel + 1);
 
-  const baseMultiplier = 0.7 + idx * 0.1;
+  const baseMultiplier = 1.5 + idx * 0.1;
   const tierMultiplier = [1.0, 1.1, 1.2, 1.35][version];
   const totalPool = Math.max(3, baseMultiplier * tierMultiplier * level);
 
