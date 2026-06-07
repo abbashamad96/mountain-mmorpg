@@ -35,6 +35,7 @@ import {
   rollNpcDrop,
   useGame,
   getEffectiveStats,
+  ActiveBuff,
 } from "@/context/GameContext";
 import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPotionName, ChestDrop } from "@/lib/items";
 import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
@@ -79,6 +80,34 @@ const toastStyles = StyleSheet.create({
     flexShrink: 1,
   },
 });
+
+// ─── Scene / activity display helpers ────────────────────────────────────────
+
+const SCENE_NAME_MAP: Record<string, string> = {
+  default:  "Mysterious Road",
+  storm:    "The Storm Path",
+  treasure: "Ancient Ruins Trail",
+  combat:   "Danger Zone",
+  ruins:    "Forgotten Ruins",
+  forest:   "Enchanted Forest",
+  snow:     "Blizzard Pass",
+  dungeon:  "Sunken Dungeon",
+  volcanic: "Volcanic Ridge",
+  night:    "Moonlit Path",
+};
+
+const SCENE_ACTIVITY_MAP: Record<string, { label: string; color: string }> = {
+  default:  { label: "EXPLORING", color: Colors.game.gold },
+  storm:    { label: "EXPLORING", color: Colors.game.gold },
+  treasure: { label: "EXPLORING", color: Colors.game.gold },
+  ruins:    { label: "EXPLORING", color: Colors.game.gold },
+  night:    { label: "EXPLORING", color: Colors.game.gold },
+  forest:   { label: "GATHERING", color: Colors.game.green },
+  snow:     { label: "GATHERING", color: Colors.game.green },
+  combat:   { label: "COMBAT",    color: Colors.game.red },
+  dungeon:  { label: "COMBAT",    color: Colors.game.red },
+  volcanic: { label: "COMBAT",    color: Colors.game.red },
+};
 
 // ─── Event log stack (above scene image) ─────────────────────────────────────
 
@@ -394,6 +423,160 @@ const logStackStyles = StyleSheet.create({
     paddingHorizontal: 4, paddingVertical: 1,
   },
   tierTxt: { fontSize: 10, fontFamily: "Inter_700Bold" },
+});
+
+// ─── Active buff countdown pills ──────────────────────────────────────────────
+
+const BUFF_ICONS: Record<string, string> = {
+  Gold: "💰", XP: "⭐", Exploration: "⚡",
+};
+const BUFF_PILL_COLORS: Record<string, string> = {
+  Gold:        Colors.game.gold,
+  XP:          Colors.game.purpleLight,
+  Exploration: Colors.game.blueLight,
+};
+
+function ActiveBuffPills({ buffs }: { buffs: ActiveBuff[] }) {
+  const [, setTick] = useState(0);
+
+  const now = Date.now();
+  const active = buffs.filter((b) => b.expiresAt > now);
+
+  useEffect(() => {
+    if (active.length === 0) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [active.length]);
+
+  if (active.length === 0) return null;
+
+  return (
+    <View style={pillStyles.row}>
+      {active.map((buff) => {
+        const remaining = Math.max(0, Math.ceil((buff.expiresAt - Date.now()) / 1000));
+        const color = BUFF_PILL_COLORS[buff.type] ?? Colors.game.gold;
+        const pct = Math.round((buff.multiplier - 1) * 100);
+        return (
+          <View key={buff.type} style={[pillStyles.pill, { borderColor: color + "55" }]}>
+            <Text style={pillStyles.pillIcon}>{BUFF_ICONS[buff.type] ?? "✨"}</Text>
+            <Text style={[pillStyles.pillLabel, { color }]}>{buff.type} +{pct}%</Text>
+            <View style={[pillStyles.pillTimer, { backgroundColor: color + "22" }]}>
+              <Text style={[pillStyles.pillTime, { color }]}>{remaining}s</Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const pillStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row", flexWrap: "wrap", gap: 6,
+    paddingHorizontal: 16, paddingTop: 6,
+  },
+  pill: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 5,
+  },
+  pillIcon: { fontSize: 12 },
+  pillLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  pillTimer: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, marginLeft: 2 },
+  pillTime:  { fontSize: 10, fontFamily: "Inter_700Bold" },
+});
+
+// ─── Bottom tab bar ───────────────────────────────────────────────────────────
+
+interface BottomTabBarProps {
+  onPressAH: () => void;
+  onPressInventory: () => void;
+  onPressChat: () => void;
+  onPressAccount: () => void;
+  onPressNotifications: () => void;
+  unreadCount: number;
+  pendingStatPoints: number;
+  isAuthenticated: boolean;
+  bottomPad: number;
+}
+
+function BottomTabBar({
+  onPressAH, onPressInventory, onPressChat, onPressAccount,
+  unreadCount, pendingStatPoints, isAuthenticated, bottomPad,
+}: BottomTabBarProps) {
+  return (
+    <View style={[tabBarStyles.bar, { paddingBottom: bottomPad + 6 }]}>
+      {/* Mountain — always active */}
+      <View style={tabBarStyles.tab}>
+        <Feather name="map-pin" size={22} color={Colors.game.gold} />
+        <Text style={[tabBarStyles.label, { color: Colors.game.gold }]}>Mountain</Text>
+      </View>
+
+      {/* Market / AH */}
+      <Pressable style={tabBarStyles.tab} onPress={onPressAH} hitSlop={8}>
+        <Feather name="shopping-bag" size={22} color={Colors.game.textDim} />
+        <Text style={tabBarStyles.label}>Market</Text>
+      </Pressable>
+
+      {/* Inventory */}
+      <Pressable style={tabBarStyles.tab} onPress={onPressInventory} hitSlop={8}>
+        <View style={tabBarStyles.iconWrap}>
+          <Feather name="package" size={22} color={Colors.game.textDim} />
+          {pendingStatPoints > 0 && (
+            <View style={tabBarStyles.badge}>
+              <Text style={tabBarStyles.badgeText}>{pendingStatPoints}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={tabBarStyles.label}>Inventory</Text>
+      </Pressable>
+
+      {/* Chat */}
+      <Pressable style={tabBarStyles.tab} onPress={onPressChat} hitSlop={8}>
+        <View style={tabBarStyles.iconWrap}>
+          <Feather name="message-circle" size={22} color={Colors.game.textDim} />
+          {unreadCount > 0 && (
+            <View style={[tabBarStyles.badge, { backgroundColor: Colors.game.red }]}>
+              <Text style={tabBarStyles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={tabBarStyles.label}>Chat</Text>
+      </Pressable>
+
+      {/* Account */}
+      <Pressable style={tabBarStyles.tab} onPress={onPressAccount} hitSlop={8}>
+        <Feather
+          name={isAuthenticated ? "check-circle" : "key"}
+          size={22}
+          color={isAuthenticated ? Colors.game.green : Colors.game.textDim}
+        />
+        <Text style={[tabBarStyles.label, isAuthenticated ? { color: Colors.game.green } : undefined]}>
+          {isAuthenticated ? "Online" : "Account"}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const tabBarStyles = StyleSheet.create({
+  bar: {
+    flexDirection: "row",
+    backgroundColor: Colors.game.surface,
+    borderTopWidth: 1, borderTopColor: Colors.game.border,
+    paddingTop: 10, paddingHorizontal: 10,
+  },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3 },
+  iconWrap: { position: "relative" },
+  label: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textDim, letterSpacing: 0.3 },
+  badge: {
+    position: "absolute", top: -5, right: -8,
+    backgroundColor: Colors.game.purple,
+    borderRadius: 8, minWidth: 15, height: 15, paddingHorizontal: 3,
+    alignItems: "center", justifyContent: "center",
+  },
+  badgeText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
 });
 
 export default function GameScreen() {
@@ -902,115 +1085,118 @@ export default function GameScreen() {
         }, INACTIVITY_MS);
       }}
     >
-      {/* ── Top: header + stat strip ──────────────────────────────────── */}
-      <View style={[styles.topSection, { paddingTop: topPad + 12 }]}>
-        <View style={styles.titleRow}>
-          <Text style={styles.mapTitle}>Mountain of Supremacy</Text>
-        </View>
-        <View style={styles.headerBtns}>
-          <Pressable
-            style={styles.headerBtn}
-            onPress={() => setShowAuction(true)}
-            hitSlop={4}
-          >
-            <Feather name="shopping-bag" size={20} color={Colors.game.gold} />
-          </Pressable>
-          <Pressable
-            style={styles.headerBtn}
-            onPress={() => setShowNotifications(true)}
-            hitSlop={4}
-          >
-            <Feather name="bell" size={20} color={Colors.game.text} />
-            {unreadCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </Pressable>
-          <Pressable
-            style={styles.headerBtn}
-            onPress={() => setShowChat(true)}
-            hitSlop={4}
-          >
-            <Feather name="message-circle" size={20} color={Colors.game.blue} />
-          </Pressable>
-          <Pressable style={styles.headerBtn} onPress={() => setShowStats(true)} hitSlop={4}>
-            <Feather name="user" size={20} color={Colors.game.gold} />
-            {char.pendingStatPoints > 0 && (
-              <View style={styles.statsBadge}>
-                <Text style={styles.statsBadgeText}>{char.pendingStatPoints}</Text>
-              </View>
-            )}
-          </Pressable>
-          <Pressable
-            style={[styles.headerBtn, isAuthenticated && styles.headerBtnAuth]}
-            onPress={() => setShowAuth(true)}
-            hitSlop={4}
-          >
-            <Feather
-              name={isAuthenticated ? "check-circle" : "key"}
-              size={20}
-              color={isAuthenticated ? Colors.game.green : Colors.game.textDim}
-            />
-          </Pressable>
-        </View>
+      {/* ── Character header card ─────────────────────────────────────────── */}
+      <View style={[styles.characterCard, { paddingTop: topPad + 10 }]}>
+        <View style={styles.charRow}>
+          {/* Avatar circle */}
+          <View style={styles.avatarWrap}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitial}>
+                {authUsername ? authUsername[0].toUpperCase() : "?"}
+              </Text>
+            </View>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>LV{char.level}</Text>
+            </View>
+          </View>
 
-        {/* Quick gold + level strip */}
-        <View style={styles.quickStrip}>
-          <View style={styles.stripItem}>
-            <View style={styles.goldCoin}>
-              <Text style={styles.goldCoinText}>G</Text>
-            </View>
-            <Text style={styles.stripValue}>{char.gold.toLocaleString()}</Text>
-          </View>
-          <View style={styles.stripDivider} />
-          <View style={styles.stripItem}>
-            <Text style={styles.stripLabel}>LV</Text>
-            <Text style={styles.stripValue}>{char.level}</Text>
-          </View>
-          <View style={styles.stripDivider} />
-          <View style={styles.stripItemXp}>
-            <View style={styles.xpTrack}>
-              <View
-                style={[
-                  styles.xpFill,
-                  { width: `${Math.min(100, (char.xp / char.xpToNext) * 100)}%` as any },
-                ]}
-              />
-            </View>
-            <Text style={styles.xpText}>{char.xp}/{char.xpToNext} XP</Text>
-          </View>
-          {isAuthenticated && authUsername && (
-            <>
-              <View style={styles.stripDivider} />
-              <View style={styles.stripItem}>
-                <Feather name="check-circle" size={11} color={Colors.game.green} />
-                <Text style={styles.stripUsername}>{authUsername}</Text>
+          {/* Name + scene + XP bar */}
+          <View style={styles.charMeta}>
+            <Text style={styles.charName} numberOfLines={1}>
+              {authUsername ?? "Traveler"}
+            </Text>
+            <Text style={styles.charScene} numberOfLines={1}>
+              {SCENE_NAME_MAP[gameState.currentScene] ?? "Mountain Road"}
+            </Text>
+            <View style={styles.xpRow}>
+              <View style={styles.xpTrack}>
+                <View
+                  style={[
+                    styles.xpFill,
+                    { width: `${Math.min(100, (char.xp / char.xpToNext) * 100)}%` as any },
+                  ]}
+                />
               </View>
-            </>
-          )}
+              <Text style={styles.xpText}>{char.xp}/{char.xpToNext} XP</Text>
+            </View>
+          </View>
+
+          {/* Gold + activity badge + notification bell */}
+          <View style={styles.charRight}>
+            <View style={styles.charRightTop}>
+              <Pressable style={styles.notifBtn} onPress={() => setShowNotifications(true)} hitSlop={4}>
+                <Feather
+                  name="bell"
+                  size={16}
+                  color={unreadCount > 0 ? Colors.game.gold : Colors.game.textDim}
+                />
+                {unreadCount > 0 && (
+                  <View style={styles.notifBadge}>
+                    <Text style={styles.notifBadgeText}>{unreadCount}</Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+            <View style={styles.goldRow}>
+              <Text style={styles.goldIcon}>🪙</Text>
+              <Text style={styles.goldValue}>{char.gold.toLocaleString()}</Text>
+            </View>
+            {(() => {
+              const act = SCENE_ACTIVITY_MAP[gameState.currentScene] ?? SCENE_ACTIVITY_MAP.default;
+              return (
+                <View style={[styles.activityBadge, { backgroundColor: act.color + "22", borderColor: act.color + "88" }]}>
+                  <Text style={[styles.activityText, { color: act.color }]}>{act.label}</Text>
+                </View>
+              );
+            })()}
+          </View>
         </View>
       </View>
 
-      {/* ── Middle spacer ─────────────────────────────────────────────── */}
-      <View style={styles.midSpacer} />
+      {/* ── Active potion buff pills ──────────────────────────────────────── */}
+      <ActiveBuffPills buffs={char.activeBuffs} />
 
-      {/* ── Bottom: notification + scene + timer ──────────────────────── */}
-      <View style={[styles.bottomSection, { paddingBottom: bottomPad + 16 }]}>
-        {ahToasts.map((t) => <AhToast key={t.id} toast={t} />)}
+      {/* ── AH toasts ────────────────────────────────────────────────────── */}
+      {ahToasts.length > 0 && (
+        <View style={styles.toastsWrap}>
+          {ahToasts.map((t) => <AhToast key={t.id} toast={t} />)}
+        </View>
+      )}
+
+      {/* ── Event log ────────────────────────────────────────────────────── */}
+      <View style={styles.logWrap}>
         <EventLogStack logs={gameState.eventLog} />
+      </View>
+
+      {/* ── Scene — fills remaining space ────────────────────────────────── */}
+      <View style={styles.sceneWrap}>
         <SceneView
           scene={gameState.currentScene}
           artIndex={artIndex}
           onPress={handleScenePress}
           disabled={isInteracting}
         />
-        <TimerBar
-          isActive={isInteracting}
-          duration={cooldownDuration}
-          color={getActiveBuffMultiplier("Exploration") > 1 ? Colors.game.blueLight : undefined}
-        />
       </View>
+
+      {/* ── Timer bar ────────────────────────────────────────────────────── */}
+      <TimerBar
+        isActive={isInteracting}
+        duration={cooldownDuration}
+        color={getActiveBuffMultiplier("Exploration") > 1 ? Colors.game.blueLight : undefined}
+      />
+
+      {/* ── Bottom tab bar ───────────────────────────────────────────────── */}
+      <BottomTabBar
+        onPressAH={() => setShowAuction(true)}
+        onPressInventory={() => setShowStats(true)}
+        onPressChat={() => setShowChat(true)}
+        onPressAccount={() => setShowAuth(true)}
+        onPressNotifications={() => setShowNotifications(true)}
+        unreadCount={unreadCount}
+        pendingStatPoints={char.pendingStatPoints}
+        isAuthenticated={isAuthenticated}
+        bottomPad={bottomPad}
+      />
 
       {/* Modals */}
       <AuctionHouseModal
@@ -1126,88 +1312,56 @@ export default function GameScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.game.background },
-  topSection: { paddingHorizontal: 16, gap: 12 },
-  midSpacer: { flex: 1, maxHeight: "28%" },
-  bottomSection: { paddingHorizontal: 16, gap: 10 },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  mapTitle: {
-    fontSize: 18, fontFamily: "Inter_700Bold",
-    color: Colors.game.gold, letterSpacing: 0.4,
-  },
-  headerBtns: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-  headerBtn: {
-    padding: 8,
+
+  // ── Character header ──────────────────────────────────────────────────────
+  characterCard: {
+    paddingHorizontal: 16, paddingBottom: 12,
     backgroundColor: Colors.game.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-    position: "relative",
+    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
   },
-  headerBtnAuth: {
-    borderColor: Colors.game.green + "55",
-    backgroundColor: "rgba(34,197,94,0.06)",
-  },
-  statsBadge: {
-    position: "absolute", top: -4, right: -4,
-    backgroundColor: Colors.game.purple,
-    borderRadius: 8, width: 16, height: 16,
+  charRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+
+  avatarWrap: { alignItems: "center", gap: 5 },
+  avatar: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: Colors.game.surfaceAlt,
+    borderWidth: 2, borderColor: Colors.game.gold + "88",
     alignItems: "center", justifyContent: "center",
   },
-  statsBadgeText: {
-    fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff",
+  avatarInitial: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  levelBadge: {
+    backgroundColor: Colors.game.gold + "22",
+    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1, borderColor: Colors.game.gold + "55",
   },
-  bellBadge: {
-    position: "absolute", top: -4, right: -4,
-    backgroundColor: Colors.game.red,
-    borderRadius: 8, minWidth: 16, height: 16,
-    paddingHorizontal: 3,
-    alignItems: "center", justifyContent: "center",
-  },
-  bellBadgeText: {
-    fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff",
-  },
-  quickStrip: {
-    flexDirection: "row",
-    backgroundColor: Colors.game.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-    gap: 10,
-  },
-  stripItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  stripItemXp: { flex: 1, gap: 3 },
-  goldCoin: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: Colors.game.gold,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: "#a07820",
-  },
-  goldCoinText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#3d2e00" },
-  stripLabel: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 1,
-  },
-  stripValue: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.gold },
-  stripDivider: { width: 1, height: 20, backgroundColor: Colors.game.border },
-  xpTrack: {
-    height: 4, backgroundColor: Colors.game.border,
-    borderRadius: 2, overflow: "hidden",
-  },
-  xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 2 },
+  levelBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+
+  charMeta: { flex: 1, gap: 2 },
+  charName: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.text, letterSpacing: 0.2 },
+  charScene: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  xpRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  xpTrack: { flex: 1, height: 5, backgroundColor: Colors.game.border, borderRadius: 3, overflow: "hidden" },
+  xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 3 },
   xpText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
-  stripUsername: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.green, letterSpacing: 0.5,
-    maxWidth: 80,
+
+  charRight: { alignItems: "flex-end", gap: 5 },
+  charRightTop: { flexDirection: "row", justifyContent: "flex-end" },
+  notifBtn: { position: "relative", padding: 2 },
+  notifBadge: {
+    position: "absolute", top: -3, right: -5,
+    backgroundColor: Colors.game.red,
+    borderRadius: 7, minWidth: 14, height: 14, paddingHorizontal: 2,
+    alignItems: "center", justifyContent: "center",
   },
+  notifBadgeText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
+  goldRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  goldIcon: { fontSize: 14 },
+  goldValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  activityBadge: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  activityText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },
+
+  // ── Content areas ─────────────────────────────────────────────────────────
+  toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
+  logWrap: { paddingHorizontal: 16, paddingTop: 6 },
+  sceneWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
 });
