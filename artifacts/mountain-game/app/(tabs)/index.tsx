@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
+import { BattleDropModal, BattleDrop } from "@/components/BattleDropModal";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { ChestDropModal } from "@/components/ChestDropModal";
@@ -412,6 +413,9 @@ export default function GameScreen() {
   const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(null);
   const pendingDropCooldownRef = useRef<number>(500);
   const [autoOpenChest, setAutoOpenChest] = useState<ItemChest | null>(null);
+  const [battleDrops, setBattleDrops] = useState<BattleDrop[]>([]);
+  const [battleDropNpcName, setBattleDropNpcName] = useState("");
+  const [showBattleDrops, setShowBattleDrops] = useState(false);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
 
   const insets = useSafeAreaInsets();
@@ -665,6 +669,7 @@ export default function GameScreen() {
       }
       const npc = battleNpcRef.current;
       if (npc) {
+        let drops: BattleDrop[] = [];
         let droppedMat: Material | null = null;
         let dropCount = 0;
         let droppedItem = undefined as typeof undefined | NonNullable<LogEntry["itemDrop"]>;
@@ -675,22 +680,20 @@ export default function GameScreen() {
           if (drop?.type === "material") {
             droppedMat = drop.material;
             dropCount = drop.count;
-            const mats = Array.from({ length: drop.count }, () => ({ ...drop.material }));
-            addMaterials(mats);
+            drops.push({ type: "material", material: drop.material, count: drop.count });
           } else if (drop?.type === "item") {
             droppedItem = drop.item;
-            addItemToBag(drop.item);
+            drops.push({ type: "item", item: drop.item });
           } else if (drop?.type === "chest") {
             droppedChest = drop.chest;
-            pendingDropCooldownRef.current = 400;
-            setPendingDropChest(drop.chest);
+            drops.push({ type: "chest", chest: drop.chest });
           }
         }
 
         let dropSuffix = "";
-        if (droppedMat) dropSuffix = ` · ${droppedMat.type}${dropCount > 1 ? ` ×${dropCount}` : ""}`;
-        else if (droppedItem) dropSuffix = ` · ${droppedItem.name}`;
-        else if (droppedChest) dropSuffix = ` · 📦 ${droppedChest.rarity} Chest`;
+        if (droppedMat) dropSuffix = ` \u00b7 ${droppedMat.type}${dropCount > 1 ? ` \u00d7${dropCount}` : ""}`;
+        else if (droppedItem) dropSuffix = ` \u00b7 ${droppedItem.name}`;
+        else if (droppedChest) dropSuffix = ` \u00b7 \ud83d\udce6 ${droppedChest.rarity} Chest`;
 
         addLogEntry({
           id: `b-${Date.now()}`,
@@ -709,15 +712,45 @@ export default function GameScreen() {
           itemDrop: droppedItem,
           chest: droppedChest,
         });
-        if (!droppedChest) {
+
+        if (drops.length > 0 && victory) {
+          setBattleDrops(drops);
+          setBattleDropNpcName(npc.name);
+          setShowBattleDrops(true);
+        } else {
           cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
         }
       } else {
         cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
       }
     },
-    [applyGoldXp, addLogEntry, addMaterials, addItemToBag]
+    [applyGoldXp, addLogEntry]
   );
+
+  const handleCollectBattleDrops = useCallback(() => {
+    for (const drop of battleDrops) {
+      if (drop.type === "material") {
+        const mats = Array.from({ length: drop.count }, () => ({ ...drop.material }));
+        addMaterials(mats);
+      } else if (drop.type === "item") {
+        addItemToBag(drop.item);
+      } else if (drop.type === "chest") {
+        setPendingDropChest(drop.chest);
+        pendingDropCooldownRef.current = 400;
+      }
+    }
+    setShowBattleDrops(false);
+    setBattleDrops([]);
+    if (!battleDrops.some((d) => d.type === "chest")) {
+      cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+    }
+  }, [battleDrops, addMaterials, addItemToBag]);
+
+  const handleCloseBattleDrops = useCallback(() => {
+    setShowBattleDrops(false);
+    setBattleDrops([]);
+    cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+  }, []);
 
   // ── List item from inventory → AH ─────────────────────────────────────────
   const handleListOnAh = useCallback((entry: MaterialEntry) => {
@@ -970,6 +1003,13 @@ export default function GameScreen() {
         playerStats={getEffectiveStats(char)}
         playerLevel={char.level}
         onComplete={handleBattleComplete}
+      />
+      <BattleDropModal
+        visible={showBattleDrops}
+        npcName={battleDropNpcName}
+        drops={battleDrops}
+        onCollectAll={handleCollectBattleDrops}
+        onClose={handleCloseBattleDrops}
       />
 
       {/* Offline / disconnected overlay — Modal so it renders above all RN modals.
