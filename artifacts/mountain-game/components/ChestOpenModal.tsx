@@ -9,20 +9,24 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { GameItem, ItemChest } from "@/context/GameContext";
+import { GameItem, ItemChest, Potion } from "@/context/GameContext";
 import {
   formatChestName,
   formatItemName,
+  formatPotionName,
+  ItemRarity,
   ITEM_QUALITY_COLORS,
   ITEM_RARITY_COLORS,
   openChest,
+  ChestDrop,
 } from "@/lib/items";
 import { ChestImage } from "./ChestImage";
 import { ItemImage } from "./ItemImage";
+import { PotionImage } from "./PotionImage";
 
 interface ChestOpenModalProps {
   chest: ItemChest;
-  onClaim: (item: GameItem) => void;
+  onClaim: (drop: ChestDrop) => void;
   onClose?: () => void;
   onSellOnAh?: () => void;
 }
@@ -51,7 +55,7 @@ const OPEN_MESSAGES: Record<string, string> = {
 
 export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpenModalProps) {
   const [phase, setPhase] = useState<"idle" | "opening" | "revealed">("idle");
-  const [revealedItem, setRevealedItem] = useState<GameItem | null>(null);
+  const [revealedDrop, setRevealedDrop] = useState<ChestDrop | null>(null);
 
   const shakeX    = useRef(new Animated.Value(0)).current;
   const scale     = useRef(new Animated.Value(1)).current;
@@ -61,10 +65,12 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
   const itemScale = useRef(new Animated.Value(0.5)).current;
 
   const rc = ITEM_RARITY_COLORS[chest.rarity];
+  const isItem = (d: ChestDrop): d is GameItem => "slot" in d;
+  const isPotion = (d: ChestDrop): d is Potion => "type" in d;
 
   function handleOpen() {
-    const item = openChest(chest);
-    setRevealedItem(item);
+    const drop = openChest(chest);
+    setRevealedDrop(drop);
     setPhase("opening");
 
     const shakeSequence = Animated.sequence([
@@ -98,10 +104,10 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
     });
   }
 
-  const itemRc = revealedItem ? ITEM_RARITY_COLORS[revealedItem.rarity] : rc;
-  const itemQc = revealedItem ? ITEM_QUALITY_COLORS[revealedItem.quality] : "#9CA3AF";
+  const dropRc = revealedDrop ? ITEM_RARITY_COLORS[(revealedDrop as any).rarity as ItemRarity] : rc;
+  const dropQc = revealedDrop && isItem(revealedDrop) ? ITEM_QUALITY_COLORS[revealedDrop.quality] : "#9CA3AF";
 
-  const STAT_ROWS: { key: keyof NonNullable<typeof revealedItem>["stats"]; label: string; icon: string }[] = [
+  const ITEM_STAT_ROWS: { key: "strength" | "health" | "defence" | "speed"; label: string; icon: string }[] = [
     { key: "strength", label: "Strength", icon: "⚔" },
     { key: "health",   label: "Health",   icon: "♥" },
     { key: "defence",  label: "Defence",  icon: "🛡" },
@@ -126,7 +132,6 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                 </View>
               </View>
 
-              {/* Animated chest */}
               <Animated.View
                 style={[styles.chestWrap, { transform: [{ translateX: shakeX }, { scale }], opacity: chestOp }]}
               >
@@ -136,7 +141,6 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                 </View>
               </Animated.View>
 
-              {/* Idle: action buttons */}
               {phase === "idle" && (
                 <View style={styles.idleActions}>
                   <Pressable style={[styles.openBtn, { borderColor: rc }]} onPress={handleOpen}>
@@ -150,14 +154,12 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                 </View>
               )}
 
-              {/* Opening: flavor text */}
               {phase === "opening" && (
                 <Text style={[styles.openingMsg, { color: rc }]}>
                   {OPEN_MESSAGES[chest.rarity]}
                 </Text>
               )}
 
-              {/* CLOSE only if onClose prop was provided (backpack chests, not forced drops) */}
               {phase === "idle" && onClose && (
                 <Pressable style={styles.closeBtn} onPress={onClose}>
                   <Text style={styles.closeBtnTxt}>CLOSE</Text>
@@ -167,49 +169,41 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
           )}
 
           {/* ── Revealed item phase ── */}
-          {phase === "revealed" && revealedItem && (
+          {phase === "revealed" && revealedDrop && isItem(revealedDrop) && (
             <Animated.View style={[styles.revealPhase, { opacity: itemOp, transform: [{ scale: itemScale }] }]}>
               <Text style={[styles.openingMsg, { color: rc }]}>{OPEN_MESSAGES[chest.rarity]}</Text>
-
-              <View style={[styles.itemCard, { borderColor: itemRc }]}>
-                {/* Art */}
+              <View style={[styles.itemCard, { borderColor: dropRc }]}>
                 <View style={styles.artRow}>
                   <ItemImage
-                    slot={revealedItem.slot}
-                    rarity={revealedItem.rarity}
-                    quality={revealedItem.quality}
-                    tier={revealedItem.tier}
+                    slot={revealedDrop.slot}
+                    rarity={revealedDrop.rarity}
+                    quality={revealedDrop.quality}
+                    tier={revealedDrop.tier}
                     size={72}
                   />
                   <View style={{ flex: 1 }}>
-                    {/* Full formatted name */}
-                    <Text style={[styles.itemName, { color: itemRc }]} numberOfLines={2}>
-                      {formatItemName(revealedItem)}
+                    <Text style={[styles.itemName, { color: dropRc }]} numberOfLines={2}>
+                      {formatItemName(revealedDrop)}
                     </Text>
-                    {/* Quality badge */}
-                    {revealedItem.quality !== "Basic" && (
-                      <View style={[styles.qualBadge, { borderColor: itemQc + "99", backgroundColor: itemQc + "18" }]}>
-                        <Text style={[styles.qualBadgeTxt, { color: itemQc }]}>
-                          {revealedItem.quality.toUpperCase()}
-                        </Text>
+                    {revealedDrop.quality !== "Basic" && (
+                      <View style={[styles.qualBadge, { borderColor: dropQc + "99", backgroundColor: dropQc + "18" }]}>
+                        <Text style={[styles.qualBadgeTxt, { color: dropQc }]}>{revealedDrop.quality.toUpperCase()}</Text>
                       </View>
                     )}
                     <View style={styles.itemTagRow}>
-                      <View style={[styles.tag, { borderColor: itemRc }]}>
-                        <Text style={[styles.tagTxt, { color: itemRc }]}>{revealedItem.rarity.toUpperCase()}</Text>
+                      <View style={[styles.tag, { borderColor: dropRc }]}>
+                        <Text style={[styles.tagTxt, { color: dropRc }]}>{revealedDrop.rarity.toUpperCase()}</Text>
                       </View>
                       <View style={[styles.tag, { borderColor: "#555" }]}>
-                        <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{revealedItem.tier}</Text>
+                        <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{revealedDrop.tier}</Text>
                       </View>
                     </View>
                   </View>
                 </View>
-
-                {/* Stats */}
                 <ScrollView style={styles.statsScroll} showsVerticalScrollIndicator={false}>
-                  {STAT_ROWS.map(({ key, label, icon }) => {
-                    const flat = revealedItem.stats[key];
-                    const pct  = revealedItem.percentStats[key];
+                  {ITEM_STAT_ROWS.map(({ key, label, icon }) => {
+                    const flat = revealedDrop.stats[key];
+                    const pct  = revealedDrop.percentStats[key];
                     if (flat === 0 && pct === 0) return null;
                     return (
                       <View key={key} style={styles.statRow}>
@@ -220,19 +214,52 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                       </View>
                     );
                   })}
-                  {STAT_ROWS.every(({ key }) => revealedItem.stats[key] === 0 && revealedItem.percentStats[key] === 0) && (
+                  {ITEM_STAT_ROWS.every(({ key }) => revealedDrop.stats[key] === 0 && revealedDrop.percentStats[key] === 0) && (
                     <Text style={styles.noStat}>No stat bonuses</Text>
                   )}
                 </ScrollView>
               </View>
-
-              <Pressable
-                style={[styles.claimBtn, { borderColor: itemRc, backgroundColor: itemRc + "22" }]}
-                onPress={() => onClaim(revealedItem)}
-              >
-                <Text style={[styles.claimBtnTxt, { color: itemRc }]}>ADD TO BAG</Text>
+              <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
+                <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
               </Pressable>
-              {/* No CLOSE here — must claim the item */}
+            </Animated.View>
+          )}
+
+          {/* ── Revealed potion phase ── */}
+          {phase === "revealed" && revealedDrop && isPotion(revealedDrop) && (
+            <Animated.View style={[styles.revealPhase, { opacity: itemOp, transform: [{ scale: itemScale }] }]}>
+              <Text style={[styles.openingMsg, { color: rc }]}>{OPEN_MESSAGES[chest.rarity]}</Text>
+              <View style={[styles.itemCard, { borderColor: dropRc }]}>
+                <View style={styles.artRow}>
+                  <PotionImage type={revealedDrop.type} rarity={revealedDrop.rarity} tier={revealedDrop.tier} size={72} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.itemName, { color: dropRc }]} numberOfLines={2}>
+                      {formatPotionName(revealedDrop)}
+                    </Text>
+                    <View style={[styles.qualBadge, { borderColor: dropRc + "99", backgroundColor: dropRc + "18" }]}>
+                      <Text style={[styles.qualBadgeTxt, { color: dropRc }]}>{revealedDrop.type.toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.itemTagRow}>
+                      <View style={[styles.tag, { borderColor: dropRc }]}>
+                        <Text style={[styles.tagTxt, { color: dropRc }]}>{revealedDrop.rarity.toUpperCase()}</Text>
+                      </View>
+                      <View style={[styles.tag, { borderColor: "#555" }]}>
+                        <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{revealedDrop.tier}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                <View style={{ paddingVertical: 8, gap: 6 }}>
+                  <Text style={[styles.potionDesc, { color: "#ccc" }]}>
+                    {revealedDrop.type === "Gold" && `Increases gold gained by ${revealedDrop.effectPercent}% for ${revealedDrop.durationSeconds}s`}
+                    {revealedDrop.type === "XP" && `Increases XP gained by ${revealedDrop.effectPercent}% for ${revealedDrop.durationSeconds}s`}
+                    {revealedDrop.type === "Exploration" && `Reduces exploration cooldown by ${revealedDrop.effectPercent}% for ${revealedDrop.durationSeconds}s`}
+                  </Text>
+                </View>
+              </View>
+              <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
+                <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
+              </Pressable>
             </Animated.View>
           )}
         </View>
@@ -311,6 +338,7 @@ const styles = StyleSheet.create({
   flatVal: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.green },
   pctVal:  { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.gold },
   noStat:  { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim, fontStyle: "italic" },
+  potionDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
 
   claimBtn: { width: "100%", borderWidth: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
   claimBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },

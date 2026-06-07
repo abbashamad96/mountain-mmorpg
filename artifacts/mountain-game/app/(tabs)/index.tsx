@@ -35,7 +35,7 @@ import {
   useGame,
   getEffectiveStats,
 } from "@/context/GameContext";
-import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName } from "@/lib/items";
+import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPotionName, ChestDrop } from "@/lib/items";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@ export default function GameScreen() {
   const {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
     incrementEvents, loadState, resetGameState,
-    addItemToBag, addChestToBag,
+    addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -408,6 +408,7 @@ export default function GameScreen() {
   const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
   const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(null);
   const [preSelectChestForAh, setPreSelectChestForAh] = useState<ItemChest | null>(null);
+  const [preSelectPotionForAh, setPreSelectPotionForAh] = useState<any>(null);
   const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(null);
   const pendingDropCooldownRef = useRef<number>(500);
   const [autoOpenChest, setAutoOpenChest] = useState<ItemChest | null>(null);
@@ -487,11 +488,14 @@ export default function GameScreen() {
         const matTypeStr = ev.listing?.material?.type as string | undefined;
         const isSaleEquip = matTypeStr === "Equipment";
         const isSaleChest = matTypeStr === "Chest";
+        const isSalePotion = matTypeStr === "Potion";
         pushToast(
           isSaleEquip
             ? `${(ev.listing!.item as any)?.slot ?? "Equipment"} sold! +${ev.listing!.price.toLocaleString()}G`
             : isSaleChest
             ? `Chest sold! +${ev.listing!.price.toLocaleString()}G`
+            : isSalePotion
+            ? `Potion sold! +${ev.listing!.price.toLocaleString()}G`
             : `Listing sold! +${ev.listing!.price.toLocaleString()}G`,
           true,
         );
@@ -500,7 +504,11 @@ export default function GameScreen() {
         const matTypeStr = ev.listing?.material?.type as string | undefined;
         const isBoughtEquip = matTypeStr === "Equipment";
         const isBoughtChest = matTypeStr === "Chest";
-        if (!isBoughtEquip && !isBoughtChest) {
+        const isBoughtPotion = matTypeStr === "Potion";
+        if (isBoughtPotion) {
+          addPotionToBag(ev.listing!.item as any);
+          pushToast(`Received ${ev.listing!.material.rarity} Potion!`, false);
+        } else if (!isBoughtEquip && !isBoughtChest) {
           addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
           pushToast(`Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`, false);
         } else if (isBoughtEquip) {
@@ -513,7 +521,10 @@ export default function GameScreen() {
         const matTypeStr = ev.listing?.material?.type as string | undefined;
         const isCancelledEquip = matTypeStr === "Equipment";
         const isCancelledChest = matTypeStr === "Chest";
-        if (!isCancelledEquip && !isCancelledChest) {
+        const isCancelledPotion = matTypeStr === "Potion";
+        if (isCancelledPotion) {
+          addPotionToBag(ev.listing!.item as any);
+        } else if (!isCancelledEquip && !isCancelledChest) {
           addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
         }
         consumeAhEvent(ev.id);
@@ -524,8 +535,14 @@ export default function GameScreen() {
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_received") {
-        if (ev.boMaterial && ev.boCount && ev.boCount > 0) {
-          pushToast(`Received ×${ev.boCount} ${ev.boMaterial.rarity} ${ev.boMaterial.type} from order`, false);
+        if (ev.boMaterial) {
+          const isPotion = ev.boMaterial.type === "Potion";
+          pushToast(
+            isPotion
+              ? `Received ${ev.boMaterial.rarity} Potion from order`
+              : `Received ×${ev.boCount} ${ev.boMaterial.rarity} ${ev.boMaterial.type} from order`,
+            false
+          );
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_cancelled") {
@@ -542,7 +559,9 @@ export default function GameScreen() {
   const handleScenePress = useCallback(() => {
     if (isInteracting) return;
 
-    const duration = Math.floor(2500 + Math.random() * 1500);
+    const baseDuration = Math.floor(2500 + Math.random() * 1500);
+    const cooldownReduction = getActiveBuffMultiplier("Exploration");
+    const duration = Math.max(800, Math.floor(baseDuration / cooldownReduction));
     setCooldownDuration(duration);
     setIsInteracting(true);
 
@@ -613,7 +632,7 @@ export default function GameScreen() {
         });
       }
     }
-  }, [isInteracting, char, applyGoldXp, addMaterials, addItemToBag, addLogEntry, incrementEvents, setScene]);
+  }, [isInteracting, char, applyGoldXp, addMaterials, addItemToBag, addLogEntry, incrementEvents, setScene, getActiveBuffMultiplier]);
 
   const handleGatherComplete = useCallback(
     (gathered: Material[]) => {
@@ -725,6 +744,12 @@ export default function GameScreen() {
   const handleListChestOnAh = useCallback((chest: ItemChest) => {
     setShowStats(false);
     setPreSelectChestForAh(chest);
+    setShowAuction(true);
+  }, []);
+
+  const handleListPotionOnAh = useCallback((potion: any) => {
+    setShowStats(false);
+    setPreSelectPotionForAh(potion);
     setShowAuction(true);
   }, []);
 
@@ -884,20 +909,36 @@ export default function GameScreen() {
         <ChestOpenModal
           key={autoOpenChest.id}
           chest={autoOpenChest}
-          onClaim={(item) => {
-            addItemToBag(item);
-            pushToast(`Chest opened! Got ${formatItemName(item)}`, false);
-            addLogEntry({
-              id: `c-${Date.now()}`,
-              timestamp: Date.now(),
-              type: "item_chest",
-              summary: `You opened ${formatChestName(autoOpenChest)} and got ${formatItemName(item)}`,
-              goldGained: 0,
-              xpGained: 0,
-              material: null,
-              itemDrop: item,
-              chest: autoOpenChest,
-            });
+          onClaim={(drop) => {
+            const isItem = "slot" in drop;
+            if (isItem) {
+              addItemToBag(drop);
+              pushToast(`Chest opened! Got ${formatItemName(drop)}`, false);
+              addLogEntry({
+                id: `c-${Date.now()}`,
+                timestamp: Date.now(),
+                type: "item_chest",
+                summary: `You opened ${formatChestName(autoOpenChest)} and got ${formatItemName(drop)}`,
+                goldGained: 0,
+                xpGained: 0,
+                material: null,
+                itemDrop: drop,
+                chest: autoOpenChest,
+              });
+            } else {
+              addPotionToBag(drop);
+              pushToast(`Chest opened! Got ${formatPotionName(drop)}`, false);
+              addLogEntry({
+                id: `c-${Date.now()}`,
+                timestamp: Date.now(),
+                type: "item_chest",
+                summary: `You opened ${formatChestName(autoOpenChest)} and got ${formatPotionName(drop)}`,
+                goldGained: 0,
+                xpGained: 0,
+                material: null,
+                chest: autoOpenChest,
+              });
+            }
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
             cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
@@ -913,6 +954,7 @@ export default function GameScreen() {
         onListOnAh={handleListOnAh}
         onListItemOnAh={handleListItemOnAh}
         onListChestOnAh={handleListChestOnAh}
+        onListPotionOnAh={handleListPotionOnAh}
       />
       <GatheringModal
         visible={showGather}

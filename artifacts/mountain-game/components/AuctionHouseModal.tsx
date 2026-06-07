@@ -44,19 +44,20 @@ import {
 import { ChestImage } from "./ChestImage";
 import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
+import { PotionImage } from "./PotionImage";
 import { RarityText } from "./RarityText";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Tab = "listings" | "orders";
-type Step = "tabs" | "pick" | "price" | "item-price" | "chest-price" | "bo-create";
-type FilterType = "All" | MaterialType | "Equipment" | "Chest";
+type Step = "tabs" | "pick" | "price" | "item-price" | "chest-price" | "potion-price" | "bo-create";
+type FilterType = "All" | MaterialType | "Equipment" | "Chest" | "Potion";
 type SortKey = "price" | "qty" | "time";
 type SortDir = "asc" | "desc";
 
-const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Ore", "Wood", "Herb", "Leather"];
+const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Potion", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
-const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest"];
+const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest", "Potion"];
 const BO_QUALITIES: ItemQuality[] = ["Basic", "Good", "Excellent"];
 const BO_STAT_PREFS: { key: "strength" | "health" | "defence" | "speed"; label: string; icon: string }[] = [
   { key: "strength", label: "Strength", icon: "⚔" },
@@ -122,16 +123,17 @@ function ListingCard({
 // ─── Buy order card ───────────────────────────────────────────────────────────
 
 function BuyOrderCard({
-  order, isOwn, matchEntry, matchItem, matchChest, onFill, onCancel,
+  order, isOwn, matchEntry, matchItem, matchChest, matchPotion, onFill, onCancel,
 }: {
-  order: BuyOrder; isOwn: boolean; matchEntry?: MaterialEntry; matchItem?: GameItem; matchChest?: ItemChest;
+  order: BuyOrder; isOwn: boolean; matchEntry?: MaterialEntry; matchItem?: GameItem; matchChest?: ItemChest; matchPotion?: { rarity: string; tier: number; type: string; id: string; };
   onFill: (qty: number) => void; onCancel: () => void;
 }) {
   const remaining = order.count - order.filled;
   const isEquip = order.material.type === "Equipment";
   const isChest = order.material.type === "Chest";
-  const hasMatch = isEquip ? !!matchItem : isChest ? !!matchChest : !!matchEntry;
-  const maxFill = isEquip || isChest ? (hasMatch ? 1 : 0) : (matchEntry ? Math.min(matchEntry.count, remaining) : 0);
+  const isPotion = order.material.type === "Potion";
+  const hasMatch = isEquip ? !!matchItem : isChest ? !!matchChest : isPotion ? !!matchPotion : !!matchEntry;
+  const maxFill = isEquip || isChest || isPotion ? (hasMatch ? 1 : 0) : (matchEntry ? Math.min(matchEntry.count, remaining) : 0);
   const rarityColor = RARITY_COLORS[order.material.rarity as RarityName] ?? "#9CA3AF";
   const displayVersion = (order.material.version ?? 0) as VersionNum;
 
@@ -146,6 +148,9 @@ function BuyOrderCard({
   }
   if (isChest) {
     meta = `${order.material.version === null ? "Any tier" : `T${order.material.version}`}  ·  ${isOwn ? "YOUR ORDER" : order.buyerName}`;
+  }
+  if (isPotion) {
+    label = `${order.material.rarity} Potion`;
   }
 
   return (
@@ -162,6 +167,12 @@ function BuyOrderCard({
         ) : isChest ? (
           <View style={[styles.equipPlaceholder, { borderColor: rarityColor }]}>
             <Text style={[styles.equipPlaceholderText, { color: rarityColor }]}>📦</Text>
+          </View>
+        ) : isPotion && matchPotion ? (
+          <PotionImage type={matchPotion.type as any} rarity={matchPotion.rarity as any} tier={matchPotion.tier as any} size={54} compact />
+        ) : isPotion ? (
+          <View style={[styles.equipPlaceholder, { borderColor: rarityColor }]}>
+            <Text style={[styles.equipPlaceholderText, { color: rarityColor }]}>🧪</Text>
           </View>
         ) : (
           <MaterialImage
@@ -264,6 +275,53 @@ function ChestListingCard({
   );
 }
 
+// ─── Potion listing card ────────────────────────────────────────────────────
+
+function PotionListingCard({
+  listing, isOwn, canAfford, onBuy, onCancel,
+}: {
+  listing: AuctionListing; isOwn: boolean; canAfford: boolean;
+  onBuy: () => void; onCancel: () => void;
+}) {
+  const rc = (ITEM_RARITY_COLORS as Record<string, string>)[listing.material.rarity] ?? "#A855F7";
+  const potion = (listing.item ?? {}) as any;
+  const type = potion.type as "Gold" | "XP" | "Exploration" | undefined;
+  const tier = potion.tier ?? 0;
+  return (
+    <View style={[styles.listingCard, isOwn && styles.ownCard, { borderColor: rc + "55" }]}>
+      <View style={styles.listingImg}>
+        <PotionImage type={type ?? "Gold"} rarity={listing.material.rarity as any} tier={tier} size={54} compact />
+      </View>
+      <View style={styles.listingInfo}>
+        <Text style={[styles.listingName, { color: rc }]} numberOfLines={1}>
+          {`${listing.material.rarity} ${type ?? "Potion"}`}
+        </Text>
+        <Text style={styles.listingMeta}>
+          {isOwn ? "YOUR LISTING" : listing.sellerName}
+        </Text>
+      </View>
+      <View style={styles.listingRight}>
+        <View style={styles.priceRow}>
+          <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
+          <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
+        </View>
+        {isOwn ? (
+          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
+            onPress={onBuy} disabled={!canAfford}
+          >
+            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── Equipment listing card ───────────────────────────────────────────────────
 
 function ItemListingCard({
@@ -323,14 +381,15 @@ interface AuctionHouseModalProps {
   preSelectedEntry?: MaterialEntry | null;
   preSelectedItem?: GameItem | null;
   preSelectedChest?: GameItemChest | null;
+  preSelectedPotion?: any | null;
 }
 
-export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem, preSelectedChest }: AuctionHouseModalProps) {
-  const { gameState, applyGoldXp, removeMaterial, removeItemFromBag, removeChestFromBag } = useGame();
+export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion }: AuctionHouseModalProps) {
+  const { gameState, applyGoldXp, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag } = useGame();
   const {
     yourId,
     listings,
-    listAhItem, listAhEquipItem, listAhChestItem, buyAhItem, cancelAhListing, refreshListings,
+    listAhItem, listAhEquipItem, listAhChestItem, listAhPotion, buyAhItem, cancelAhListing, refreshListings,
     buyOrders,
     createBuyOrder, cancelBuyOrder, fillBuyOrder,
   } = useMultiplayer();
@@ -341,6 +400,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   const [pickedEntry, setPickedEntry] = useState<MaterialEntry | null>(null);
   const [pickedItem, setPickedItem] = useState<GameItem | null>(null);
   const [pickedChest, setPickedChest] = useState<GameItemChest | null>(null);
+  const [pickedPotion, setPickedPotion] = useState<any>(null);
   const [countStr, setCountStr] = useState("1");
   const [priceStr, setPriceStr] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("All");
@@ -393,14 +453,20 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       setPriceStr("");
       setStep("chest-price");
       setTab("listings");
+    } else if (visible && preSelectedPotion) {
+      setPickedPotion(preSelectedPotion);
+      setPriceStr("");
+      setStep("potion-price");
+      setTab("listings");
     }
     if (!visible) {
       setStep("tabs");
       setPickedEntry(null);
       setPickedItem(null);
       setPickedChest(null);
+      setPickedPotion(null);
     }
-  }, [visible, preSelectedEntry, preSelectedItem, preSelectedChest]);
+  }, [visible, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion]);
 
   const showFeedback = useCallback((msg: string, ok = true) => {
     setFeedback({ msg, ok });
@@ -502,7 +568,20 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     showFeedback("Chest listed for sale!");
   };
 
-  const handleFillOrder = useCallback((order: BuyOrder, qty: number, itemId?: string, chestId?: string) => {
+  const handleConfirmListPotion = () => {
+    if (!pickedPotion) return;
+    const price = parseInt(priceStr.replace(/[^0-9]/g, ""), 10) || 0;
+    if (price <= 0) { showFeedback("Enter a price above 0.", false); return; }
+    removePotionFromBag(pickedPotion.id);
+    listAhPotion(pickedPotion, price);
+    setStep("tabs");
+    setTab("listings");
+    setPickedPotion(null);
+    setPriceStr("");
+    showFeedback("Potion listed for sale!");
+  };
+
+  const handleFillOrder = useCallback((order: BuyOrder, qty: number, itemId?: string, chestId?: string, potionId?: string) => {
     const mType = order.material.type;
     const remaining = order.count - order.filled;
     if (mType === "Equipment") {
@@ -536,6 +615,18 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       showFeedback(`Sold chest — ${goldEarned.toLocaleString()}G incoming!`);
       return;
     }
+    if (mType === "Potion") {
+      if (!potionId) { showFeedback("Select a potion to sell.", false); return; }
+      const potion = char.potionBag.find((p) => p.id === potionId);
+      if (!potion) { showFeedback("Potion not found.", false); return; }
+      if (order.material.rarity !== potion.rarity) { showFeedback("Rarity mismatch.", false); return; }
+      if (order.material.version !== null && order.material.version !== undefined && order.material.version !== potion.tier) { showFeedback("Tier mismatch.", false); return; }
+      const goldEarned = order.pricePerUnit;
+      removePotionFromBag(potionId);
+      fillBuyOrder(order.id, 1, potion.tier, undefined, undefined, potionId);
+      showFeedback(`Sold ${potion.type} Potion — ${goldEarned.toLocaleString()}G incoming!`);
+      return;
+    }
     const matchEntry = char.materials.find((e) =>
       e.material.type === order.material.type &&
       e.material.rarity === order.material.rarity &&
@@ -549,7 +640,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     removeMaterial(matchEntry.key, fillCount);
     fillBuyOrder(order.id, fillCount, matchEntry.material.version);
     showFeedback(`Sold ×${fillCount} — ${goldEarned.toLocaleString()}G incoming!`);
-  }, [char.materials, char.itemBag, char.chestBag, removeMaterial, removeItemFromBag, removeChestFromBag, fillBuyOrder, showFeedback]);
+  }, [char.materials, char.itemBag, char.chestBag, char.potionBag, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag, fillBuyOrder, showFeedback]);
 
   const handleCancelOrder = useCallback((order: BuyOrder) => {
     cancelBuyOrder(order.id);
@@ -666,9 +757,14 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const sorted = applySortListings(filtered);
 
     // Split by type
-    const equipListings = sorted.filter((l) => (l.material.type as string) === "Equipment");
-    const chestListings = sorted.filter((l) => (l.material.type as string) === "Chest");
-    const matListings   = sorted.filter((l) => (l.material.type as string) !== "Equipment" && (l.material.type as string) !== "Chest");
+    const equipListings   = sorted.filter((l) => (l.material.type as string) === "Equipment");
+    const chestListings   = sorted.filter((l) => (l.material.type as string) === "Chest");
+    const potionListings  = sorted.filter((l) => (l.material.type as string) === "Potion");
+    const matListings     = sorted.filter((l) =>
+      (l.material.type as string) !== "Equipment" &&
+      (l.material.type as string) !== "Chest" &&
+      (l.material.type as string) !== "Potion"
+    );
 
     // Group material listings: type -> rarity -> items
     const groups = new Map<string, Map<string, AuctionListing[]>>();
@@ -761,8 +857,31 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           </View>
         )}
 
+        {/* Potion listings */}
+        {potionListings.length > 0 && (typeFilter === "All" || typeFilter === "Potion") && (
+          <View style={{ marginBottom: 8 }}>
+            <View style={[styles.sectionHeader, { borderLeftColor: Colors.game.purpleLight }]}>
+              <View style={styles.sectionDot}>
+                <View style={[styles.sectionDotInner, { backgroundColor: Colors.game.purpleLight }]} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: Colors.game.purpleLight }]}>⚗ POTION LISTINGS</Text>
+              <Text style={styles.sectionCount}>({potionListings.length})</Text>
+            </View>
+            {potionListings.map((l) => (
+              <PotionListingCard
+                key={l.id}
+                listing={l}
+                isOwn={l.sellerId === yourId}
+                canAfford={char.gold >= l.price}
+                onBuy={() => handleBuy(l)}
+                onCancel={() => handleCancel(l)}
+              />
+            ))}
+          </View>
+        )}
+
         {renderSortBar()}
-        {matListings.length === 0 && equipListings.length === 0 && chestListings.length === 0 ? (
+        {matListings.length === 0 && equipListings.length === 0 && chestListings.length === 0 && potionListings.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
               {listings.length === 0 ? "No listings yet." : "No listings match this filter."}
@@ -1016,6 +1135,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                               let matchEntry: MaterialEntry | undefined;
                               let matchItem: GameItem | undefined;
                               let matchChest: ItemChest | undefined;
+                              let matchPotion: { rarity: string; tier: number; type: string; id: string } | undefined;
                               if (mType === "Equipment") {
                                 matchItem = char.itemBag.find((i) =>
                                   i.rarity === o.material.rarity &&
@@ -1033,6 +1153,12 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                                   c.rarity === o.material.rarity &&
                                   (o.material.version === null || o.material.version === undefined || c.tier === o.material.version)
                                 );
+                              } else if (mType === "Potion") {
+                                const p = char.potionBag.find((p) =>
+                                  p.rarity === o.material.rarity &&
+                                  (o.material.version === null || o.material.version === undefined || p.tier === o.material.version)
+                                );
+                                if (p) matchPotion = { rarity: p.rarity, tier: p.tier, type: p.type, id: p.id };
                               } else {
                                 matchEntry = char.materials.find((e) =>
                                   e.material.type === o.material.type &&
@@ -1049,7 +1175,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                                   matchEntry={matchEntry}
                                   matchItem={matchItem}
                                   matchChest={matchChest}
-                                  onFill={(qty) => handleFillOrder(o, qty, matchItem?.id, matchChest?.id)}
+                                  matchPotion={matchPotion}
+                                  onFill={(qty) => handleFillOrder(o, qty, matchItem?.id, matchChest?.id, matchPotion?.id)}
                                   onCancel={() => handleCancelOrder(o)}
                                 />
                               );
@@ -1278,12 +1405,56 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     );
   };
 
+  // ── Potion price wizard ───────────────────────────────────────────────────
+
+  const renderPotionPriceStep = () => {
+    if (!pickedPotion) return null;
+    const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedPotion.rarity] ?? "#A855F7";
+    return (
+      <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
+        <Text style={styles.wizardTitle}>LIST POTION FOR SALE</Text>
+        <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
+          <PotionImage type={pickedPotion.type} rarity={pickedPotion.rarity} tier={pickedPotion.tier} size={64} compact />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.previewName, { color: rc }]} numberOfLines={2}>
+              {pickedPotion.name}
+            </Text>
+            <Text style={styles.previewSub}>T{pickedPotion.tier} · {pickedPotion.rarity} · {pickedPotion.type}</Text>
+          </View>
+        </View>
+        <View style={styles.inputRow}>
+          <Text style={styles.inputLabel}>Price (G)</Text>
+          <TextInput
+            style={styles.priceInput}
+            keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
+            value={priceStr}
+            onChangeText={(v) => setPriceStr(v.replace(/[^0-9]/g, ""))}
+            maxLength={9} placeholderTextColor={Colors.game.textMuted}
+            placeholder="1000" selectionColor={Colors.game.gold}
+            autoFocus={Platform.OS === "web"}
+            {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
+          />
+        </View>
+        <View style={styles.wizardBtnRow}>
+          <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedPotion(null); }}>
+            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
+            <Text style={styles.backBtnTxt}>CANCEL</Text>
+          </Pressable>
+          <Pressable style={styles.confirmBtn} onPress={handleConfirmListPotion}>
+            <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+  };
+
   // ── Buy order creation wizard ──────────────────────────────────────────────
 
   const renderBoCreate = () => {
     const isEquip = boCategory === "Equipment";
     const isChest = boCategory === "Chest";
     const isMaterial = boCategory && MATERIAL_TYPES.includes(boCategory as MaterialType);
+    const isPotion = boCategory === "Potion";
     const total = (parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0) * (parseInt(boPriceStr.replace(/[^0-9]/g, ""), 10) || 0);
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
@@ -1388,8 +1559,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             </View>
           </>
         )}
-        {/* Material / Chest: tier selector */}
-        {(isMaterial || isChest) && boRarity && (
+        {/* Material / Chest / Potion: tier selector */}
+        {(isMaterial || isChest || isPotion) && boRarity && (
           <>
             <Text style={styles.boSectionLabel}>TIER (OPTIONAL)</Text>
             <View style={styles.boVersionRow}>
@@ -1408,7 +1579,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           </>
         )}
         {/* Count + price for all categories */}
-        {boRarity && (isMaterial || isChest || (isEquip && boSlot)) && (
+        {boRarity && (isMaterial || isChest || isPotion || (isEquip && boSlot)) && (
           <>
             <View style={styles.inputRow}>
               <Text style={styles.inputLabel}>Quantity Wanted</Text>
@@ -1447,7 +1618,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
             <Text style={styles.backBtnTxt}>BACK</Text>
           </Pressable>
-          {boRarity && (isMaterial || isChest || (isEquip && boSlot)) && (
+          {boRarity && (isMaterial || isChest || isPotion || (isEquip && boSlot)) && (
             <Pressable style={styles.confirmBtn} onPress={handleConfirmBoCreate}>
               <Text style={styles.confirmBtnTxt}>POST ORDER</Text>
             </Pressable>
@@ -1529,6 +1700,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             {step === "price" && renderPriceStep()}
             {step === "item-price" && renderItemPriceStep()}
             {step === "chest-price" && renderChestPriceStep()}
+            {step === "potion-price" && renderPotionPriceStep()}
             {step === "bo-create" && renderBoCreate()}
           </ScrollView>
 

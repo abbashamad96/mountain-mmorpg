@@ -2,11 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   GameItem, ItemSlot, ItemStatBlock, ItemChest, ItemTier,
+  Potion, ChestDrop,
   sumItemStats, sumPercentStats,
   rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest,
 } from "@/lib/items";
 
-export type { GameItem, ItemSlot, ItemStatBlock, ItemChest };
+export type { GameItem, ItemSlot, ItemStatBlock, ItemChest, Potion, ChestDrop };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +114,12 @@ export interface LogEntry {
   itemDrop?: GameItem;
 }
 
+export interface ActiveBuff {
+  type: "Gold" | "XP" | "Exploration";
+  multiplier: number;
+  expiresAt: number;
+}
+
 export interface Character {
   level: number;
   xp: number;
@@ -124,6 +131,8 @@ export interface Character {
   equippedItems: Partial<Record<ItemSlot, GameItem>>;
   itemBag: GameItem[];
   chestBag: ItemChest[];
+  potionBag: Potion[];
+  activeBuffs: ActiveBuff[];
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -321,7 +330,14 @@ export function applyXpGold(
   xp: number,
   gold: number
 ): ApplyResult {
-  let newXp = char.xp + xp;
+  // Apply buff multipliers
+  const now = Date.now();
+  const goldMultiplier = char.activeBuffs.find((b) => b.type === "Gold" && b.expiresAt > now)?.multiplier ?? 1;
+  const xpMultiplier = char.activeBuffs.find((b) => b.type === "XP" && b.expiresAt > now)?.multiplier ?? 1;
+  const actualGold = Math.floor(gold * goldMultiplier);
+  const actualXp = Math.floor(xp * xpMultiplier);
+
+  let newXp = char.xp + actualXp;
   let newLevel = char.level;
   let newXpToNext = char.xpToNext;
   const newStats = { ...char.stats };
@@ -345,7 +361,7 @@ export function applyXpGold(
       xp: newXp,
       xpToNext: newXpToNext,
       stats: newStats,
-      gold: char.gold + gold,
+      gold: char.gold + actualGold,
       pendingStatPoints: newPending,
     },
     levelsGained: newLevel - levelsBefore,
@@ -444,6 +460,8 @@ const defaultCharacter: Character = {
   equippedItems: {},
   itemBag: [],
   chestBag: [],
+  potionBag: [],
+  activeBuffs: [],
 };
 
 const defaultGameState: GameState = {
@@ -475,6 +493,10 @@ interface GameContextType {
   removeItemFromBag: (id: string) => void;
   addChestToBag: (chest: ItemChest) => void;
   removeChestFromBag: (id: string) => void;
+  addPotionToBag: (potion: Potion) => void;
+  removePotionFromBag: (id: string) => void;
+  consumePotion: (potion: Potion) => void;
+  getActiveBuffMultiplier: (type: "Gold" | "XP" | "Exploration") => number;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -502,6 +524,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           equippedItems: saved.character?.equippedItems ?? {},
           itemBag: saved.character?.itemBag ?? [],
           chestBag: saved.character?.chestBag ?? [],
+          potionBag: saved.character?.potionBag ?? [],
+          activeBuffs: saved.character?.activeBuffs ?? [],
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
@@ -625,6 +649,50 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const addPotionToBag = useCallback((potion: Potion) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, potionBag: [...prev.character.potionBag, potion] },
+    }));
+  }, []);
+
+  const removePotionFromBag = useCallback((id: string) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, potionBag: prev.character.potionBag.filter((p) => p.id !== id) },
+    }));
+  }, []);
+
+  const consumePotion = useCallback((potion: Potion) => {
+    const now = Date.now();
+    const expiresAt = now + potion.durationSeconds * 1000;
+    const multiplier = 1 + potion.effectPercent / 100;
+    setGameState((prev) => {
+      const existing = prev.character.activeBuffs.find((b) => b.type === potion.type);
+      let buffs = prev.character.activeBuffs.filter((b) => b.type !== potion.type);
+      if (existing && existing.expiresAt > now) {
+        // Extend existing buff duration
+        buffs = [...buffs, { ...existing, expiresAt: Math.max(existing.expiresAt, expiresAt) }];
+      } else {
+        buffs = [...buffs, { type: potion.type, multiplier, expiresAt }];
+      }
+      return {
+        ...prev,
+        character: {
+          ...prev.character,
+          potionBag: prev.character.potionBag.filter((p) => p.id !== potion.id),
+          activeBuffs: buffs,
+        },
+      };
+    });
+  }, []);
+
+  const getActiveBuffMultiplier = useCallback((type: "Gold" | "XP" | "Exploration"): number => {
+    const now = Date.now();
+    const buff = stateRef.current.character.activeBuffs.find((b) => b.type === type && b.expiresAt > now);
+    return buff ? buff.multiplier : 1;
+  }, []);
+
   const addLogEntry = useCallback((entry: LogEntry) => {
     setGameState((prev) => ({
       ...prev,
@@ -647,6 +715,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       equippedItems: saved.character?.equippedItems ?? {},
       itemBag: saved.character?.itemBag ?? [],
       chestBag: saved.character?.chestBag ?? [],
+      potionBag: saved.character?.potionBag ?? [],
+      activeBuffs: saved.character?.activeBuffs ?? [],
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -660,7 +730,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier }}
     >
       {children}
     </GameContext.Provider>

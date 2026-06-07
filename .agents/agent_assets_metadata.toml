@@ -384,3 +384,111 @@ id = "FFnvZJnrdN1WMGn57ALsD"
 uri = "file://artifacts/mountain-game/assets/splash/Ring_Cosmic.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "lmjKPWZGgEUWHF9Y7BCx5"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Gold_Common.png"
+type = "image"
+title = "gold common potion"
+
+[[generated]]
+id = "tNTZxIP3rB7Y3kqUvtsNR"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Gold_Uncommon.png"
+type = "image"
+title = "gold uncommon potion"
+
+[[generated]]
+id = "97NBWB5OETiawOoMK9vFl"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Gold_Rare.png"
+type = "image"
+title = "gold rare potion"
+
+[[generated]]
+id = "KleTdfkPvU9aPSeb601Hk"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Gold_Epic.png"
+type = "image"
+title = "gold epic potion"
+
+[[generated]]
+id = "YzcABtFcBV77g2j7K2qJ5"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Gold_Elite.png"
+type = "image"
+title = "gold elite potion"
+
+[[generated]]
+id = "nrZkKK7mYZYTOnYFQZto5"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Gold_Legendary.png"
+type = "image"
+title = "gold legendary potion"
+
+[[generated]]
+id = "h6lt2iadxIKpkhDYi1FTV"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_XP_Common.png"
+type = "image"
+title = "xp common potion"
+
+[[generated]]
+id = "PofEiRCKQTQcPzNAB5phl"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_XP_Uncommon.png"
+type = "image"
+title = "xp uncommon potion"
+
+[[generated]]
+id = "qDgZNT3JoWuxmSaLj96Uq"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_XP_Rare.png"
+type = "image"
+title = "xp rare potion"
+
+[[generated]]
+id = "uKDGgmnd_S5ij0CkCa8Ap"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_XP_Epic.png"
+type = "image"
+title = "xp epic potion"
+
+[[generated]]
+id = "1dColykZiATZQLrkhfO0f"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_XP_Elite.png"
+type = "image"
+title = "xp elite potion"
+
+[[generated]]
+id = "tRCOxZRkI08EfCb4tp1yh"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_XP_Legendary.png"
+type = "image"
+title = "xp legendary potion"
+
+[[generated]]
+id = "wwUAV2AnHX0bfmLoq6XBt"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Common.png"
+type = "image"
+title = "exploration common potion"
+
+[[generated]]
+id = "j9T1_zMhGa-9kZYl4_vJX"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Uncommon.png"
+type = "image"
+title = "exploration uncommon potion"
+
+[[generated]]
+id = "A5qV53mmOQ5BfPeKHodnn"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Rare.png"
+type = "image"
+title = "exploration rare potion"
+
+[[generated]]
+id = "U31pw33XeyA8WEgvq4zNA"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Epic.png"
+type = "image"
+title = "exploration epic potion"
+
+[[generated]]
+id = "wCpxwyQ41V_zCmlgErtln"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Elite.png"
+type = "image"
+title = "exploration elite potion"
+
+[[generated]]
+id = "GYL28ilpr3JK6qgBh672v"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Legendary.png"
+type = "image"
+title = "exploration legendary potion"

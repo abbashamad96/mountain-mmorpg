@@ -224,6 +224,29 @@ function addCachedChest(player: Player, chest: Record<string, unknown>) {
   player.cacheDirty = true;
 }
 
+function removeCachedPotionById(player: Player, potionId: string) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const potionBag = Array.isArray(char.potionBag) ? [...char.potionBag] : [];
+  const idx = potionBag.findIndex((p: any) => p.id === potionId);
+  if (idx >= 0) {
+    potionBag.splice(idx, 1);
+    player.cachedGameState = { ...state, character: { ...char, potionBag } };
+    player.cacheDirty = true;
+  }
+}
+
+function addCachedPotion(player: Player, potion: Record<string, unknown>) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const potionBag = Array.isArray(char.potionBag) ? [...char.potionBag] : [];
+  potionBag.push(potion);
+  player.cachedGameState = { ...state, character: { ...char, potionBag } };
+  player.cacheDirty = true;
+}
+
 function clampGameState(incoming: unknown, stored: unknown): unknown {
   if (!incoming || typeof incoming !== "object") return incoming;
   const inc = incoming as Record<string, unknown>;
@@ -693,6 +716,24 @@ async function handleMessage(player: Player, raw: string) {
       auctionListings.set(listing.id, listing);
       await dbSaveAhListing(listing);
       broadcastAhUpdate();
+    } else if (msg.potion && typeof msg.potion === "object") {
+      // Potion listing
+      const potion = msg.potion as Record<string, unknown>;
+      const rarity = String(potion.rarity ?? "Common").slice(0, 20);
+      const tier   = parseInt(String(potion.tier ?? "0")) || 0;
+      const listing: AuctionListing = {
+        id: `ah-${Date.now()}-${player.id}`,
+        sellerId: stableId(player),
+        sellerName: player.name,
+        material: { type: "Potion", rarity, version: tier },
+        count: 1,
+        price,
+        listedAt: Date.now(),
+        item: potion,
+      };
+      auctionListings.set(listing.id, listing);
+      await dbSaveAhListing(listing);
+      broadcastAhUpdate();
     } else {
       const mat = msg.material;
       if (!mat?.type || !mat?.rarity) return;
@@ -794,7 +835,7 @@ async function handleMessage(player: Player, raw: string) {
     if (order.buyerId === stableId(player)) return;
 
     const remaining = order.count - order.filled;
-    const isMaterial = !["Equipment", "Chest"].includes(order.material.type);
+    const isMaterial = !["Equipment", "Chest", "Potion"].includes(order.material.type);
     const count = isMaterial
       ? Math.max(1, Math.min(parseInt(msg.count) || 1, remaining))
       : 1;
@@ -923,6 +964,44 @@ async function handleMessage(player: Player, raw: string) {
         const buyerUser = await dbGetUser(buyerUname);
         if (buyerUser) {
           await dbQueueDelivery(buyerUname, "bo_received", { orderId: order.id, count: 1, material: { type: "Chest", rarity, version: tier }, chest } as Record<string, unknown>);
+        }
+      }
+      broadcastBoUpdate();
+      return;
+    }
+
+    // ── Potion path ───────────────────────────────────────────────
+    if (itemType === "Potion") {
+      const potionId = String(msg.potionId || "");
+      if (!potionId) { send(player.ws, { type: "bo_fill_fail", reason: "No potion selected to sell." }); return; }
+      const sellerState = player.cachedGameState as Record<string, unknown> | undefined;
+      const sellerChar = (sellerState?.character ?? {}) as Record<string, unknown>;
+      const potionBag = Array.isArray(sellerChar.potionBag) ? sellerChar.potionBag : [];
+      const potion = potionBag.find((p: any) => p.id === potionId);
+      if (!potion) { send(player.ws, { type: "bo_fill_fail", reason: "Potion not found in your bag." }); return; }
+      const rarity = (potion as any).rarity ?? "";
+      const tier = (potion as any).tier ?? 0;
+      if (order.material.rarity !== rarity) { send(player.ws, { type: "bo_fill_fail", reason: "Potion rarity does not match the order." }); return; }
+      if (order.material.version !== null && order.material.version !== undefined && order.material.version !== tier) { send(player.ws, { type: "bo_fill_fail", reason: "Potion tier does not match the order." }); return; }
+      removeCachedPotionById(player, potionId);
+      updateCachedGold(player, goldEarned);
+      send(player.ws, {
+        type: "bo_sold",
+        orderId: order.id,
+        count: 1,
+        goldEarned,
+        material: { type: "Potion", rarity, version: tier },
+        potion,
+      });
+      const buyerPlayer = getPlayerByStableId(order.buyerId);
+      if (buyerPlayer) {
+        addCachedPotion(buyerPlayer, potion as Record<string, unknown>);
+        send(buyerPlayer.ws, { type: "bo_received", orderId: order.id, count: 1, material: { type: "Potion", rarity, version: tier }, potion });
+      } else {
+        const buyerUname = order.buyerId.toLowerCase();
+        const buyerUser = await dbGetUser(buyerUname);
+        if (buyerUser) {
+          await dbQueueDelivery(buyerUname, "bo_received", { orderId: order.id, count: 1, material: { type: "Potion", rarity, version: tier }, potion } as Record<string, unknown>);
         }
       }
       broadcastBoUpdate();

@@ -7,6 +7,9 @@ export type ItemRarity =
   | "Common" | "Uncommon" | "Rare" | "Epic"
   | "Elite" | "Legendary" | "Superior" | "Cosmic";
 
+export type PotionType = "Gold" | "XP" | "Exploration";
+export type PotionRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Elite" | "Legendary";
+
 export interface ItemStatBlock {
   strength: number;
   health: number;
@@ -26,6 +29,18 @@ export interface GameItem {
   stats: ItemStatBlock;
   percentStats: ItemStatBlock;
 }
+
+export interface Potion {
+  id: string;
+  type: PotionType;
+  rarity: PotionRarity;
+  tier: ItemTier;
+  effectPercent: number;
+  durationSeconds: number;
+  tradable: boolean;
+}
+
+export type ChestDrop = GameItem | Potion;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -250,6 +265,77 @@ export const CHEST_RARITY_ICONS: Record<ItemRarity, string> = {
   Elite: "📦", Legendary: "📦", Superior: "📦", Cosmic: "📦",
 };
 
+// ─── Potion Effect Tables ─────────────────────────────────────────────────
+
+// [rarity][tier] → { effectPercent, durationSeconds }
+const GOLD_XP_POTION_EFFECTS: Record<PotionRarity, { effectPercent: number; durationSeconds: number }[]> = {
+  Common:    [{ effectPercent: 10, durationSeconds: 90 }, { effectPercent: 10, durationSeconds: 100 }, { effectPercent: 10, durationSeconds: 110 }, { effectPercent: 10, durationSeconds: 120 }],
+  Uncommon:  [{ effectPercent: 15, durationSeconds: 100 }, { effectPercent: 15, durationSeconds: 110 }, { effectPercent: 15, durationSeconds: 120 }, { effectPercent: 15, durationSeconds: 130 }],
+  Rare:      [{ effectPercent: 20, durationSeconds: 120 }, { effectPercent: 20, durationSeconds: 140 }, { effectPercent: 20, durationSeconds: 160 }, { effectPercent: 20, durationSeconds: 180 }],
+  Epic:      [{ effectPercent: 25, durationSeconds: 160 }, { effectPercent: 25, durationSeconds: 190 }, { effectPercent: 25, durationSeconds: 220 }, { effectPercent: 25, durationSeconds: 250 }],
+  Elite:     [{ effectPercent: 30, durationSeconds: 220 }, { effectPercent: 30, durationSeconds: 250 }, { effectPercent: 30, durationSeconds: 280 }, { effectPercent: 30, durationSeconds: 300 }],
+  Legendary: [{ effectPercent: 35, durationSeconds: 300 }, { effectPercent: 45, durationSeconds: 300 }, { effectPercent: 50, durationSeconds: 300 }, { effectPercent: 60, durationSeconds: 300 }],
+};
+
+const EXPLORATION_POTION_EFFECTS: Record<PotionRarity, { effectPercent: number; durationSeconds: number }[]> = {
+  Common:    [{ effectPercent: 10, durationSeconds: 90 }, { effectPercent: 10, durationSeconds: 105 }, { effectPercent: 10, durationSeconds: 120 }, { effectPercent: 10, durationSeconds: 135 }],
+  Uncommon:  [{ effectPercent: 10, durationSeconds: 120 }, { effectPercent: 10, durationSeconds: 135 }, { effectPercent: 10, durationSeconds: 150 }, { effectPercent: 10, durationSeconds: 165 }],
+  Rare:      [{ effectPercent: 10, durationSeconds: 150 }, { effectPercent: 10, durationSeconds: 165 }, { effectPercent: 10, durationSeconds: 180 }, { effectPercent: 10, durationSeconds: 200 }],
+  Epic:      [{ effectPercent: 20, durationSeconds: 200 }, { effectPercent: 20, durationSeconds: 230 }, { effectPercent: 20, durationSeconds: 260 }, { effectPercent: 20, durationSeconds: 290 }],
+  Elite:     [{ effectPercent: 20, durationSeconds: 280 }, { effectPercent: 20, durationSeconds: 320 }, { effectPercent: 20, durationSeconds: 360 }, { effectPercent: 20, durationSeconds: 400 }],
+  Legendary: [{ effectPercent: 25, durationSeconds: 380 }, { effectPercent: 25, durationSeconds: 450 }, { effectPercent: 25, durationSeconds: 550 }, { effectPercent: 25, durationSeconds: 700 }],
+};
+
+const POTION_RARITIES: PotionRarity[] = ["Common", "Uncommon", "Rare", "Epic", "Elite", "Legendary"];
+
+export const POTION_NAMES: Record<PotionType, string> = {
+  Gold: "Gold Elixir",
+  XP: "Experience Elixir",
+  Exploration: "Swiftstep Tonic",
+};
+
+export const POTION_ICONS: Record<PotionType, string> = {
+  Gold: "💰",
+  XP: "⭐",
+  Exploration: "⚡",
+};
+
+export function generatePotion(type: PotionType, rarity: PotionRarity, tier: ItemTier): Potion {
+  const effects = type === "Exploration" ? EXPLORATION_POTION_EFFECTS[rarity][tier] : GOLD_XP_POTION_EFFECTS[rarity][tier];
+  return {
+    id: `potion-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type,
+    rarity,
+    tier,
+    effectPercent: effects.effectPercent,
+    durationSeconds: effects.durationSeconds,
+    tradable: true,
+  };
+}
+
+export function formatPotionName(potion: Potion): string {
+  return `T${potion.tier} ${potion.rarity} ${POTION_NAMES[potion.type]}`;
+}
+
+export function rollPotionType(): PotionType {
+  const types: PotionType[] = ["Gold", "XP", "Exploration"];
+  return types[Math.floor(Math.random() * types.length)];
+}
+
+export function rollPotionRarity(chestRarity: ItemRarity, chestTier: ItemTier): PotionRarity {
+  const itemRarity = rollItemRarityFromMonster(chestRarity, chestTier);
+  const idx = POTION_RARITIES.indexOf(itemRarity as PotionRarity);
+  if (idx >= 0) return POTION_RARITIES[idx];
+  return "Legendary";
+}
+
+export function rollPotionDrop(chestRarity: ItemRarity, chestTier: ItemTier): Potion {
+  const type = rollPotionType();
+  const rarity = rollPotionRarity(chestRarity, chestTier);
+  const tier = rollItemTier(chestTier);
+  return generatePotion(type, rarity, tier);
+}
+
 // ─── Drop Tables ──────────────────────────────────────────────────────────────
 
 // [monster rarity][monster tier 0..3] → item rarity weights [Common..Cosmic]
@@ -329,10 +415,13 @@ export function rollExplorationChest(rarity: ItemRarity, tier: ItemTier): ItemCh
   return { id: `chest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, rarity, tier, tradable: true };
 }
 
-export function openChest(chest: ItemChest): GameItem {
+export function openChest(chest: ItemChest): ChestDrop {
   const itemRarity = rollItemRarityFromMonster(chest.rarity, chest.tier);
   const itemTier   = rollItemTier(chest.tier);
   const quality    = rollItemQuality();
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
-  return generateItem(slot, itemRarity, itemTier, quality);
+  const item = generateItem(slot, itemRarity, itemTier, quality);
+  const potion = rollPotionDrop(chest.rarity, chest.tier);
+  // 50% chance for item, 50% chance for potion
+  return Math.random() < 0.5 ? item : potion;
 }

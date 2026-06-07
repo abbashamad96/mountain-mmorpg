@@ -10,7 +10,7 @@ import {
 import Colors from "@/constants/colors";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
-import { GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
+import { Potion, GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
@@ -18,6 +18,8 @@ import { ChestImage } from "./ChestImage";
 import { ChestOpenModal } from "./ChestOpenModal";
 import { ItemBagModal } from "./ItemBagModal";
 import { ItemImage } from "./ItemImage";
+import { PotionImage } from "./PotionImage";
+import { PotionBagModal } from "./PotionBagModal";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,7 @@ interface StatsModalProps {
   onListOnAh?: (entry: MaterialEntry) => void;
   onListItemOnAh?: (item: GameItem) => void;
   onListChestOnAh?: (chest: ItemChest) => void;
+  onListPotionOnAh?: (potion: Potion) => void;
 }
 
 const STAT_CONFIG = [
@@ -167,14 +170,15 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh }: StatsModalProps) {
-  const { gameState, allocateStat, addItemToBag, removeChestFromBag, equipItem, removeItemFromBag } = useGame();
+export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh }: StatsModalProps) {
+  const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
+  const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
 
@@ -205,7 +209,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
     return groups;
   }, [char.materials]);
 
-  const totalItems = char.materials.length + (char.chestBag?.length ?? 0) + (char.itemBag?.length ?? 0);
+  const totalItems = char.materials.length + (char.chestBag?.length ?? 0) + (char.itemBag?.length ?? 0) + (char.potionBag?.length ?? 0);
   const chestStacks = useMemo(() => {
     const stacks = new Map<string, { rep: ItemChest; count: number }>();
     for (const c of char.chestBag ?? []) {
@@ -292,6 +296,23 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
               )}
 
               <View style={styles.divider} />
+
+              {/* Active buffs */}
+              {char.activeBuffs.length > 0 && (
+                <View style={{ marginBottom: 10, gap: 6 }}>
+                  {char.activeBuffs.map((buff) => {
+                    const now = Date.now();
+                    const remaining = Math.max(0, Math.ceil((buff.expiresAt - now) / 1000));
+                    const label = buff.type === "Gold" ? "🟡 Gold Boost" : buff.type === "XP" ? "✨ XP Boost" : "⚡ Speed Boost";
+                    const color = buff.type === "Gold" ? Colors.game.gold : buff.type === "XP" ? Colors.game.purpleLight : Colors.game.blue;
+                    return (
+                      <View key={buff.type} style={[styles.buffBadge, { borderColor: color }]}>
+                        <Text style={[styles.buffText, { color }]}>{label} · {Math.round((buff.multiplier - 1) * 100)}% · {remaining}s left</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.statGrid}>
@@ -424,6 +445,42 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                     </View>
                   )}
 
+                  {/* ── Potions ── */}
+                  {(char.potionBag?.length ?? 0) > 0 && (
+                    <View style={styles.typeSection}>
+                      <View style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]}>
+                        <Text style={[styles.typeHeaderIcon, { color: Colors.game.purpleLight }]}>⚗</Text>
+                        <Text style={[styles.typeHeaderName, { color: Colors.game.purpleLight }]}>POTIONS</Text>
+                        <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.purpleLight }]}>
+                          <Text style={styles.typeHeaderBadgeText}>×{char.potionBag.length}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.inventoryGrid}>
+                        {char.potionBag.map((potion) => {
+                          const rc = ITEM_RARITY_COLORS[potion.rarity];
+                          return (
+                            <Pressable key={potion.id} style={styles.invSlotWrap} onPress={() => setSelectedPotion(potion)}>
+                              <View style={[styles.invSlot, { borderColor: rc }]}>
+                                <PotionImage type={potion.type} rarity={potion.rarity} tier={potion.tier} size={68} compact />
+                              </View>
+                              <View style={[styles.countBadge, { backgroundColor: rc }]}>
+                                <Text style={styles.countText} numberOfLines={1}>{potion.type}</Text>
+                              </View>
+                              <View style={styles.typeLabel}>
+                                <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                  {potion.rarity}
+                                </Text>
+                                <Text style={[styles.typeLabelText, { color: Colors.game.textDim }]} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                  T{potion.tier} · {potion.effectPercent}%
+                                </Text>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
                   {/* ── Equipment ── */}
                   {(char.itemBag?.length ?? 0) > 0 && (() => {
                     const slots = ["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"];
@@ -513,8 +570,12 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
       {selectedChest && (
         <ChestOpenModal
           chest={selectedChest}
-          onClaim={(item) => {
-            addItemToBag(item);
+          onClaim={(drop) => {
+            if ("slot" in drop) {
+              addItemToBag(drop);
+            } else {
+              addPotionToBag(drop);
+            }
             removeChestFromBag(selectedChest.id);
             setSelectedChest(null);
           }}
@@ -540,6 +601,22 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             const item = selectedBagItem;
             setSelectedBagItem(null);
             onListItemOnAh(item);
+          } : undefined}
+        />
+      )}
+
+      {selectedPotion && (
+        <PotionBagModal
+          potion={selectedPotion}
+          onClose={() => setSelectedPotion(null)}
+          onConsume={() => {
+            consumePotion(selectedPotion);
+            setSelectedPotion(null);
+          }}
+          onSellOnAh={onListPotionOnAh && selectedPotion.tradable ? () => {
+            const p = selectedPotion;
+            setSelectedPotion(null);
+            onListPotionOnAh(p);
           } : undefined}
         />
       )}
@@ -649,6 +726,19 @@ const styles = StyleSheet.create({
     borderRadius: 10, padding: 10,
     borderWidth: 1, borderColor: Colors.game.purple,
     alignItems: "center", marginBottom: 6,
+  },
+  buffBadge: {
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  buffText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
   },
   pendingText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.purpleLight },
   divider: { height: 1, backgroundColor: Colors.game.border, marginVertical: 8 },

@@ -17,11 +17,20 @@ export interface ChatMessage {
   type: "chat" | "system";
 }
 
+export interface AuctionMaterial {
+  type: string;
+  rarity: string;
+  version: number | null;
+  slot?: string;
+  quality?: string;
+  statPref?: string;
+}
+
 export interface AuctionListing {
   id: string;
   sellerId: string;
   sellerName: string;
-  material: Material & { version: number };
+  material: AuctionMaterial;
   count: number;
   price: number;
   listedAt: number;
@@ -68,13 +77,14 @@ interface MultiplayerContextType {
   listAhItem: (material: Material, count: number, price: number) => void;
   listAhEquipItem: (item: unknown, price: number) => void;
   listAhChestItem: (chest: ItemChest, price: number) => void;
+  listAhPotion: (potion: unknown, price: number) => void;
   buyAhItem: (listingId: string) => void;
   cancelAhListing: (listingId: string) => void;
   refreshListings: () => void;
   buyOrders: BuyOrder[];
   createBuyOrder: (material: BuyOrder["material"], count: number, pricePerUnit: number) => void;
   cancelBuyOrder: (orderId: string) => void;
-  fillBuyOrder: (orderId: string, count: number, version: number, itemId?: string, chestId?: string) => void;
+  fillBuyOrder: (orderId: string, count: number, version: number, itemId?: string, chestId?: string, potionId?: string) => void;
   ahEvents: AhEvent[];
   consumeAhEvent: (id: string) => void;
   notifications: NotificationEntry[];
@@ -245,16 +255,21 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         const matType = msg.listing.material?.type;
         const isEquip = matType === "Equipment";
         const isChest = matType === "Chest";
+        const isPotion = matType === "Potion";
         if (isEquip && msg.listing.item) {
           game.addItemToBag(msg.listing.item as any);
         } else if (isChest && msg.listing.item) {
           game.addChestToBag(msg.listing.item as any);
+        } else if (isPotion && msg.listing.item) {
+          game.addPotionToBag(msg.listing.item as any);
         }
         const boughtItem = msg.listing.item as any;
         const boughtBody = isEquip
           ? `Bought T${boughtItem?.tier ?? 0} ${msg.listing.material.rarity} ${boughtItem?.name ?? boughtItem?.slot ?? "Equipment"}${boughtItem?.quality && boughtItem.quality !== "Basic" ? ` [${boughtItem.quality}]` : ""}`
           : isChest
           ? `Bought T${msg.listing.material.version ?? 0} ${msg.listing.material.rarity} Chest`
+          : isPotion
+          ? `Bought ${boughtItem?.name ?? msg.listing.material.rarity + " Potion"}`
           : `Bought \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type}`;
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "bought" as const, listing: msg.listing };
         setAhEvents((prev) => [...prev, entry]);
@@ -268,11 +283,14 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         const matType = msg.listing.material?.type;
         const isEquip = matType === "Equipment";
         const isChest = matType === "Chest";
+        const isPotion = matType === "Potion";
         const soldItem = msg.listing.item as any;
         const soldBody = isEquip
           ? `Your T${soldItem?.tier ?? 0} ${msg.listing.material.rarity} ${soldItem?.name ?? soldItem?.slot ?? "Equipment"}${soldItem?.quality && soldItem.quality !== "Basic" ? ` [${soldItem.quality}]` : ""} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
           : isChest
           ? `Your T${msg.listing.material.version ?? 0} ${msg.listing.material.rarity} Chest sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
+          : isPotion
+          ? `Your ${soldItem?.name ?? msg.listing.material.rarity + " Potion"} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`
           : `Your ${msg.listing.material.rarity} ${msg.listing.material.type} sold for ${msg.listing.price.toLocaleString()}G${msg.buyerName ? ` to ${msg.buyerName}` : ""}`;
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "sale" as const, listing: msg.listing, buyerName: msg.buyerName };
         setAhEvents((prev) => [...prev, entry]);
@@ -286,16 +304,21 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         const matType = msg.listing.material?.type;
         const isEquip = matType === "Equipment";
         const isChest = matType === "Chest";
+        const isPotion = matType === "Potion";
         if (isEquip && msg.listing.item) {
           game.addItemToBag(msg.listing.item as any);
         } else if (isChest && msg.listing.item) {
           game.addChestToBag(msg.listing.item as any);
+        } else if (isPotion && msg.listing.item) {
+          game.addPotionToBag(msg.listing.item as any);
         }
         const retItem = msg.listing.item as any;
         const retBody = isEquip
           ? `Returned T${retItem?.tier ?? 0} ${msg.listing.material.rarity} ${retItem?.name ?? retItem?.slot ?? "Equipment"}${retItem?.quality && retItem.quality !== "Basic" ? ` [${retItem.quality}]` : ""} to inventory`
           : isChest
           ? `Returned T${msg.listing.material.version ?? 0} ${msg.listing.material.rarity} Chest to inventory`
+          : isPotion
+          ? `Returned ${retItem?.name ?? msg.listing.material.rarity + " Potion"} to inventory`
           : `Returned \u00d7${msg.listing.count} ${msg.listing.material.rarity} ${msg.listing.material.type} to inventory`;
         const entry = { id: `ahev-${Date.now()}-${Math.random()}`, kind: "cancelled" as const, listing: msg.listing };
         setAhEvents((prev) => [...prev, entry]);
@@ -311,6 +334,8 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           game.removeItemFromBag((msg.item as any).id);
         } else if (mType === "Chest" && msg.chest) {
           game.removeChestFromBag((msg.chest as any).id);
+        } else if (mType === "Potion" && msg.potion) {
+          game.removePotionFromBag((msg.potion as any).id);
         } else if (msg.material && msg.count > 0) {
           const key = `${msg.material.type}|${msg.material.rarity}|${msg.material.version}`;
           const existing = game.gameState.character.materials.find((e) => e.key === key);
@@ -328,10 +353,13 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         }]);
       } else if (msg.type === "bo_received") {
         const mType = msg.material?.type;
+        const rcvName = (msg.item as any)?.name ?? (msg.chest as any)?.name ?? (msg.potion as any)?.type ?? `${msg.material.rarity} ${msg.material.type}`;
         if (mType === "Equipment" && msg.item) {
           game.addItemToBag(msg.item as any);
         } else if (mType === "Chest" && msg.chest) {
           game.addChestToBag(msg.chest as any);
+        } else if (mType === "Potion" && msg.potion) {
+          game.addPotionToBag(msg.potion as any);
         } else if (msg.material && msg.count > 0) {
           game.addMaterialCount(msg.material, msg.count);
         }
@@ -340,7 +368,9 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         setNotifications((prev) => [...prev, {
           id: entry.id, kind: "bo_received",
           title: "Buy Order Received",
-          body: `Received \u00d7${msg.count} ${msg.material.rarity} ${msg.material.type} from your buy order`,
+          body: mType === "Potion"
+            ? `Received ${rcvName} from your buy order`
+            : `Received \u00d7${msg.count} ${msg.material.rarity} ${msg.material.type} from your buy order`,
           ts: Date.now(), read: false,
         }]);
       } else if (msg.type === "bo_cancelled") {
@@ -461,6 +491,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     sendWs({ type: "ah_list", chest, price });
   }, [sendWs]);
 
+  const listAhPotion = useCallback((potion: unknown, price: number) => {
+    sendWs({ type: "ah_list", potion, price });
+  }, [sendWs]);
+
   const buyAhItem = useCallback((listingId: string) => { sendWs({ type: "ah_buy", listingId }); }, [sendWs]);
   const cancelAhListing = useCallback((listingId: string) => { sendWs({ type: "ah_cancel", listingId }); }, [sendWs]);
   const refreshListings = useCallback(() => { sendWs({ type: "ah_get" }); }, [sendWs]);
@@ -471,10 +505,11 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
   const cancelBuyOrder = useCallback((orderId: string) => { sendWs({ type: "bo_cancel", orderId }); }, [sendWs]);
 
-  const fillBuyOrder = useCallback((orderId: string, count: number, version: number, itemId?: string, chestId?: string) => {
+  const fillBuyOrder = useCallback((orderId: string, count: number, version: number, itemId?: string, chestId?: string, potionId?: string) => {
     const payload: Record<string, unknown> = { type: "bo_fill", orderId, count, version };
     if (itemId) payload.itemId = itemId;
     if (chestId) payload.chestId = chestId;
+    if (potionId) payload.potionId = potionId;
     sendWs(payload);
   }, [sendWs]);
 
@@ -566,7 +601,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     <MultiplayerContext.Provider value={{
       status, isOnline, yourId, playerName, setPlayerName,
       messages, sendChat,
-      listings, listAhItem, listAhEquipItem, listAhChestItem, buyAhItem, cancelAhListing, refreshListings,
+      listings, listAhItem, listAhEquipItem, listAhChestItem, listAhPotion, buyAhItem, cancelAhListing, refreshListings,
       buyOrders, createBuyOrder, cancelBuyOrder, fillBuyOrder,
       ahEvents, consumeAhEvent,
       notifications, unreadCount: notifications.filter((n) => !n.read).length, markNotificationsRead,
