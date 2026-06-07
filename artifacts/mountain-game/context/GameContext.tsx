@@ -323,6 +323,10 @@ interface ApplyResult {
   updatedChar: Character;
   levelsGained: number;
   statPointsGained: number;
+  actualGold: number;
+  actualXp: number;
+  goldBonus: number;
+  xpBonus: number;
 }
 
 export function applyXpGold(
@@ -366,6 +370,10 @@ export function applyXpGold(
     },
     levelsGained: newLevel - levelsBefore,
     statPointsGained: newPending - char.pendingStatPoints,
+    actualGold,
+    actualXp,
+    goldBonus: actualGold - gold,
+    xpBonus: actualXp - xp,
   };
 }
 

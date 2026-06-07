@@ -5,9 +5,10 @@ import Colors from "@/constants/colors";
 interface TimerBarProps {
   isActive: boolean;
   duration: number;
+  color?: string;
 }
 
-export function TimerBar({ isActive, duration }: TimerBarProps) {
+export function TimerBar({ isActive, duration, color }: TimerBarProps) {
   const progress = useRef(new Animated.Value(1)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -26,10 +27,15 @@ export function TimerBar({ isActive, duration }: TimerBarProps) {
     }
   }, [isActive, duration]);
 
-  const barColor = progress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [Colors.game.red, Colors.game.gold, Colors.game.green],
-  });
+  const barColor = color
+    ? progress.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [color, color, color],
+      })
+    : progress.interpolate({
+        inputRange: [0, 0.5, 1],
+        outputRange: [Colors.game.red, Colors.game.gold, Colors.game.green],
+      });
 
   const readyOpacity = progress.interpolate({
     inputRange: [0.92, 1],

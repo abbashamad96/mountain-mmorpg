@@ -581,15 +581,23 @@ export default function GameScreen() {
     }
 
     if (roll.type === "gold_xp") {
-      applyGoldXp(roll.goldGained, roll.xpGained);
-      if (roll.goldGained > 0 || roll.xpGained > 0) {
+      const result = applyGoldXp(roll.goldGained, roll.xpGained);
+      const goldBonus = result.goldBonus;
+      const xpBonus = result.xpBonus;
+      if (result.actualGold > 0 || result.actualXp > 0) {
+        const goldStr = result.actualGold > 0
+          ? `+${result.actualGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
+          : "";
+        const xpStr = result.actualXp > 0
+          ? ` +${result.actualXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
+          : "";
         addLogEntry({
           id: roll.id,
           timestamp: roll.timestamp,
           type: "gold_xp",
-          summary: `${roll.goldGained > 0 ? `+${roll.goldGained}g` : ""}${roll.xpGained > 0 ? ` +${roll.xpGained}xp` : ""}`,
-          goldGained: roll.goldGained,
-          xpGained: roll.xpGained,
+          summary: `${goldStr}${xpStr}`,
+          goldGained: result.actualGold,
+          xpGained: result.actualXp,
           material: null,
         });
       }
@@ -664,8 +672,9 @@ export default function GameScreen() {
   const handleBattleComplete = useCallback(
     (victory: boolean, goldReward: number, xpReward: number) => {
       setShowBattle(false);
+      let battleResult = null as null | ReturnType<typeof applyGoldXp>;
       if (victory && (goldReward > 0 || xpReward > 0)) {
-        applyGoldXp(goldReward, xpReward);
+        battleResult = applyGoldXp(goldReward, xpReward);
       }
       const npc = battleNpcRef.current;
       if (npc) {
@@ -695,15 +704,26 @@ export default function GameScreen() {
         else if (droppedItem) dropSuffix = ` \u00b7 ${droppedItem.name}`;
         else if (droppedChest) dropSuffix = ` \u00b7 \ud83d\udce6 ${droppedChest.rarity} Chest`;
 
+        const actualGold = battleResult ? battleResult.actualGold : goldReward;
+        const actualXp = battleResult ? battleResult.actualXp : xpReward;
+        const goldBonus = battleResult ? battleResult.goldBonus : 0;
+        const xpBonus = battleResult ? battleResult.xpBonus : 0;
+        const goldStr = actualGold > 0
+          ? `+${actualGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
+          : "";
+        const xpStr = actualXp > 0
+          ? ` +${actualXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
+          : "";
+
         addLogEntry({
           id: `b-${Date.now()}`,
           timestamp: Date.now(),
           type: "battle",
           summary: victory
-            ? `Defeated ${npc.name} (T${npc.version}) +${goldReward}g +${xpReward}xp${dropSuffix}`
+            ? `Defeated ${npc.name} (T${npc.version}) ${goldStr}${xpStr}${dropSuffix}`
             : `Fled from ${npc.name}`,
-          goldGained: goldReward,
-          xpGained: xpReward,
+          goldGained: actualGold,
+          xpGained: actualXp,
           material: droppedMat,
           dropCount: dropCount > 0 ? dropCount : undefined,
           npcRarity: npc.rarity,
@@ -926,7 +946,11 @@ export default function GameScreen() {
           onPress={handleScenePress}
           disabled={isInteracting}
         />
-        <TimerBar isActive={isInteracting} duration={cooldownDuration} />
+        <TimerBar
+          isActive={isInteracting}
+          duration={cooldownDuration}
+          color={getActiveBuffMultiplier("Exploration") > 1 ? Colors.game.blueLight : undefined}
+        />
       </View>
 
       {/* Modals */}
