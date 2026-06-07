@@ -125,7 +125,9 @@ function DropCard({ drop }: { drop: BattleDrop }) {
               T{drop.material.version}
             </Text>
           </View>
-          <Text style={[styles.dropCount, { color: rc }]}>\u00d7{drop.count}</Text>
+          {drop.count > 1 && (
+            <Text style={[styles.dropCount, { color: rc }]}>\u00d7{drop.count}</Text>
+          )}
         </View>
       </View>
     );
