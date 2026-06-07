@@ -11,6 +11,7 @@ import {
 import Colors from "@/constants/colors";
 import { GameItem, ItemChest, Potion } from "@/context/GameContext";
 import {
+  ChestDrop,
   formatChestName,
   formatItemName,
   formatPotionName,
@@ -18,44 +19,56 @@ import {
   ITEM_QUALITY_COLORS,
   ITEM_RARITY_COLORS,
   openChest,
-  ChestDrop,
 } from "@/lib/items";
+import {
+  formatToolName,
+  GatheringTool,
+  rollToolDrop,
+  TOOL_ICONS,
+  TOOL_MATERIAL_MAP,
+  TOOL_RARITY_COLORS,
+} from "@/lib/tools";
 import { ChestImage } from "./ChestImage";
 import { ItemImage } from "./ItemImage";
 import { PotionImage } from "./PotionImage";
+import { ToolImage } from "./ToolImage";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type FullChestDrop = ChestDrop | GatheringTool;
 
 interface ChestOpenModalProps {
   chest: ItemChest;
-  onClaim: (drop: ChestDrop) => void;
+  onClaim: (drop: FullChestDrop) => void;
   onClose?: () => void;
   onSellOnAh?: () => void;
 }
 
 const RARITY_LABELS: Record<string, string> = {
-  Common: "COMMON CHEST",
-  Uncommon: "UNCOMMON CHEST",
-  Rare: "RARE CHEST",
-  Epic: "EPIC CHEST",
-  Elite: "ELITE CHEST",
+  Common:    "COMMON CHEST",
+  Uncommon:  "UNCOMMON CHEST",
+  Rare:      "RARE CHEST",
+  Epic:      "EPIC CHEST",
+  Elite:     "ELITE CHEST",
   Legendary: "LEGENDARY CHEST",
-  Superior: "SUPERIOR CHEST",
-  Cosmic: "COSMIC CHEST",
+  Superior:  "SUPERIOR CHEST",
+  Cosmic:    "COSMIC CHEST",
 };
 
 const OPEN_MESSAGES: Record<string, string> = {
-  Common: "You open the chest...",
-  Uncommon: "The chest creaks open!",
-  Rare: "A rush of energy escapes!",
-  Epic: "Power surges from within!",
-  Elite: "Ancient force unleashed!",
+  Common:    "You open the chest...",
+  Uncommon:  "The chest creaks open!",
+  Rare:      "A rush of energy escapes!",
+  Epic:      "Power surges from within!",
+  Elite:     "Ancient force unleashed!",
   Legendary: "Blinding golden light!",
-  Superior: "Reality fractures open!",
-  Cosmic: "The cosmos pour forth!",
+  Superior:  "Reality fractures open!",
+  Cosmic:    "The cosmos pour forth!",
 };
 
 export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpenModalProps) {
   const [phase, setPhase] = useState<"idle" | "opening" | "revealed">("idle");
-  const [revealedDrop, setRevealedDrop] = useState<ChestDrop | null>(null);
+  const [revealedDrop, setRevealedDrop] = useState<FullChestDrop | null>(null);
 
   const shakeX    = useRef(new Animated.Value(0)).current;
   const scale     = useRef(new Animated.Value(1)).current;
@@ -65,11 +78,18 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
   const itemScale = useRef(new Animated.Value(0.5)).current;
 
   const rc = ITEM_RARITY_COLORS[chest.rarity];
-  const isItem = (d: ChestDrop): d is GameItem => "slot" in d;
-  const isPotion = (d: ChestDrop): d is Potion => "type" in d;
+  const isItem   = (d: FullChestDrop): d is GameItem   => "slot" in d;
+  const isPotion = (d: FullChestDrop): d is Potion      => "type" in d && "durationSeconds" in d;
+  const isTool   = (d: FullChestDrop): d is GatheringTool => "effectChance" in d;
 
   function handleOpen() {
-    const drop = openChest(chest);
+    let drop: FullChestDrop;
+    if (Math.random() < 0.01) {
+      // 1% chance: gathering tool
+      drop = rollToolDrop(chest.rarity, chest.tier);
+    } else {
+      drop = openChest(chest);
+    }
     setRevealedDrop(drop);
     setPhase("opening");
 
@@ -104,7 +124,11 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
     });
   }
 
-  const dropRc = revealedDrop ? ITEM_RARITY_COLORS[(revealedDrop as any).rarity as ItemRarity] : rc;
+  const dropRc = revealedDrop
+    ? isTool(revealedDrop)
+      ? (TOOL_RARITY_COLORS[revealedDrop.rarity] ?? "#9CA3AF")
+      : ITEM_RARITY_COLORS[(revealedDrop as any).rarity as ItemRarity]
+    : rc;
   const dropQc = revealedDrop && isItem(revealedDrop) ? ITEM_QUALITY_COLORS[revealedDrop.quality] : "#9CA3AF";
 
   const ITEM_STAT_ROWS: { key: "strength" | "health" | "defence" | "speed"; label: string; icon: string }[] = [
@@ -147,8 +171,8 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                     <Text style={[styles.openBtnTxt, { color: rc }]}>OPEN CHEST</Text>
                   </Pressable>
                   {onSellOnAh && (
-                    <Pressable style={[styles.sellBtn, { borderColor: "#F59E0B" }]} onPress={onSellOnAh}>
-                      <Text style={[styles.sellBtnTxt, { color: "#F59E0B" }]}>SELL ON AH</Text>
+                    <Pressable style={styles.sellBtn} onPress={onSellOnAh}>
+                      <Text style={styles.sellBtnTxt}>SELL ON AH</Text>
                     </Pressable>
                   )}
                 </View>
@@ -262,6 +286,48 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
               </Pressable>
             </Animated.View>
           )}
+
+          {/* ── Revealed tool phase ── */}
+          {phase === "revealed" && revealedDrop && isTool(revealedDrop) && (
+            <Animated.View style={[styles.revealPhase, { opacity: itemOp, transform: [{ scale: itemScale }] }]}>
+              <Text style={[styles.openingMsg, { color: rc }]}>{OPEN_MESSAGES[chest.rarity]}</Text>
+              <View style={[styles.itemCard, { borderColor: dropRc }]}>
+                <View style={styles.artRow}>
+                  <ToolImage type={revealedDrop.type} rarity={revealedDrop.rarity} size={72} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.itemName, { color: dropRc }]} numberOfLines={2}>
+                      {formatToolName(revealedDrop)}
+                    </Text>
+                    <View style={[styles.qualBadge, { borderColor: dropRc + "99", backgroundColor: dropRc + "18" }]}>
+                      <Text style={[styles.qualBadgeTxt, { color: dropRc }]}>GATHERING TOOL</Text>
+                    </View>
+                    <View style={styles.itemTagRow}>
+                      <View style={[styles.tag, { borderColor: dropRc }]}>
+                        <Text style={[styles.tagTxt, { color: dropRc }]}>{revealedDrop.rarity.toUpperCase()}</Text>
+                      </View>
+                      <View style={[styles.tag, { borderColor: "#555" }]}>
+                        <Text style={[styles.tagTxt, { color: "#aaa" }]}>
+                          {TOOL_ICONS[revealedDrop.type]} {TOOL_MATERIAL_MAP[revealedDrop.type]}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                <View style={{ paddingVertical: 8, gap: 4 }}>
+                  <Text style={[styles.potionDesc, { color: "#ccc" }]}>
+                    {revealedDrop.effectChance}% chance to gain {revealedDrop.effectMinBonus}–{revealedDrop.effectMaxBonus} bonus materials per gather
+                  </Text>
+                  <Text style={[styles.potionDesc, { color: "#aaa" }]}>
+                    {revealedDrop.passiveChance}% chance to sweep remaining attempts
+                  </Text>
+                </View>
+              </View>
+              <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
+                <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
+              </Pressable>
+            </Animated.View>
+          )}
+
         </View>
       </View>
     </Modal>
@@ -279,13 +345,11 @@ const styles = StyleSheet.create({
     width: "100%", maxWidth: 340,
     borderWidth: 2, gap: 14, alignItems: "center",
   },
-
   chestPhase: { alignItems: "center", gap: 12, width: "100%" },
   chestTitle: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2, textAlign: "center" },
   chestTagRow: { flexDirection: "row", gap: 8 },
   tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
   tagTxt: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1 },
-
   chestWrap: { alignItems: "center", justifyContent: "center", marginVertical: 4 },
   glowRing: { position: "absolute", width: 130, height: 130, borderRadius: 65 },
   chestBox: {
@@ -295,7 +359,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7, shadowRadius: 12, elevation: 8,
   },
-
   idleActions: { width: "100%", gap: 8 },
   openBtn: {
     borderWidth: 2, borderRadius: 14,
@@ -311,7 +374,6 @@ const styles = StyleSheet.create({
   },
   sellBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5, color: "#F59E0B" },
   openingMsg: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", letterSpacing: 0.5 },
-
   revealPhase: { alignItems: "center", gap: 12, width: "100%" },
   itemCard: {
     width: "100%", backgroundColor: Colors.game.surface,
@@ -325,7 +387,6 @@ const styles = StyleSheet.create({
   },
   qualBadgeTxt: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
   itemTagRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-
   statsScroll: { maxHeight: 120 },
   statRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
@@ -339,10 +400,8 @@ const styles = StyleSheet.create({
   pctVal:  { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.gold },
   noStat:  { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim, fontStyle: "italic" },
   potionDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
-
   claimBtn: { width: "100%", borderWidth: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
   claimBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },
-
   closeBtn: {
     width: "100%", backgroundColor: Colors.game.surface,
     borderRadius: 14, paddingVertical: 12,

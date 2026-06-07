@@ -734,6 +734,23 @@ async function handleMessage(player: Player, raw: string) {
       auctionListings.set(listing.id, listing);
       await dbSaveAhListing(listing);
       broadcastAhUpdate();
+    } else if (msg.tool && typeof msg.tool === "object") {
+      // Gathering tool listing
+      const tool = msg.tool as Record<string, unknown>;
+      const rarity = String(tool.rarity ?? "Common").slice(0, 20);
+      const listing: AuctionListing = {
+        id: `ah-${Date.now()}-${player.id}`,
+        sellerId: stableId(player),
+        sellerName: player.name,
+        material: { type: "Tool", rarity, version: 0 },
+        count: 1,
+        price,
+        listedAt: Date.now(),
+        item: tool,
+      };
+      auctionListings.set(listing.id, listing);
+      await dbSaveAhListing(listing);
+      broadcastAhUpdate();
     } else {
       const mat = msg.material;
       if (!mat?.type || !mat?.rarity) return;

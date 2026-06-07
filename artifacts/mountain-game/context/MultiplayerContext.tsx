@@ -78,6 +78,7 @@ interface MultiplayerContextType {
   listAhEquipItem: (item: unknown, price: number) => void;
   listAhChestItem: (chest: ItemChest, price: number) => void;
   listAhPotion: (potion: unknown, price: number) => void;
+  listAhTool: (tool: unknown, price: number) => void;
   buyAhItem: (listingId: string) => void;
   cancelAhListing: (listingId: string) => void;
   refreshListings: () => void;
@@ -256,12 +257,15 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         const isEquip = matType === "Equipment";
         const isChest = matType === "Chest";
         const isPotion = matType === "Potion";
+        const isTool = matType === "Tool";
         if (isEquip && msg.listing.item) {
           game.addItemToBag(msg.listing.item as any);
         } else if (isChest && msg.listing.item) {
           game.addChestToBag(msg.listing.item as any);
         } else if (isPotion && msg.listing.item) {
           game.addPotionToBag(msg.listing.item as any);
+        } else if (isTool && msg.listing.item) {
+          game.addToolToBag(msg.listing.item as any);
         }
         const boughtItem = msg.listing.item as any;
         const boughtBody = isEquip
@@ -305,12 +309,15 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         const isEquip = matType === "Equipment";
         const isChest = matType === "Chest";
         const isPotion = matType === "Potion";
+        const isTool = matType === "Tool";
         if (isEquip && msg.listing.item) {
           game.addItemToBag(msg.listing.item as any);
         } else if (isChest && msg.listing.item) {
           game.addChestToBag(msg.listing.item as any);
         } else if (isPotion && msg.listing.item) {
           game.addPotionToBag(msg.listing.item as any);
+        } else if (isTool && msg.listing.item) {
+          game.addToolToBag(msg.listing.item as any);
         }
         const retItem = msg.listing.item as any;
         const retBody = isEquip
@@ -495,6 +502,10 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     sendWs({ type: "ah_list", potion, price });
   }, [sendWs]);
 
+  const listAhTool = useCallback((tool: unknown, price: number) => {
+    sendWs({ type: "ah_list", tool, price });
+  }, [sendWs]);
+
   const buyAhItem = useCallback((listingId: string) => { sendWs({ type: "ah_buy", listingId }); }, [sendWs]);
   const cancelAhListing = useCallback((listingId: string) => { sendWs({ type: "ah_cancel", listingId }); }, [sendWs]);
   const refreshListings = useCallback(() => { sendWs({ type: "ah_get" }); }, [sendWs]);
@@ -601,7 +612,7 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
     <MultiplayerContext.Provider value={{
       status, isOnline, yourId, playerName, setPlayerName,
       messages, sendChat,
-      listings, listAhItem, listAhEquipItem, listAhChestItem, listAhPotion, buyAhItem, cancelAhListing, refreshListings,
+      listings, listAhItem, listAhEquipItem, listAhChestItem, listAhPotion, listAhTool, buyAhItem, cancelAhListing, refreshListings,
       buyOrders, createBuyOrder, cancelBuyOrder, fillBuyOrder,
       ahEvents, consumeAhEvent,
       notifications, unreadCount: notifications.filter((n) => !n.read).length, markNotificationsRead,

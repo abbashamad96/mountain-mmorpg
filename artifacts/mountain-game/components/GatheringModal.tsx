@@ -9,18 +9,18 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import {
-  Material,
-  RARITY_COLORS,
-} from "@/context/GameContext";
+import { Material, RARITY_COLORS } from "@/context/GameContext";
+import { GatheringTool, TOOL_RARITY_COLORS, TOOL_NAMES } from "@/lib/tools";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
+import { ToolImage } from "./ToolImage";
 
 interface GatheringModalProps {
   visible: boolean;
   material: Material | null;
   totalAttempts: number;
   xpToNext: number;
+  equippedTool?: GatheringTool | null;
   onComplete: (gathered: Material[]) => void;
   onAttemptXp: (xp: number) => void;
 }
@@ -30,15 +30,20 @@ export function GatheringModal({
   material,
   totalAttempts,
   xpToNext,
+  equippedTool,
   onComplete,
   onAttemptXp,
 }: GatheringModalProps) {
-  const [gatheredCount, setGatheredCount] = useState(0);
+  const [attemptsCompleted, setAttemptsCompleted] = useState(0);
+  const [totalGathered, setTotalGathered] = useState(0);
   const [cooldown, setCooldown] = useState(false);
   const [done, setDone] = useState(false);
+  const [bonusText, setBonusText] = useState("");
+  const [passiveText, setPassiveText] = useState("");
 
   const gatheredRef = useRef<Material[]>([]);
   const attemptsRef = useRef(0);
+  const attemptsCompletedRef = useRef(0);
   const doneRef = useRef(false);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -47,10 +52,14 @@ export function GatheringModal({
     if (visible && material) {
       gatheredRef.current = [];
       attemptsRef.current = totalAttempts;
+      attemptsCompletedRef.current = 0;
       doneRef.current = false;
-      setGatheredCount(0);
+      setAttemptsCompleted(0);
+      setTotalGathered(0);
       setCooldown(false);
       setDone(false);
+      setBonusText("");
+      setPassiveText("");
     }
   }, [visible]);
 
@@ -64,23 +73,65 @@ export function GatheringModal({
       Animated.timing(shakeAnim, { toValue: 0, duration: 40, useNativeDriver: true }),
     ]).start();
 
-    // Grant 2%–3.5% of current xpToNext per attempt
     const xpGained = Math.max(1, Math.floor(xpToNext * (0.02 + Math.random() * 0.015)));
     onAttemptXp(xpGained);
 
+    // Base: 1 material
     gatheredRef.current.push({ ...material });
+
+    // Tool effect: % chance for bonus materials
+    let bonus = 0;
+    if (equippedTool && Math.random() * 100 < equippedTool.effectChance) {
+      bonus =
+        equippedTool.effectMinBonus +
+        Math.floor(
+          Math.random() * (equippedTool.effectMaxBonus - equippedTool.effectMinBonus + 1)
+        );
+      for (let i = 0; i < bonus; i++) gatheredRef.current.push({ ...material });
+      setBonusText(`+${bonus}`);
+    } else {
+      setBonusText("");
+    }
+
     attemptsRef.current--;
-    const count = gatheredRef.current.length;
-    setGatheredCount(count);
+    attemptsCompletedRef.current++;
+
+    // Tool passive: % chance to auto-complete remaining attempts
+    let passiveFired = false;
+    if (equippedTool && attemptsRef.current > 0 && Math.random() * 100 < equippedTool.passiveChance) {
+      passiveFired = true;
+      const remaining = attemptsRef.current;
+      while (attemptsRef.current > 0) {
+        const passXp = Math.max(1, Math.floor(xpToNext * (0.02 + Math.random() * 0.015)));
+        onAttemptXp(passXp);
+        gatheredRef.current.push({ ...material });
+        if (Math.random() * 100 < equippedTool.effectChance) {
+          const b =
+            equippedTool.effectMinBonus +
+            Math.floor(
+              Math.random() * (equippedTool.effectMaxBonus - equippedTool.effectMinBonus + 1)
+            );
+          for (let i = 0; i < b; i++) gatheredRef.current.push({ ...material });
+        }
+        attemptsRef.current--;
+        attemptsCompletedRef.current++;
+      }
+      setPassiveText(`⚡ ${remaining} swept!`);
+    }
+
+    setAttemptsCompleted(attemptsCompletedRef.current);
+    setTotalGathered(gatheredRef.current.length);
 
     if (attemptsRef.current <= 0) {
       doneRef.current = true;
       setDone(true);
       const snapshot = [...gatheredRef.current];
-      setTimeout(() => onComplete(snapshot), 900);
+      setTimeout(() => onComplete(snapshot), passiveFired ? 1200 : 900);
     } else {
       setCooldown(true);
-      setTimeout(() => setCooldown(false), 750);
+      setTimeout(() => {
+        setCooldown(false);
+      }, 750);
     }
   };
 
@@ -91,6 +142,9 @@ export function GatheringModal({
   };
 
   if (!material) return null;
+
+  const rarityColor = RARITY_COLORS[material.rarity];
+  const toolColor = equippedTool ? (TOOL_RARITY_COLORS[equippedTool.rarity] ?? "#9CA3AF") : null;
 
   return (
     <Modal transparent visible={visible} animationType="fade">
@@ -117,6 +171,31 @@ export function GatheringModal({
             </Animated.View>
           </View>
 
+          {/* Tool indicator */}
+          {equippedTool && (
+            <View style={[styles.toolBar, { borderColor: toolColor! + "66" }]}>
+              <ToolImage type={equippedTool.type} rarity={equippedTool.rarity} size={34} compact />
+              <View style={styles.toolInfo}>
+                <Text style={[styles.toolName, { color: toolColor! }]}>
+                  {equippedTool.rarity} {TOOL_NAMES[equippedTool.type]}
+                </Text>
+                <Text style={styles.toolStats}>
+                  {equippedTool.effectChance}% +{equippedTool.effectMinBonus}-{equippedTool.effectMaxBonus} mats · {equippedTool.passiveChance}% sweep
+                </Text>
+              </View>
+              {bonusText !== "" && (
+                <View style={[styles.bonusBadge, { backgroundColor: toolColor! + "28", borderColor: toolColor! }]}>
+                  <Text style={[styles.bonusTxt, { color: toolColor! }]}>{bonusText}!</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Passive fired text */}
+          {passiveText !== "" && (
+            <Text style={styles.passiveText}>{passiveText}</Text>
+          )}
+
           {/* Attempt dots */}
           <View style={styles.dotsRow}>
             {Array.from({ length: totalAttempts }).map((_, i) => (
@@ -124,8 +203,8 @@ export function GatheringModal({
                 key={i}
                 style={[
                   styles.dot,
-                  i < gatheredCount
-                    ? { backgroundColor: RARITY_COLORS[material.rarity] }
+                  i < attemptsCompleted
+                    ? { backgroundColor: rarityColor }
                     : { backgroundColor: Colors.game.border },
                 ]}
               />
@@ -134,23 +213,20 @@ export function GatheringModal({
 
           <Text style={styles.attemptsLabel}>
             {done
-              ? `Gathered ×${gatheredCount}`
+              ? `Gathered ×${totalGathered}`
               : `${attemptsRef.current} attempt${attemptsRef.current !== 1 ? "s" : ""} remaining`}
           </Text>
 
           {!done && (
             <View style={styles.btnRow}>
-              <Pressable
-                style={[styles.leaveBtn]}
-                onPress={handleLeave}
-              >
+              <Pressable style={[styles.leaveBtn]} onPress={handleLeave}>
                 <Text style={styles.leaveBtnText}>LEAVE</Text>
               </Pressable>
 
               <Pressable
                 style={[
                   styles.gatherBtn,
-                  { borderColor: cooldown ? Colors.game.border : RARITY_COLORS[material.rarity] },
+                  { borderColor: cooldown ? Colors.game.border : rarityColor },
                   cooldown && styles.gatherBtnDisabled,
                 ]}
                 onPress={handleGather}
@@ -159,7 +235,7 @@ export function GatheringModal({
                 <Text
                   style={[
                     styles.gatherBtnText,
-                    { color: cooldown ? Colors.game.textMuted : RARITY_COLORS[material.rarity] },
+                    { color: cooldown ? Colors.game.textMuted : rarityColor },
                   ]}
                 >
                   {cooldown ? "• • •" : "GATHER"}
@@ -205,6 +281,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 4,
+  },
+  toolBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    alignSelf: "stretch",
+  },
+  toolInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  toolName: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  toolStats: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
+  },
+  bonusBadge: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  bonusTxt: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
+  passiveText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
+    letterSpacing: 1,
   },
   dotsRow: {
     flexDirection: "row",

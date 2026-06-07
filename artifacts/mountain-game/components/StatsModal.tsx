@@ -11,6 +11,7 @@ import Colors from "@/constants/colors";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { Potion, GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
+import { GatheringTool } from "@/lib/tools";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { EquipmentTab } from "./EquipmentTab";
@@ -20,6 +21,7 @@ import { ItemBagModal } from "./ItemBagModal";
 import { ItemImage } from "./ItemImage";
 import { PotionImage } from "./PotionImage";
 import { PotionBagModal } from "./PotionBagModal";
+import { ToolsTab } from "./ToolsTab";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,7 @@ interface StatsModalProps {
   onListItemOnAh?: (item: GameItem) => void;
   onListChestOnAh?: (chest: ItemChest) => void;
   onListPotionOnAh?: (potion: Potion) => void;
+  onListToolOnAh?: (tool: GatheringTool) => void;
 }
 
 const STAT_CONFIG = [
@@ -170,8 +173,8 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh }: StatsModalProps) {
-  const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag } = useGame();
+export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh }: StatsModalProps) {
+  const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
@@ -179,7 +182,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment" | "tools">("profile");
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
 
   const toggleSlot = (slot: string) => {
@@ -254,6 +257,14 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             >
               <Text style={[styles.tabText, activeTab === "equipment" && styles.tabTextActive]}>
                 GEAR {Object.keys(char.equippedItems).length > 0 ? `(${Object.keys(char.equippedItems).length})` : ""}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === "tools" && styles.tabBtnActive]}
+              onPress={() => setActiveTab("tools")}
+            >
+              <Text style={[styles.tabText, activeTab === "tools" && styles.tabTextActive]}>
+                TOOLS {((char.toolBag?.length ?? 0) + Object.keys(char.equippedTools ?? {}).length) > 0 ? `(${(char.toolBag?.length ?? 0) + Object.keys(char.equippedTools ?? {}).length})` : ""}
               </Text>
             </Pressable>
           </View>
@@ -571,10 +582,12 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
         <ChestOpenModal
           chest={selectedChest}
           onClaim={(drop) => {
-            if ("slot" in drop) {
+            if ("sweepChance" in drop) {
+              addToolToBag(drop as any);
+            } else if ("slot" in drop) {
               addItemToBag(drop);
             } else {
-              addPotionToBag(drop);
+              addPotionToBag(drop as any);
             }
             removeChestFromBag(selectedChest.id);
             setSelectedChest(null);
@@ -603,6 +616,12 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             onListItemOnAh(item);
           } : undefined}
         />
+      )}
+
+      {activeTab === "tools" && (
+        <View style={styles.tabContent}>
+          <ToolsTab onListOnAh={onListToolOnAh} />
+        </View>
       )}
 
       {selectedPotion && (

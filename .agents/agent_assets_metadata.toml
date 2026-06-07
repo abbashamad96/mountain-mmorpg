@@ -492,3 +492,189 @@ id = "GYL28ilpr3JK6qgBh672v"
 uri = "file://artifacts/mountain-game/assets/splash/Potion_Exploration_Legendary.png"
 type = "image"
 title = "exploration legendary potion"
+
+[[generated]]
+id = "8WXDYp9tQqKc3muaJ7wX4"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Common.png"
+type = "image"
+title = "pickaxe Common"
+
+[[generated]]
+id = "TXsoF0b2I5b5b4ki33_M3"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Uncommon.png"
+type = "image"
+title = "pickaxe Uncommon"
+
+[[generated]]
+id = "UTnlI8Fwm9oUJhzcfXcb_"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Uncommon.png"
+type = "image"
+title = "axe Uncommon"
+
+[[generated]]
+id = "QvRukqnrCQs0O3jNHkqy8"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Common.png"
+type = "image"
+title = "skinning knife Common"
+
+[[generated]]
+id = "Yp7F0Y-JwcgxLC8VsamBG"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Common.png"
+type = "image"
+title = "sickle Common"
+
+[[generated]]
+id = "rHxmiu2nJLKD52nZvfklP"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Rare.png"
+type = "image"
+title = "pickaxe Rare"
+
+[[generated]]
+id = "-cPWxouJeYQ-FNwNvU-Wl"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Rare.png"
+type = "image"
+title = "axe Rare"
+
+[[generated]]
+id = "ueaZ3OnjJP6-berXnxxjq"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Uncommon.png"
+type = "image"
+title = "skinning knife Uncommon"
+
+[[generated]]
+id = "w51uta5PAea6nnIdUnPh5"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Uncommon.png"
+type = "image"
+title = "sickle Uncommon"
+
+[[generated]]
+id = "sGgDfWvT0dOvSfZDAA7Xg"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Epic.png"
+type = "image"
+title = "pickaxe Epic"
+
+[[generated]]
+id = "4m88sI90mzPA2HcUYlvbt"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Epic.png"
+type = "image"
+title = "axe Epic"
+
+[[generated]]
+id = "ZCsODPD8Zm8KWR6qHwMx5"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Rare.png"
+type = "image"
+title = "skinning knife Rare"
+
+[[generated]]
+id = "sPKOItcytIFhFh62WZo3P"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Rare.png"
+type = "image"
+title = "sickle Rare"
+
+[[generated]]
+id = "lq_AflJkOPLD35Z5ArCtQ"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Elite.png"
+type = "image"
+title = "pickaxe Elite"
+
+[[generated]]
+id = "23EIrKi9oAANp_0sQ89ot"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Elite.png"
+type = "image"
+title = "axe Elite"
+
+[[generated]]
+id = "l41M1A3Zu-NtdunWhOai_"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Epic.png"
+type = "image"
+title = "skinning knife Epic"
+
+[[generated]]
+id = "mA4lZYINEID5h1USCp82-"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Epic.png"
+type = "image"
+title = "sickle Epic"
+
+[[generated]]
+id = "lTVA7CH8z5IpytbUrQ64o"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Legendary.png"
+type = "image"
+title = "pickaxe Legendary"
+
+[[generated]]
+id = "T7Z-8ZYZ5PFcC_scSbgly"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Legendary.png"
+type = "image"
+title = "axe Legendary"
+
+[[generated]]
+id = "zao4L55ENp0Z5GGW7kx_T"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Elite.png"
+type = "image"
+title = "skinning knife Elite"
+
+[[generated]]
+id = "6ueK4uXPMYEzsHAoTbRfs"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Elite.png"
+type = "image"
+title = "sickle Elite"
+
+[[generated]]
+id = "M4O_60_chSKLXSdbnh5U9"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Superior.png"
+type = "image"
+title = "pickaxe Superior"
+
+[[generated]]
+id = "t_eOQAZzphZj1YDjcz_Le"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Superior.png"
+type = "image"
+title = "axe Superior"
+
+[[generated]]
+id = "gvsrLLP8oBUEPLC1hkJ8-"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Legendary.png"
+type = "image"
+title = "skinning knife Legendary"
+
+[[generated]]
+id = "kll-oO1w0Pn-F00VqnRyg"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Legendary.png"
+type = "image"
+title = "sickle Legendary"
+
+[[generated]]
+id = "_N71_Py00BfFnwb6lChlW"
+uri = "file://artifacts/mountain-game/assets/tools/Pickaxe_Cosmic.png"
+type = "image"
+title = "pickaxe Cosmic"
+
+[[generated]]
+id = "N6VGxhANBrVS-_Enxdr-_"
+uri = "file://artifacts/mountain-game/assets/tools/Axe_Cosmic.png"
+type = "image"
+title = "axe Cosmic"
+
+[[generated]]
+id = "miBFUOOsorudUM5hNlrPN"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Superior.png"
+type = "image"
+title = "skinning knife Superior"
+
+[[generated]]
+id = "ks1rWBQZlMRm8bu3Pw4uj"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Superior.png"
+type = "image"
+title = "sickle Superior"
+
+[[generated]]
+id = "pQQtdI6s-Pxufy_NM2Zau"
+uri = "file://artifacts/mountain-game/assets/tools/SkinningKnife_Cosmic.png"
+type = "image"
+title = "skinning knife Cosmic"
+
+[[generated]]
+id = "OSyjAqsh1_H5l3ixFhXYb"
+uri = "file://artifacts/mountain-game/assets/tools/Sickle_Cosmic.png"
+type = "image"
+title = "sickle Cosmic"

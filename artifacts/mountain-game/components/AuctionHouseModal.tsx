@@ -46,16 +46,18 @@ import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
 import { PotionImage } from "./PotionImage";
 import { RarityText } from "./RarityText";
+import { GatheringTool, formatToolName } from "@/lib/tools";
+import { ToolImage } from "./ToolImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Tab = "listings" | "orders";
-type Step = "tabs" | "pick" | "price" | "item-price" | "chest-price" | "potion-price" | "bo-create";
-type FilterType = "All" | MaterialType | "Equipment" | "Chest" | "Potion";
+type Step = "tabs" | "pick" | "price" | "item-price" | "chest-price" | "potion-price" | "tool-price" | "bo-create";
+type FilterType = "All" | MaterialType | "Equipment" | "Chest" | "Potion" | "Tool";
 type SortKey = "price" | "qty" | "time";
 type SortDir = "asc" | "desc";
 
-const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Potion", "Ore", "Wood", "Herb", "Leather"];
+const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Potion", "Tool", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
 const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest", "Potion"];
 const BO_QUALITIES: ItemQuality[] = ["Basic", "Good", "Excellent"];
@@ -374,6 +376,51 @@ function ItemListingCard({
   );
 }
 
+// ─── Tool listing card ───────────────────────────────────────────────────────
+
+function ToolListingCard({
+  listing, isOwn, canAfford, onBuy, onCancel,
+}: {
+  listing: AuctionListing; isOwn: boolean; canAfford: boolean;
+  onBuy: () => void; onCancel: () => void;
+}) {
+  const rc = (ITEM_RARITY_COLORS as Record<string, string>)[listing.material.rarity] ?? "#6B7280";
+  const tool = (listing.item ?? {}) as any;
+  return (
+    <View style={[styles.listingCard, isOwn && styles.ownCard, { borderColor: rc + "55" }]}>
+      <View style={styles.listingImg}>
+        <ToolImage type={tool.type ?? "Axe"} rarity={listing.material.rarity as any} size={54} compact />
+      </View>
+      <View style={styles.listingInfo}>
+        <Text style={[styles.listingName, { color: rc }]} numberOfLines={1}>
+          {formatToolName({ ...tool, rarity: listing.material.rarity } as any)}
+        </Text>
+        <Text style={styles.listingMeta}>
+          {isOwn ? "YOUR LISTING" : listing.sellerName}
+        </Text>
+      </View>
+      <View style={styles.listingRight}>
+        <View style={styles.priceRow}>
+          <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
+          <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
+        </View>
+        {isOwn ? (
+          <Pressable style={styles.cancelBtn} onPress={onCancel}>
+            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
+            onPress={onBuy} disabled={!canAfford}
+          >
+            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 interface AuctionHouseModalProps {
@@ -383,14 +430,15 @@ interface AuctionHouseModalProps {
   preSelectedItem?: GameItem | null;
   preSelectedChest?: GameItemChest | null;
   preSelectedPotion?: any | null;
+  preSelectedTool?: GatheringTool | null;
 }
 
-export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion }: AuctionHouseModalProps) {
-  const { gameState, applyGoldXp, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag } = useGame();
+export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion, preSelectedTool }: AuctionHouseModalProps) {
+  const { gameState, applyGoldXp, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag, removeToolFromBag } = useGame();
   const {
     yourId,
     listings,
-    listAhItem, listAhEquipItem, listAhChestItem, listAhPotion, buyAhItem, cancelAhListing, refreshListings,
+    listAhItem, listAhEquipItem, listAhChestItem, listAhPotion, listAhTool, buyAhItem, cancelAhListing, refreshListings,
     buyOrders,
     createBuyOrder, cancelBuyOrder, fillBuyOrder,
   } = useMultiplayer();
@@ -402,6 +450,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   const [pickedItem, setPickedItem] = useState<GameItem | null>(null);
   const [pickedChest, setPickedChest] = useState<GameItemChest | null>(null);
   const [pickedPotion, setPickedPotion] = useState<any>(null);
+  const [pickedTool, setPickedTool] = useState<GatheringTool | null>(null);
   const [countStr, setCountStr] = useState("1");
   const [priceStr, setPriceStr] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("All");
@@ -460,6 +509,11 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       setPriceStr("");
       setStep("potion-price");
       setTab("listings");
+    } else if (visible && preSelectedTool) {
+      setPickedTool(preSelectedTool);
+      setPriceStr("");
+      setStep("tool-price");
+      setTab("listings");
     }
     if (!visible) {
       setStep("tabs");
@@ -467,8 +521,9 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       setPickedItem(null);
       setPickedChest(null);
       setPickedPotion(null);
+      setPickedTool(null);
     }
-  }, [visible, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion]);
+  }, [visible, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion, preSelectedTool]);
 
   const showFeedback = useCallback((msg: string, ok = true) => {
     setFeedback({ msg, ok });
@@ -581,6 +636,19 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     setPickedPotion(null);
     setPriceStr("");
     showFeedback("Potion listed for sale!");
+  };
+
+  const handleConfirmListTool = () => {
+    if (!pickedTool) return;
+    const price = parseInt(priceStr.replace(/[^0-9]/g, ""), 10) || 0;
+    if (price <= 0) { showFeedback("Enter a price above 0.", false); return; }
+    removeToolFromBag(pickedTool.id);
+    listAhTool(pickedTool, price);
+    setStep("tabs");
+    setTab("listings");
+    setPickedTool(null);
+    setPriceStr("");
+    showFeedback("Tool listed for sale!");
   };
 
   const handleFillOrder = useCallback((order: BuyOrder, qty: number, itemId?: string, chestId?: string, potionId?: string) => {
@@ -705,6 +773,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     setPickedEntry(null);
     setPickedItem(null);
     setPickedChest(null);
+    setPickedTool(null);
     setPriceStr("");
     setBoType(null); setBoRarity(null); setBoVersion(null);
     setBoCountStr("1"); setBoPriceStr("");
@@ -765,10 +834,12 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const equipListings   = sorted.filter((l) => (l.material.type as string) === "Equipment");
     const chestListings   = sorted.filter((l) => (l.material.type as string) === "Chest");
     const potionListings  = sorted.filter((l) => (l.material.type as string) === "Potion");
+    const toolListings    = sorted.filter((l) => (l.material.type as string) === "Tool");
     const matListings     = sorted.filter((l) =>
       (l.material.type as string) !== "Equipment" &&
       (l.material.type as string) !== "Chest" &&
-      (l.material.type as string) !== "Potion"
+      (l.material.type as string) !== "Potion" &&
+      (l.material.type as string) !== "Tool"
     );
 
     // Group material listings: type -> rarity -> items
@@ -885,8 +956,31 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           </View>
         )}
 
+        {/* Tool listings */}
+        {toolListings.length > 0 && (typeFilter === "All" || typeFilter === "Tool") && (
+          <View style={{ marginBottom: 8 }}>
+            <View style={[styles.sectionHeader, { borderLeftColor: Colors.game.blueLight }]}>
+              <View style={styles.sectionDot}>
+                <View style={[styles.sectionDotInner, { backgroundColor: Colors.game.blueLight }]} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: Colors.game.blueLight }]}>🔨 TOOL LISTINGS</Text>
+              <Text style={styles.sectionCount}>({toolListings.length})</Text>
+            </View>
+            {toolListings.map((l) => (
+              <ToolListingCard
+                key={l.id}
+                listing={l}
+                isOwn={l.sellerId === yourId}
+                canAfford={char.gold >= l.price}
+                onBuy={() => handleBuy(l)}
+                onCancel={() => handleCancel(l)}
+              />
+            ))}
+          </View>
+        )}
+
         {renderSortBar()}
-        {matListings.length === 0 && equipListings.length === 0 && chestListings.length === 0 && potionListings.length === 0 ? (
+        {matListings.length === 0 && equipListings.length === 0 && chestListings.length === 0 && potionListings.length === 0 && toolListings.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
               {listings.length === 0 ? "No listings yet." : "No listings match this filter."}
@@ -1454,6 +1548,47 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     );
   };
 
+  const renderToolPriceStep = () => {
+    if (!pickedTool) return null;
+    const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedTool.rarity] ?? "#6B7280";
+    return (
+      <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
+        <Text style={styles.wizardTitle}>LIST TOOL FOR SALE</Text>
+        <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
+          <ToolImage type={pickedTool.type} rarity={pickedTool.rarity} size={64} compact />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.previewName, { color: rc }]} numberOfLines={2}>
+              {formatToolName(pickedTool)}
+            </Text>
+            <Text style={styles.previewSub}>{pickedTool.rarity} · {pickedTool.type}</Text>
+          </View>
+        </View>
+        <View style={styles.inputRow}>
+          <Text style={styles.inputLabel}>Price (G)</Text>
+          <TextInput
+            style={styles.priceInput}
+            keyboardType={Platform.OS === "web" ? "default" : "number-pad"}
+            value={priceStr}
+            onChangeText={(v) => setPriceStr(v.replace(/[^0-9]/g, ""))}
+            maxLength={9} placeholderTextColor={Colors.game.textMuted}
+            placeholder="1000" selectionColor={Colors.game.gold}
+            autoFocus={Platform.OS === "web"}
+            {...(Platform.OS === "web" ? { outlineStyle: "none" } as any : {})}
+          />
+        </View>
+        <View style={styles.wizardBtnRow}>
+          <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedTool(null); }}>
+            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
+            <Text style={styles.backBtnTxt}>CANCEL</Text>
+          </Pressable>
+          <Pressable style={styles.confirmBtn} onPress={handleConfirmListTool}>
+            <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+  };
+
   // ── Buy order creation wizard ──────────────────────────────────────────────
 
   const renderBoCreate = () => {
@@ -1727,6 +1862,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             {step === "item-price" && renderItemPriceStep()}
             {step === "chest-price" && renderChestPriceStep()}
             {step === "potion-price" && renderPotionPriceStep()}
+            {step === "tool-price" && renderToolPriceStep()}
             {step === "bo-create" && renderBoCreate()}
           </ScrollView>
 

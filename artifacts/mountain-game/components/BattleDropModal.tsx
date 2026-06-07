@@ -21,10 +21,19 @@ import {
   ITEM_SLOT_ICONS,
   Potion,
 } from "@/lib/items";
+import {
+  formatToolName,
+  GatheringTool,
+  TOOL_ICONS,
+  TOOL_MATERIAL_MAP,
+  TOOL_NAMES,
+  TOOL_RARITY_COLORS,
+} from "@/lib/tools";
 import { ChestImage } from "./ChestImage";
 import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
 import { PotionImage } from "./PotionImage";
+import { ToolImage } from "./ToolImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,7 +41,8 @@ export type BattleDrop =
   | { type: "material"; material: Material; count: number }
   | { type: "item"; item: GameItem }
   | { type: "potion"; potion: Potion }
-  | { type: "chest"; chest: ItemChest };
+  | { type: "chest"; chest: ItemChest }
+  | { type: "tool"; tool: GatheringTool };
 
 interface BattleDropModalProps {
   visible: boolean;
@@ -180,7 +190,6 @@ function DropCard({ drop }: { drop: BattleDrop }) {
     );
   }
 
-  // potion
   if (drop.type === "potion") {
     const rc = ITEM_RARITY_COLORS[drop.potion.rarity];
     return (
@@ -200,107 +209,105 @@ function DropCard({ drop }: { drop: BattleDrop }) {
     );
   }
 
-  // chest
-  const rc = ITEM_RARITY_COLORS[drop.chest.rarity];
-  return (
-    <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
-      <View style={styles.dropRow}>
-        <ChestImage rarity={drop.chest.rarity} size={56} />
-        <View style={styles.dropInfo}>
-          <Text style={[styles.dropName, { color: rc }]} numberOfLines={1}>
-            {formatChestName(drop.chest)}
-          </Text>
-          <Text style={styles.dropMeta}>
-            T{drop.chest.tier}  \u00b7  {drop.chest.tradable ? "Tradable" : "Bound"}
-          </Text>
+  if (drop.type === "chest") {
+    const rc = ITEM_RARITY_COLORS[drop.chest.rarity];
+    return (
+      <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
+        <View style={styles.dropRow}>
+          <ChestImage rarity={drop.chest.rarity} size={56} />
+          <View style={styles.dropInfo}>
+            <Text style={[styles.dropName, { color: rc }]} numberOfLines={1}>
+              {formatChestName(drop.chest)}
+            </Text>
+            <Text style={styles.dropMeta}>T{drop.chest.tier}  ·  Added to bag</Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  }
+
+  if (drop.type === "tool") {
+    const rc = TOOL_RARITY_COLORS[drop.tool.rarity] ?? "#9CA3AF";
+    return (
+      <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
+        <View style={styles.dropRow}>
+          <ToolImage type={drop.tool.type} rarity={drop.tool.rarity} size={56} compact />
+          <View style={styles.dropInfo}>
+            <Text style={[styles.dropName, { color: rc }]} numberOfLines={1}>
+              {formatToolName(drop.tool)}
+            </Text>
+            <Text style={styles.dropMeta}>
+              {TOOL_ICONS[drop.tool.type]} Gathers {TOOL_MATERIAL_MAP[drop.tool.type]}
+            </Text>
+            <Text style={styles.dropMeta}>
+              {drop.tool.effectChance}% +{drop.tool.effectMinBonus}–{drop.tool.effectMaxBonus} mats  ·  {drop.tool.passiveChance}% sweep
+            </Text>
+          </View>
+          <View style={[styles.toolBadge, { borderColor: rc }]}>
+            <Text style={[styles.toolBadgeTxt, { color: rc }]}>TOOL</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return null;
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.88)",
+    backgroundColor: "rgba(0,0,0,0.86)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
+    padding: 24,
   },
   card: {
     width: "100%",
-    maxWidth: 360,
-    maxHeight: "85%",
+    maxHeight: "80%",
     backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1.5,
+    borderRadius: 22,
+    borderWidth: 1,
     borderColor: Colors.game.border,
-    gap: 12,
+    overflow: "hidden",
   },
   header: {
     alignItems: "center",
+    paddingTop: 22,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
     gap: 4,
-    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.game.border,
   },
   victoryLabel: {
-    fontSize: 14,
+    fontSize: 10,
     fontFamily: "Inter_700Bold",
     color: Colors.game.gold,
-    letterSpacing: 6,
+    letterSpacing: 4,
   },
   npcName: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    color: Colors.game.textDim,
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.text,
   },
   lootLabel: {
     fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 3,
-    marginTop: 4,
-  },
-  scroll: {
-    maxHeight: 380,
-  },
-  actions: {
-    gap: 8,
-    paddingTop: 4,
-  },
-  collectBtn: {
-    backgroundColor: Colors.game.green,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  collectBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
-    letterSpacing: 3,
-  },
-  closeBtn: {
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-    backgroundColor: Colors.game.surface,
-  },
-  closeBtnText: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Inter_500Medium",
     color: Colors.game.textMuted,
     letterSpacing: 2,
   },
+  scroll: {
+    maxHeight: 280,
+    padding: 14,
+  },
   dropCard: {
     backgroundColor: Colors.game.surface,
-    borderRadius: 14,
+    borderRadius: 12,
+    borderWidth: 1,
     padding: 12,
-    borderWidth: 1.5,
     gap: 8,
   },
   dropRow: {
@@ -310,32 +317,76 @@ const styles = StyleSheet.create({
   },
   dropInfo: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   dropName: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "Inter_700Bold",
   },
   dropMeta: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: "Inter_500Medium",
     color: Colors.game.textMuted,
   },
   dropCount: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Inter_700Bold",
   },
   statRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    paddingTop: 4,
+    gap: 6,
+  },
+  statText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textDim,
+  },
+  toolBadge: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  toolBadgeTxt: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.game.border,
   },
-  statText: {
-    fontSize: 10,
+  collectBtn: {
+    flex: 2,
+    backgroundColor: Colors.game.purpleLight + "22",
+    borderWidth: 1.5,
+    borderColor: Colors.game.purpleLight,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  collectBtnText: {
+    fontSize: 13,
     fontFamily: "Inter_700Bold",
-    color: Colors.game.textDim,
+    color: Colors.game.purpleLight,
+    letterSpacing: 2,
+  },
+  closeBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  closeBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+    letterSpacing: 2,
   },
 });

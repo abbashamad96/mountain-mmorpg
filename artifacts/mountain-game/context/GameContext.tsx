@@ -6,6 +6,7 @@ import {
   sumItemStats, sumPercentStats,
   rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest, rollPotionDrop,
 } from "@/lib/items";
+import { GatheringTool, ToolType, rollToolDrop } from "@/lib/tools";
 
 export type { GameItem, ItemSlot, ItemStatBlock, ItemChest, Potion, ChestDrop };
 
@@ -136,6 +137,8 @@ export interface Character {
   chestBag: ItemChest[];
   potionBag: Potion[];
   activeBuffs: ActiveBuff[];
+  equippedTools: Partial<Record<ToolType, GatheringTool>>;
+  toolBag: GatheringTool[];
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -272,18 +275,22 @@ export type NpcDropResult =
   | { type: "material"; material: Material; count: number }
   | { type: "item";    item: GameItem }
   | { type: "potion"; potion: Potion }
-  | { type: "chest";  chest: ItemChest };
+  | { type: "chest";  chest: ItemChest }
+  | { type: "tool";   tool: GatheringTool };
 
 export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
   const r = Math.random() * 100;
   const materialChance = npc.version === 3 ? 45 : 40;
 
   if (r < 10) {
-    // 10% item/potion drop — 25% potion, 75% equipment
-    const isPotion = Math.random() < 0.25;
-    if (isPotion) {
+    // 10% item/potion/tool drop — 25% potion, 74% equipment, 1% tool
+    const roll = Math.random() * 100;
+    if (roll < 25) {
       const potion = rollPotionDrop(npc.rarity, npc.version as ItemTier);
       return { type: "potion", potion };
+    } else if (roll < 26) {
+      const tool = rollToolDrop(npc.rarity, npc.version as ItemTier);
+      return { type: "tool", tool };
     } else {
       const item = rollItemDropFromMonster(npc.rarity, npc.version as ItemTier);
       return { type: "item", item };
@@ -480,6 +487,8 @@ const defaultCharacter: Character = {
   chestBag: [],
   potionBag: [],
   activeBuffs: [],
+  equippedTools: {},
+  toolBag: [],
 };
 
 const defaultGameState: GameState = {
@@ -515,6 +524,10 @@ interface GameContextType {
   removePotionFromBag: (id: string) => void;
   consumePotion: (potion: Potion) => void;
   getActiveBuffMultiplier: (type: "Gold" | "XP" | "Exploration") => number;
+  addToolToBag: (tool: GatheringTool) => void;
+  removeToolFromBag: (id: string) => void;
+  equipGatheringTool: (tool: GatheringTool) => void;
+  unequipGatheringTool: (type: ToolType) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -544,6 +557,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           chestBag: saved.character?.chestBag ?? [],
           potionBag: saved.character?.potionBag ?? [],
           activeBuffs: saved.character?.activeBuffs ?? [],
+          equippedTools: saved.character?.equippedTools ?? {},
+          toolBag: saved.character?.toolBag ?? [],
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
@@ -681,6 +696,43 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const addToolToBag = useCallback((tool: GatheringTool) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, toolBag: [...prev.character.toolBag, tool] },
+    }));
+  }, []);
+
+  const removeToolFromBag = useCallback((id: string) => {
+    setGameState((prev) => ({
+      ...prev,
+      character: { ...prev.character, toolBag: prev.character.toolBag.filter((t) => t.id !== id) },
+    }));
+  }, []);
+
+  const equipGatheringTool = useCallback((tool: GatheringTool) => {
+    setGameState((prev) => {
+      const oldEquipped = prev.character.equippedTools[tool.type];
+      const newEquipped = { ...prev.character.equippedTools, [tool.type]: tool };
+      let newBag = prev.character.toolBag.filter((t) => t.id !== tool.id);
+      if (oldEquipped) newBag = [...newBag, oldEquipped];
+      return { ...prev, character: { ...prev.character, equippedTools: newEquipped, toolBag: newBag } };
+    });
+  }, []);
+
+  const unequipGatheringTool = useCallback((type: ToolType) => {
+    setGameState((prev) => {
+      const tool = prev.character.equippedTools[type];
+      if (!tool) return prev;
+      const newEquipped = { ...prev.character.equippedTools };
+      delete newEquipped[type];
+      return {
+        ...prev,
+        character: { ...prev.character, equippedTools: newEquipped, toolBag: [...prev.character.toolBag, tool] },
+      };
+    });
+  }, []);
+
   const consumePotion = useCallback((potion: Potion) => {
     const now = Date.now();
     const expiresAt = now + potion.durationSeconds * 1000;
@@ -748,7 +800,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool }}
     >
       {children}
     </GameContext.Provider>

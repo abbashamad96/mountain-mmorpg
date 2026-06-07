@@ -37,6 +37,8 @@ import {
   getEffectiveStats,
 } from "@/context/GameContext";
 import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPotionName, ChestDrop } from "@/lib/items";
+import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
+import { FullChestDrop } from "@/components/ChestOpenModal";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -399,6 +401,7 @@ export default function GameScreen() {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
     incrementEvents, loadState, resetGameState,
     addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
+    addToolToBag,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -438,6 +441,7 @@ export default function GameScreen() {
   const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(null);
   const [preSelectChestForAh, setPreSelectChestForAh] = useState<ItemChest | null>(null);
   const [preSelectPotionForAh, setPreSelectPotionForAh] = useState<any>(null);
+  const [preSelectToolForAh, setPreSelectToolForAh] = useState<GatheringTool | null>(null);
   const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(null);
   const pendingDropCooldownRef = useRef<number>(500);
   const [autoOpenChest, setAutoOpenChest] = useState<ItemChest | null>(null);
@@ -735,6 +739,8 @@ export default function GameScreen() {
           } else if (drop?.type === "chest") {
             droppedChest = drop.chest;
             drops.push({ type: "chest", chest: drop.chest });
+          } else if (drop?.type === "tool") {
+            drops.push({ type: "tool", tool: drop.tool });
           }
         }
 
@@ -800,6 +806,8 @@ export default function GameScreen() {
       } else if (drop.type === "chest") {
         setPendingDropChest(drop.chest);
         pendingDropCooldownRef.current = 400;
+      } else if (drop.type === "tool") {
+        addToolToBag(drop.tool);
       }
     }
     setShowBattleDrops(false);
@@ -807,7 +815,7 @@ export default function GameScreen() {
     if (!battleDrops.some((d) => d.type === "chest")) {
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     }
-  }, [battleDrops, addMaterials, addItemToBag, addPotionToBag]);
+  }, [battleDrops, addMaterials, addItemToBag, addPotionToBag, addToolToBag]);
 
   const handleCloseBattleDrops = useCallback(() => {
     setShowBattleDrops(false);
@@ -836,6 +844,7 @@ export default function GameScreen() {
     setPreSelectItemForAh(null);
     setPreSelectChestForAh(null);
     setPreSelectPotionForAh(null);
+    setPreSelectToolForAh(null);
   }, []);
 
   const handleListChestOnAh = useCallback((chest: ItemChest) => {
@@ -847,6 +856,12 @@ export default function GameScreen() {
   const handleListPotionOnAh = useCallback((potion: any) => {
     setShowStats(false);
     setPreSelectPotionForAh(potion);
+    setShowAuction(true);
+  }, []);
+
+  const handleListToolOnAh = useCallback((tool: GatheringTool) => {
+    setShowStats(false);
+    setPreSelectToolForAh(tool);
     setShowAuction(true);
   }, []);
 
@@ -1005,36 +1020,51 @@ export default function GameScreen() {
         preSelectedItem={preSelectItemForAh}
         preSelectedChest={preSelectChestForAh}
         preSelectedPotion={preSelectPotionForAh}
+        preSelectedTool={preSelectToolForAh}
       />
       <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
       {autoOpenChest && (
         <ChestOpenModal
           key={autoOpenChest.id}
           chest={autoOpenChest}
-          onClaim={(drop) => {
-            const isItem = "slot" in drop;
-            if (isItem) {
-              addItemToBag(drop);
-              pushToast(`Chest opened! Got ${formatItemName(drop)}`, false);
+          onClaim={(drop: FullChestDrop) => {
+            const isTool = "sweepChance" in drop;
+            const isItem = !isTool && "slot" in drop;
+            if (isTool) {
+              addToolToBag(drop as GatheringTool);
+              pushToast(`Chest opened! Got ${formatToolName(drop as GatheringTool)}`, false);
               addLogEntry({
                 id: `c-${Date.now()}`,
                 timestamp: Date.now(),
                 type: "item_chest",
-                summary: `You opened ${formatChestName(autoOpenChest)} and got ${formatItemName(drop)}`,
+                summary: `You opened ${formatChestName(autoOpenChest!)} and got ${formatToolName(drop as GatheringTool)}`,
                 goldGained: 0,
                 xpGained: 0,
                 material: null,
-                itemDrop: drop,
                 chest: autoOpenChest,
               });
-            } else {
-              addPotionToBag(drop);
-              pushToast(`Chest opened! Got ${formatPotionName(drop)}`, false);
+            } else if (isItem) {
+              addItemToBag(drop as GameItem);
+              pushToast(`Chest opened! Got ${formatItemName(drop as GameItem)}`, false);
               addLogEntry({
                 id: `c-${Date.now()}`,
                 timestamp: Date.now(),
                 type: "item_chest",
-                summary: `You opened ${formatChestName(autoOpenChest)} and got ${formatPotionName(drop)}`,
+                summary: `You opened ${formatChestName(autoOpenChest!)} and got ${formatItemName(drop as GameItem)}`,
+                goldGained: 0,
+                xpGained: 0,
+                material: null,
+                itemDrop: drop as GameItem,
+                chest: autoOpenChest,
+              });
+            } else {
+              addPotionToBag(drop as any);
+              pushToast(`Chest opened! Got ${formatPotionName(drop as any)}`, false);
+              addLogEntry({
+                id: `c-${Date.now()}`,
+                timestamp: Date.now(),
+                type: "item_chest",
+                summary: `You opened ${formatChestName(autoOpenChest!)} and got ${formatPotionName(drop as any)}`,
                 goldGained: 0,
                 xpGained: 0,
                 material: null,
@@ -1057,12 +1087,14 @@ export default function GameScreen() {
         onListItemOnAh={handleListItemOnAh}
         onListChestOnAh={handleListChestOnAh}
         onListPotionOnAh={handleListPotionOnAh}
+        onListToolOnAh={handleListToolOnAh}
       />
       <GatheringModal
         visible={showGather}
         material={gatherMaterial}
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
+        equippedTool={gatherMaterial ? (char.equippedTools[MATERIAL_TO_TOOL[gatherMaterial.type]] ?? null) : null}
         onComplete={handleGatherComplete}
         onAttemptXp={(xp) => { const result = applyGoldXp(0, xp); gatherXpRef.current += xp; gatherXpBonusRef.current += result.xpBonus; }}
       />
