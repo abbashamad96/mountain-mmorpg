@@ -835,6 +835,7 @@ export default function GameScreen() {
     setPreSelectForAh(null);
     setPreSelectItemForAh(null);
     setPreSelectChestForAh(null);
+    setPreSelectPotionForAh(null);
   }, []);
 
   const handleListChestOnAh = useCallback((chest: ItemChest) => {
@@ -1003,6 +1004,7 @@ export default function GameScreen() {
         preSelectedEntry={preSelectForAh}
         preSelectedItem={preSelectItemForAh}
         preSelectedChest={preSelectChestForAh}
+        preSelectedPotion={preSelectPotionForAh}
       />
       <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
       {autoOpenChest && (
