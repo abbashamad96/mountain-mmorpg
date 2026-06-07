@@ -422,6 +422,6 @@ export function openChest(chest: ItemChest): ChestDrop {
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
   const item = generateItem(slot, itemRarity, itemTier, quality);
   const potion = rollPotionDrop(chest.rarity, chest.tier);
-  // 50% chance for item, 50% chance for potion
-  return Math.random() < 0.5 ? item : potion;
+  // 25% chance for potion, 75% chance for equipment
+  return Math.random() < 0.25 ? potion : item;
 }

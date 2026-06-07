@@ -4,7 +4,7 @@ import {
   GameItem, ItemSlot, ItemStatBlock, ItemChest, ItemTier,
   Potion, ChestDrop,
   sumItemStats, sumPercentStats,
-  rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest,
+  rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest, rollPotionDrop,
 } from "@/lib/items";
 
 export type { GameItem, ItemSlot, ItemStatBlock, ItemChest, Potion, ChestDrop };
@@ -114,6 +114,7 @@ export interface LogEntry {
   npcVersion?: VersionNum;
   chest?: ItemChest;
   itemDrop?: GameItem;
+  potionDrop?: Potion;
 }
 
 export interface ActiveBuff {
@@ -270,6 +271,7 @@ export type NpcDropResult =
   | null
   | { type: "material"; material: Material; count: number }
   | { type: "item";    item: GameItem }
+  | { type: "potion"; potion: Potion }
   | { type: "chest";  chest: ItemChest };
 
 export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
@@ -277,9 +279,15 @@ export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
   const materialChance = npc.version === 3 ? 45 : 40;
 
   if (r < 10) {
-    // 10% equipment item drop
-    const item = rollItemDropFromMonster(npc.rarity, npc.version as ItemTier);
-    return { type: "item", item };
+    // 10% item/potion drop — 25% potion, 75% equipment
+    const isPotion = Math.random() < 0.25;
+    if (isPotion) {
+      const potion = rollPotionDrop(npc.rarity, npc.version as ItemTier);
+      return { type: "potion", potion };
+    } else {
+      const item = rollItemDropFromMonster(npc.rarity, npc.version as ItemTier);
+      return { type: "item", item };
+    }
   }
 
   if (r < 11) {

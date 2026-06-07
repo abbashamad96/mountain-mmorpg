@@ -284,7 +284,14 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                 </Text>
               </View>
             )}
-            {!mat && !itemDrop && !chest && isVictory && (
+            {entry.potionDrop && (
+              <View style={logStackStyles.inlineRow}>
+                <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[entry.potionDrop.rarity] }]}>
+                  {entry.potionDrop.type} Potion
+                </Text>
+              </View>
+            )}
+            {!mat && !itemDrop && !chest && !entry.potionDrop && isVictory && (
               <Text style={logStackStyles.dimLabel}>no drop</Text>
             )}
           </View>
@@ -711,6 +718,7 @@ export default function GameScreen() {
         let dropCount = 0;
         let droppedItem = undefined as typeof undefined | NonNullable<LogEntry["itemDrop"]>;
         let droppedChest = undefined as typeof undefined | NonNullable<LogEntry["chest"]>;
+        let droppedPotion = undefined as typeof undefined | NonNullable<LogEntry["potionDrop"]>;
 
         if (victory) {
           const drop: NpcDropResult = rollNpcDrop(npc);
@@ -721,6 +729,9 @@ export default function GameScreen() {
           } else if (drop?.type === "item") {
             droppedItem = drop.item;
             drops.push({ type: "item", item: drop.item });
+          } else if (drop?.type === "potion") {
+            droppedPotion = drop.potion;
+            drops.push({ type: "potion", potion: drop.potion });
           } else if (drop?.type === "chest") {
             droppedChest = drop.chest;
             drops.push({ type: "chest", chest: drop.chest });
@@ -730,6 +741,7 @@ export default function GameScreen() {
         let dropSuffix = "";
         if (droppedMat) dropSuffix = ` \u00b7 ${droppedMat.type}${dropCount > 1 ? ` \u00d7${dropCount}` : ""}`;
         else if (droppedItem) dropSuffix = ` \u00b7 ${droppedItem.name}`;
+        else if (droppedPotion) dropSuffix = ` \u00b7 ${droppedPotion.type} Potion`;
         else if (droppedChest) dropSuffix = ` \u00b7 \ud83d\udce6 ${droppedChest.rarity} Chest`;
 
         const goldBonus = battleResult ? battleResult.goldBonus : 0;
@@ -758,6 +770,7 @@ export default function GameScreen() {
           npcVersion: npc.version,
           victory,
           itemDrop: droppedItem,
+          potionDrop: droppedPotion,
           chest: droppedChest,
         });
 
@@ -782,6 +795,8 @@ export default function GameScreen() {
         addMaterials(mats);
       } else if (drop.type === "item") {
         addItemToBag(drop.item);
+      } else if (drop.type === "potion") {
+        addPotionToBag(drop.potion);
       } else if (drop.type === "chest") {
         setPendingDropChest(drop.chest);
         pendingDropCooldownRef.current = 400;
@@ -792,7 +807,7 @@ export default function GameScreen() {
     if (!battleDrops.some((d) => d.type === "chest")) {
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     }
-  }, [battleDrops, addMaterials, addItemToBag]);
+  }, [battleDrops, addMaterials, addItemToBag, addPotionToBag]);
 
   const handleCloseBattleDrops = useCallback(() => {
     setShowBattleDrops(false);

@@ -13,21 +13,25 @@ import { Material, RARITY_COLORS, RarityName } from "@/context/GameContext";
 import {
   formatChestName,
   formatItemName,
+  formatPotionName,
   GameItem,
   ItemChest,
   ITEM_QUALITY_COLORS,
   ITEM_RARITY_COLORS,
   ITEM_SLOT_ICONS,
+  Potion,
 } from "@/lib/items";
 import { ChestImage } from "./ChestImage";
 import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
+import { PotionImage } from "./PotionImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type BattleDrop =
   | { type: "material"; material: Material; count: number }
   | { type: "item"; item: GameItem }
+  | { type: "potion"; potion: Potion }
   | { type: "chest"; chest: ItemChest };
 
 interface BattleDropModalProps {
@@ -172,6 +176,26 @@ function DropCard({ drop }: { drop: BattleDrop }) {
             )}
           </View>
         )}
+      </View>
+    );
+  }
+
+  // potion
+  if (drop.type === "potion") {
+    const rc = ITEM_RARITY_COLORS[drop.potion.rarity];
+    return (
+      <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
+        <View style={styles.dropRow}>
+          <PotionImage type={drop.potion.type} rarity={drop.potion.rarity} tier={drop.potion.tier} size={56} compact />
+          <View style={styles.dropInfo}>
+            <Text style={[styles.dropName, { color: rc }]} numberOfLines={1}>
+              {formatPotionName(drop.potion)}
+            </Text>
+            <Text style={styles.dropMeta}>
+              {drop.potion.type} Potion  ·  T{drop.potion.tier}
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }
