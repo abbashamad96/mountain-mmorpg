@@ -222,6 +222,16 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
     }
     return Array.from(stacks.values());
   }, [char.chestBag]);
+
+  const potionStacks = useMemo(() => {
+    const stacks = new Map<string, { rep: typeof char.potionBag[0]; count: number }>();
+    for (const p of char.potionBag ?? []) {
+      const key = `${p.type}|${p.rarity}|${p.tier}`;
+      if (!stacks.has(key)) stacks.set(key, { rep: p, count: 0 });
+      stacks.get(key)!.count++;
+    }
+    return Array.from(stacks.values());
+  }, [char.potionBag]);
   const handleListOnAhFromDetail = (entry: MaterialEntry) => {
     setSelectedEntry(null);
     onListOnAh?.(entry);
@@ -457,7 +467,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                   )}
 
                   {/* ── Potions ── */}
-                  {(char.potionBag?.length ?? 0) > 0 && (
+                  {potionStacks.length > 0 && (
                     <View style={styles.typeSection}>
                       <View style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]}>
                         <Text style={[styles.typeHeaderIcon, { color: Colors.game.purpleLight }]}>⚗</Text>
@@ -467,22 +477,22 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                         </View>
                       </View>
                       <View style={styles.inventoryGrid}>
-                        {char.potionBag.map((potion) => {
-                          const rc = ITEM_RARITY_COLORS[potion.rarity];
+                        {potionStacks.map(({ rep, count }) => {
+                          const rc = ITEM_RARITY_COLORS[rep.rarity];
                           return (
-                            <Pressable key={potion.id} style={styles.invSlotWrap} onPress={() => setSelectedPotion(potion)}>
+                            <Pressable key={`${rep.type}|${rep.rarity}|${rep.tier}`} style={styles.invSlotWrap} onPress={() => setSelectedPotion(rep)}>
                               <View style={[styles.invSlot, { borderColor: rc }]}>
-                                <PotionImage type={potion.type} rarity={potion.rarity} tier={potion.tier} size={68} compact />
+                                <PotionImage type={rep.type} rarity={rep.rarity} tier={rep.tier} size={68} compact />
                               </View>
                               <View style={[styles.countBadge, { backgroundColor: rc }]}>
-                                <Text style={styles.countText} numberOfLines={1}>{potion.type}</Text>
+                                <Text style={styles.countText} numberOfLines={1}>×{count}</Text>
                               </View>
                               <View style={styles.typeLabel}>
                                 <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.7}>
-                                  {potion.rarity}
+                                  {rep.type}
                                 </Text>
                                 <Text style={[styles.typeLabelText, { color: Colors.game.textDim }]} adjustsFontSizeToFit minimumFontScale={0.7}>
-                                  T{potion.tier} · {potion.effectPercent}%
+                                  {rep.rarity} · T{rep.tier}
                                 </Text>
                               </View>
                             </Pressable>
