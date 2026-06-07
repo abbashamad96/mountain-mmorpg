@@ -85,7 +85,7 @@ interface MultiplayerContextType {
   buyOrders: BuyOrder[];
   createBuyOrder: (material: BuyOrder["material"], count: number, pricePerUnit: number) => void;
   cancelBuyOrder: (orderId: string) => void;
-  fillBuyOrder: (orderId: string, count: number, version: number, itemId?: string, chestId?: string, potionId?: string) => void;
+  fillBuyOrder: (orderId: string, count: number, version: number, itemId?: string, chestId?: string, potionId?: string, toolId?: string) => void;
   ahEvents: AhEvent[];
   consumeAhEvent: (id: string) => void;
   notifications: NotificationEntry[];
@@ -343,6 +343,8 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
           game.removeChestFromBag((msg.chest as any).id);
         } else if (mType === "Potion" && msg.potion) {
           game.removePotionFromBag((msg.potion as any).id);
+        } else if (mType === "Tool" && msg.tool) {
+          game.removeToolFromBag((msg.tool as any).id);
         } else if (msg.material && msg.count > 0) {
           const key = `${msg.material.type}|${msg.material.rarity}|${msg.material.version}`;
           const existing = game.gameState.character.materials.find((e) => e.key === key);
@@ -360,13 +362,15 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
         }]);
       } else if (msg.type === "bo_received") {
         const mType = msg.material?.type;
-        const rcvName = (msg.item as any)?.name ?? (msg.chest as any)?.name ?? (msg.potion as any)?.type ?? `${msg.material.rarity} ${msg.material.type}`;
+        const rcvName = (msg.item as any)?.name ?? (msg.chest as any)?.name ?? (msg.potion as any)?.type ?? (msg.tool as any)?.type ?? `${msg.material.rarity} ${msg.material.type}`;
         if (mType === "Equipment" && msg.item) {
           game.addItemToBag(msg.item as any);
         } else if (mType === "Chest" && msg.chest) {
           game.addChestToBag(msg.chest as any);
         } else if (mType === "Potion" && msg.potion) {
           game.addPotionToBag(msg.potion as any);
+        } else if (mType === "Tool" && msg.tool) {
+          game.addToolToBag(msg.tool as any);
         } else if (msg.material && msg.count > 0) {
           game.addMaterialCount(msg.material, msg.count);
         }
@@ -516,11 +520,12 @@ export function MultiplayerProvider({ children }: { children: React.ReactNode })
 
   const cancelBuyOrder = useCallback((orderId: string) => { sendWs({ type: "bo_cancel", orderId }); }, [sendWs]);
 
-  const fillBuyOrder = useCallback((orderId: string, count: number, version: number, itemId?: string, chestId?: string, potionId?: string) => {
+  const fillBuyOrder = useCallback((orderId: string, count: number, version: number, itemId?: string, chestId?: string, potionId?: string, toolId?: string) => {
     const payload: Record<string, unknown> = { type: "bo_fill", orderId, count, version };
     if (itemId) payload.itemId = itemId;
     if (chestId) payload.chestId = chestId;
     if (potionId) payload.potionId = potionId;
+    if (toolId) payload.toolId = toolId;
     sendWs(payload);
   }, [sendWs]);
 

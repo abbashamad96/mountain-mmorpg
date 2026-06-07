@@ -454,6 +454,7 @@ function ActiveBuffPills({ buffs }: { buffs: ActiveBuff[] }) {
     <View style={pillStyles.row}>
       {active.map((buff) => {
         const remaining = Math.max(0, Math.ceil((buff.expiresAt - Date.now()) / 1000));
+        if (remaining <= 0) return null;
         const color = BUFF_PILL_COLORS[buff.type] ?? Colors.game.gold;
         const pct = Math.round((buff.multiplier - 1) * 100);
         return (
@@ -1048,6 +1049,23 @@ export default function GameScreen() {
     setShowAuction(true);
   }, []);
 
+  const handleListBattleDropOnAh = useCallback((drop: BattleDrop) => {
+    if (drop.type === "material") {
+      const key = `${drop.material.type}-${drop.material.rarity}-${drop.material.version}`;
+      setPreSelectForAh({ material: drop.material, count: drop.count, key });
+    } else if (drop.type === "item") {
+      setPreSelectItemForAh(drop.item);
+    } else if (drop.type === "potion") {
+      setPreSelectPotionForAh(drop.potion);
+    } else if (drop.type === "tool") {
+      setPreSelectToolForAh(drop.tool);
+    } else if (drop.type === "chest") {
+      setPreSelectChestForAh(drop.chest);
+    }
+    handleCollectBattleDrops();
+    setShowAuction(true);
+  }, [handleCollectBattleDrops]);
+
   const handleChestDropCollect = useCallback((chest: ItemChest) => {
     addChestToBag(chest);
     setPendingDropChest(null);
@@ -1297,6 +1315,7 @@ export default function GameScreen() {
         drops={battleDrops}
         onCollectAll={handleCollectBattleDrops}
         onClose={handleCloseBattleDrops}
+        onListOnAh={handleListBattleDropOnAh}
       />
 
       {/* Offline / disconnected overlay — Modal so it renders above all RN modals.

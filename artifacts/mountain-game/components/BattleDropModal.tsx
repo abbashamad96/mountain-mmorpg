@@ -50,6 +50,7 @@ interface BattleDropModalProps {
   drops: BattleDrop[];
   onCollectAll: () => void;
   onClose: () => void;
+  onListOnAh?: (drop: BattleDrop) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ export function BattleDropModal({
   drops,
   onCollectAll,
   onClose,
+  onListOnAh,
 }: BattleDropModalProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -95,16 +97,19 @@ export function BattleDropModal({
             showsVerticalScrollIndicator={false}
           >
             {drops.map((drop, idx) => (
-              <DropCard key={idx} drop={drop} />
+              <DropCard
+                key={idx}
+                drop={drop}
+                onListOnAh={onListOnAh ? () => {
+                  onListOnAh(drop);
+                } : undefined}
+              />
             ))}
           </ScrollView>
 
           {/* Actions */}
           <View style={styles.actions}>
-            <Pressable style={styles.collectBtn} onPress={onCollectAll}>
-              <Text style={styles.collectBtnText}>COLLECT ALL</Text>
-            </Pressable>
-            <Pressable style={styles.closeBtn} onPress={onClose}>
+            <Pressable style={styles.closeBtn} onPress={onCollectAll}>
               <Text style={styles.closeBtnText}>CLOSE</Text>
             </Pressable>
           </View>
@@ -116,7 +121,7 @@ export function BattleDropModal({
 
 // ─── Drop card ──────────────────────────────────────────────────────────────
 
-function DropCard({ drop }: { drop: BattleDrop }) {
+function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => void }) {
   if (drop.type === "material") {
     const rc = RARITY_COLORS[drop.material.rarity];
     return (
@@ -143,6 +148,11 @@ function DropCard({ drop }: { drop: BattleDrop }) {
             <Text style={[styles.dropCount, { color: rc }]}>\u00d7{drop.count}</Text>
           )}
         </View>
+        {onListOnAh && (
+          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
+            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -186,6 +196,11 @@ function DropCard({ drop }: { drop: BattleDrop }) {
             )}
           </View>
         )}
+        {onListOnAh && (
+          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
+            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -205,6 +220,11 @@ function DropCard({ drop }: { drop: BattleDrop }) {
             </Text>
           </View>
         </View>
+        {onListOnAh && (
+          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
+            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -222,6 +242,11 @@ function DropCard({ drop }: { drop: BattleDrop }) {
             <Text style={styles.dropMeta}>T{drop.chest.tier}  ·  Added to bag</Text>
           </View>
         </View>
+        {onListOnAh && (
+          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
+            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -247,6 +272,11 @@ function DropCard({ drop }: { drop: BattleDrop }) {
             <Text style={[styles.toolBadgeTxt, { color: rc }]}>TOOL</Text>
           </View>
         </View>
+        {onListOnAh && (
+          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
+            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
+          </Pressable>
+        )}
       </View>
     );
   }
@@ -354,29 +384,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   actions: {
-    flexDirection: "row",
-    gap: 10,
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.game.border,
   },
-  collectBtn: {
-    flex: 2,
-    backgroundColor: Colors.game.purpleLight + "22",
-    borderWidth: 1.5,
-    borderColor: Colors.game.purpleLight,
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  collectBtnText: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.purpleLight,
-    letterSpacing: 2,
-  },
   closeBtn: {
-    flex: 1,
     borderWidth: 1,
     borderColor: Colors.game.border,
     borderRadius: 14,
@@ -388,5 +400,20 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: Colors.game.textMuted,
     letterSpacing: 2,
+  },
+  ahCardBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: Colors.game.blue + "88",
+    borderRadius: 10,
+    paddingVertical: 7,
+    alignItems: "center",
+    backgroundColor: Colors.game.blue + "11",
+  },
+  ahCardBtnTxt: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.blue,
+    letterSpacing: 1,
   },
 });

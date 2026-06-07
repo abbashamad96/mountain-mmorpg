@@ -46,7 +46,7 @@ import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
 import { PotionImage } from "./PotionImage";
 import { RarityText } from "./RarityText";
-import { GatheringTool, formatToolName } from "@/lib/tools";
+import { GatheringTool, formatToolName, ToolType, TOOL_TYPES, TOOL_ICONS, TOOL_NAMES } from "@/lib/tools";
 import { ToolImage } from "./ToolImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ type SortDir = "asc" | "desc";
 
 const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Potion", "Tool", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
-const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest", "Potion"];
+const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest", "Potion", "Tool"];
 const BO_QUALITIES: ItemQuality[] = ["Basic", "Good", "Excellent"];
 const BO_STAT_PREFS: { key: "strength" | "health" | "defence" | "speed"; label: string; icon: string }[] = [
   { key: "strength", label: "Strength", icon: "⚔" },
@@ -125,17 +125,18 @@ function ListingCard({
 // ─── Buy order card ───────────────────────────────────────────────────────────
 
 function BuyOrderCard({
-  order, isOwn, matchEntry, matchItem, matchChest, matchPotion, onFill, onCancel,
+  order, isOwn, matchEntry, matchItem, matchChest, matchPotion, matchTool, onFill, onCancel,
 }: {
-  order: BuyOrder; isOwn: boolean; matchEntry?: MaterialEntry; matchItem?: GameItem; matchChest?: ItemChest; matchPotion?: { rarity: string; tier: number; type: string; id: string; };
+  order: BuyOrder; isOwn: boolean; matchEntry?: MaterialEntry; matchItem?: GameItem; matchChest?: ItemChest; matchPotion?: { rarity: string; tier: number; type: string; id: string; }; matchTool?: GatheringTool;
   onFill: (qty: number) => void; onCancel: () => void;
 }) {
   const remaining = order.count - order.filled;
   const isEquip = order.material.type === "Equipment";
   const isChest = order.material.type === "Chest";
   const isPotion = order.material.type === "Potion";
-  const hasMatch = isEquip ? !!matchItem : isChest ? !!matchChest : isPotion ? !!matchPotion : !!matchEntry;
-  const maxFill = isEquip || isChest || isPotion ? (hasMatch ? 1 : 0) : (matchEntry ? Math.min(matchEntry.count, remaining) : 0);
+  const isTool = order.material.type === "Tool";
+  const hasMatch = isEquip ? !!matchItem : isChest ? !!matchChest : isPotion ? !!matchPotion : isTool ? !!matchTool : !!matchEntry;
+  const maxFill = isEquip || isChest || isPotion || isTool ? (hasMatch ? 1 : 0) : (matchEntry ? Math.min(matchEntry.count, remaining) : 0);
   const rarityColor = RARITY_COLORS[order.material.rarity as RarityName] ?? "#9CA3AF";
   const displayVersion = (order.material.version ?? 0) as VersionNum;
 
@@ -154,6 +155,11 @@ function BuyOrderCard({
   if (isPotion) {
     const pt = order.material.potionType;
     label = pt ? `${order.material.rarity} ${pt} Potion` : `${order.material.rarity} Potion`;
+  }
+  if (isTool) {
+    const tt = (order.material as any).toolType as string | undefined;
+    label = tt ? `${order.material.rarity} ${tt}` : `${order.material.rarity} Tool`;
+    meta = `${isOwn ? "YOUR ORDER" : order.buyerName}`;
   }
 
   return (
@@ -176,6 +182,12 @@ function BuyOrderCard({
         ) : isPotion ? (
           <View style={[styles.equipPlaceholder, { borderColor: rarityColor }]}>
             <Text style={[styles.equipPlaceholderText, { color: rarityColor }]}>🧪</Text>
+          </View>
+        ) : isTool && matchTool ? (
+          <ToolImage type={matchTool.type} rarity={matchTool.rarity} size={54} compact />
+        ) : isTool ? (
+          <View style={[styles.equipPlaceholder, { borderColor: rarityColor }]}>
+            <Text style={[styles.equipPlaceholderText, { color: rarityColor }]}>🔨</Text>
           </View>
         ) : (
           <MaterialImage
@@ -483,6 +495,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   const [boQuality, setBoQuality] = useState<ItemQuality | null>(null);
   const [boStatPref, setBoStatPref] = useState<"strength" | "health" | "defence" | "speed" | null>(null);
   const [boPotionType, setBoPotionType] = useState<"Gold" | "XP" | "Exploration" | null>(null);
+  const [boToolType, setBoToolType] = useState<ToolType | null>(null);
   const [boCountStr, setBoCountStr] = useState("1");
   const [boPriceStr, setBoPriceStr] = useState("");
 
@@ -651,7 +664,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     showFeedback("Tool listed for sale!");
   };
 
-  const handleFillOrder = useCallback((order: BuyOrder, qty: number, itemId?: string, chestId?: string, potionId?: string) => {
+  const handleFillOrder = useCallback((order: BuyOrder, qty: number, itemId?: string, chestId?: string, potionId?: string, toolId?: string) => {
     const mType = order.material.type;
     const remaining = order.count - order.filled;
     if (mType === "Equipment") {
@@ -698,6 +711,19 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       showFeedback(`Sold ${potion.type} Potion — ${goldEarned.toLocaleString()}G incoming!`);
       return;
     }
+    if (mType === "Tool") {
+      if (!toolId) { showFeedback("Select a tool to sell.", false); return; }
+      const tool = (char.toolBag ?? []).find((t) => t.id === toolId);
+      if (!tool) { showFeedback("Tool not found.", false); return; }
+      if (order.material.rarity !== tool.rarity) { showFeedback("Rarity mismatch.", false); return; }
+      const orderToolType = (order.material as any).toolType as string | undefined;
+      if (orderToolType && orderToolType !== tool.type) { showFeedback("Tool type mismatch.", false); return; }
+      const goldEarned = order.pricePerUnit;
+      removeToolFromBag(toolId);
+      fillBuyOrder(order.id, 1, 0, undefined, undefined, undefined, toolId);
+      showFeedback(`Sold ${tool.type} — ${goldEarned.toLocaleString()}G incoming!`);
+      return;
+    }
     const matchEntry = char.materials.find((e) =>
       e.material.type === order.material.type &&
       e.material.rarity === order.material.rarity &&
@@ -711,7 +737,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     removeMaterial(matchEntry.key, fillCount);
     fillBuyOrder(order.id, fillCount, matchEntry.material.version);
     showFeedback(`Sold ×${fillCount} — ${goldEarned.toLocaleString()}G incoming!`);
-  }, [char.materials, char.itemBag, char.chestBag, char.potionBag, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag, fillBuyOrder, showFeedback]);
+  }, [char.materials, char.itemBag, char.chestBag, char.potionBag, char.toolBag, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag, removeToolFromBag, fillBuyOrder, showFeedback]);
 
   const handleCancelOrder = useCallback((order: BuyOrder) => {
     cancelBuyOrder(order.id);
@@ -743,6 +769,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const isChest = boCategory === "Chest";
     const isMaterial = boCategory && MATERIAL_TYPES.includes(boCategory as MaterialType);
     const isPotion = boCategory === "Potion";
+    const isTool = boCategory === "Tool";
     if (!boCategory || !boRarity) { showFeedback("Select type and rarity first.", false); return; }
     if (isEquip && !boSlot) { showFeedback("Select an equipment slot.", false); return; }
     const count = parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0;
@@ -756,12 +783,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     if (isEquip && boQuality) material.quality = boQuality;
     if (isEquip && boStatPref) material.statPref = boStatPref;
     if (isPotion && boPotionType) material.potionType = boPotionType;
+    if (isTool && boToolType) (material as any).toolType = boToolType;
     applyGoldXp(-total, 0);
     createBuyOrder(material, count, pricePerUnit);
     setStep("tabs");
     setTab("orders");
     setBoCategory(null); setBoType(null); setBoRarity(null); setBoVersion(null);
-    setBoSlot(null); setBoQuality(null); setBoStatPref(null); setBoPotionType(null);
+    setBoSlot(null); setBoQuality(null); setBoStatPref(null); setBoPotionType(null); setBoToolType(null);
     setBoCountStr("1"); setBoPriceStr("");
     showFeedback(`Buy order posted! ${total.toLocaleString()}G locked.`);
   };
@@ -775,7 +803,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     setPickedChest(null);
     setPickedTool(null);
     setPriceStr("");
-    setBoType(null); setBoRarity(null); setBoVersion(null);
+    setBoCategory(null); setBoType(null); setBoRarity(null); setBoVersion(null);
+    setBoSlot(null); setBoQuality(null); setBoStatPref(null); setBoPotionType(null); setBoToolType(null);
     setBoCountStr("1"); setBoPriceStr("");
     onClose();
   };
@@ -1235,6 +1264,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                               let matchItem: GameItem | undefined;
                               let matchChest: ItemChest | undefined;
                               let matchPotion: { rarity: string; tier: number; type: string; id: string } | undefined;
+                              let matchTool: GatheringTool | undefined;
                               if (mType === "Equipment") {
                                 matchItem = char.itemBag.find((i) =>
                                   i.rarity === o.material.rarity &&
@@ -1259,6 +1289,12 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                                   (!o.material.potionType || p.type === o.material.potionType)
                                 );
                                 if (p) matchPotion = { rarity: p.rarity, tier: p.tier, type: p.type, id: p.id };
+                              } else if (mType === "Tool") {
+                                const orderToolType = (o.material as any).toolType as string | undefined;
+                                matchTool = (char.toolBag ?? []).find((t) =>
+                                  t.rarity === o.material.rarity &&
+                                  (!orderToolType || t.type === orderToolType)
+                                );
                               } else {
                                 matchEntry = char.materials.find((e) =>
                                   e.material.type === o.material.type &&
@@ -1276,7 +1312,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                                   matchItem={matchItem}
                                   matchChest={matchChest}
                                   matchPotion={matchPotion}
-                                  onFill={(qty) => handleFillOrder(o, qty, matchItem?.id, matchChest?.id, matchPotion?.id)}
+                                  matchTool={matchTool}
+                                  onFill={(qty) => handleFillOrder(o, qty, matchItem?.id, matchChest?.id, matchPotion?.id, matchTool?.id)}
                                   onCancel={() => handleCancelOrder(o)}
                                 />
                               );
@@ -1596,6 +1633,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const isChest = boCategory === "Chest";
     const isMaterial = boCategory && MATERIAL_TYPES.includes(boCategory as MaterialType);
     const isPotion = boCategory === "Potion";
+    const isTool = boCategory === "Tool";
     const total = (parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0) * (parseInt(boPriceStr.replace(/[^0-9]/g, ""), 10) || 0);
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
@@ -1618,6 +1656,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                 setBoQuality(null);
                 setBoStatPref(null);
                 setBoPotionType(null);
+                setBoToolType(null);
               }}
             >
               <Text style={[styles.boChipTxt, boCategory === t && styles.boChipTxtActive]}>{t.toUpperCase()}</Text>
@@ -1720,6 +1759,25 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             </View>
           </>
         )}
+        {/* Tool: tool type selector */}
+        {isTool && boRarity && (
+          <>
+            <Text style={styles.boSectionLabel}>TOOL TYPE (OPTIONAL)</Text>
+            <View style={styles.boTypeRow}>
+              {([null, ...TOOL_TYPES] as (ToolType | null)[]).map((tt, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[styles.boChip, boToolType === tt && styles.boChipActive]}
+                  onPress={() => setBoToolType(tt)}
+                >
+                  <Text style={[styles.boChipTxt, boToolType === tt && styles.boChipTxtActive]}>
+                    {tt ? `${TOOL_ICONS[tt]} ${TOOL_NAMES[tt]}` : "ANY"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
         {/* Material / Chest / Potion: tier selector */}
         {(isMaterial || isChest || isPotion) && boRarity && (
           <>
@@ -1740,7 +1798,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           </>
         )}
         {/* Count + price for all categories */}
-        {boRarity && (isMaterial || isChest || isPotion || (isEquip && boSlot)) && (
+        {boRarity && (isMaterial || isChest || isPotion || isTool || (isEquip && boSlot)) && (
           <>
             <View style={styles.inputRow}>
               <Text style={styles.inputLabel}>Quantity Wanted</Text>

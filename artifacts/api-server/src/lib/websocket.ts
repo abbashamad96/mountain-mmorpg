@@ -247,6 +247,25 @@ function addCachedPotion(player: Player, potion: Record<string, unknown>) {
   player.cacheDirty = true;
 }
 
+function removeCachedToolById(player: Player, toolId: string) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const toolBag = Array.isArray(char.toolBag) ? char.toolBag.filter((t: any) => t.id !== toolId) : [];
+  player.cachedGameState = { ...state, character: { ...char, toolBag } };
+  player.cacheDirty = true;
+}
+
+function addCachedTool(player: Player, tool: Record<string, unknown>) {
+  if (!player.cachedGameState || typeof player.cachedGameState !== "object") return;
+  const state = player.cachedGameState as Record<string, unknown>;
+  const char = (state.character ?? {}) as Record<string, unknown>;
+  const toolBag = Array.isArray(char.toolBag) ? [...char.toolBag] : [];
+  toolBag.push(tool);
+  player.cachedGameState = { ...state, character: { ...char, toolBag } };
+  player.cacheDirty = true;
+}
+
 function clampGameState(incoming: unknown, stored: unknown): unknown {
   if (!incoming || typeof incoming !== "object") return incoming;
   const inc = incoming as Record<string, unknown>;
@@ -821,6 +840,7 @@ async function handleMessage(player: Player, raw: string) {
     if (mat.quality) material.quality = String(mat.quality).slice(0, 20);
     if (mat.statPref) material.statPref = String(mat.statPref).slice(0, 20);
     if (mat.potionType) material.potionType = String(mat.potionType).slice(0, 20);
+    if (mat.toolType) (material as any).toolType = String(mat.toolType).slice(0, 20);
     const order: BuyOrder = {
       id: `bo-${Date.now()}-${player.id}`,
       buyerId: stableId(player),
@@ -853,7 +873,7 @@ async function handleMessage(player: Player, raw: string) {
     if (order.buyerId === stableId(player)) return;
 
     const remaining = order.count - order.filled;
-    const isMaterial = !["Equipment", "Chest", "Potion"].includes(order.material.type);
+    const isMaterial = !["Equipment", "Chest", "Potion", "Tool"].includes(order.material.type);
     const count = isMaterial
       ? Math.max(1, Math.min(parseInt(msg.count) || 1, remaining))
       : 1;
@@ -1022,6 +1042,44 @@ async function handleMessage(player: Player, raw: string) {
         const buyerUser = await dbGetUser(buyerUname);
         if (buyerUser) {
           await dbQueueDelivery(buyerUname, "bo_received", { orderId: order.id, count: 1, material: { type: "Potion", rarity, version: tier }, potion } as Record<string, unknown>);
+        }
+      }
+      broadcastBoUpdate();
+      return;
+    }
+
+    // ── Tool path ─────────────────────────────────────────────────
+    if (itemType === "Tool") {
+      const toolId = String(msg.toolId || "");
+      if (!toolId) { send(player.ws, { type: "bo_fill_fail", reason: "No tool selected to sell." }); return; }
+      const sellerState = player.cachedGameState as Record<string, unknown> | undefined;
+      const sellerChar = (sellerState?.character ?? {}) as Record<string, unknown>;
+      const toolBag = Array.isArray(sellerChar.toolBag) ? sellerChar.toolBag : [];
+      const tool = toolBag.find((t: any) => t.id === toolId);
+      if (!tool) { send(player.ws, { type: "bo_fill_fail", reason: "Tool not found in your bag." }); return; }
+      const rarity = (tool as any).rarity ?? "";
+      if (order.material.rarity !== rarity) { send(player.ws, { type: "bo_fill_fail", reason: "Tool rarity does not match the order." }); return; }
+      const orderToolType = (order.material as any).toolType as string | undefined;
+      if (orderToolType && orderToolType !== (tool as any).type) { send(player.ws, { type: "bo_fill_fail", reason: "Tool type does not match the order." }); return; }
+      removeCachedToolById(player, toolId);
+      updateCachedGold(player, goldEarned);
+      send(player.ws, {
+        type: "bo_sold",
+        orderId: order.id,
+        count: 1,
+        goldEarned,
+        material: { type: "Tool", rarity },
+        tool,
+      });
+      const buyerPlayer = getPlayerByStableId(order.buyerId);
+      if (buyerPlayer) {
+        addCachedTool(buyerPlayer, tool as Record<string, unknown>);
+        send(buyerPlayer.ws, { type: "bo_received", orderId: order.id, count: 1, material: { type: "Tool", rarity }, tool });
+      } else {
+        const buyerUname = order.buyerId.toLowerCase();
+        const buyerUser = await dbGetUser(buyerUname);
+        if (buyerUser) {
+          await dbQueueDelivery(buyerUname, "bo_received", { orderId: order.id, count: 1, material: { type: "Tool", rarity }, tool } as Record<string, unknown>);
         }
       }
       broadcastBoUpdate();
