@@ -150,7 +150,8 @@ function BuyOrderCard({
     meta = `${order.material.version === null ? "Any tier" : `T${order.material.version}`}  ·  ${isOwn ? "YOUR ORDER" : order.buyerName}`;
   }
   if (isPotion) {
-    label = `${order.material.rarity} Potion`;
+    const pt = order.material.potionType;
+    label = pt ? `${order.material.rarity} ${pt} Potion` : `${order.material.rarity} Potion`;
   }
 
   return (
@@ -432,6 +433,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   const [boSlot, setBoSlot] = useState<ItemSlot | null>(null);
   const [boQuality, setBoQuality] = useState<ItemQuality | null>(null);
   const [boStatPref, setBoStatPref] = useState<"strength" | "health" | "defence" | "speed" | null>(null);
+  const [boPotionType, setBoPotionType] = useState<"Gold" | "XP" | "Exploration" | null>(null);
   const [boCountStr, setBoCountStr] = useState("1");
   const [boPriceStr, setBoPriceStr] = useState("");
 
@@ -621,6 +623,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       if (!potion) { showFeedback("Potion not found.", false); return; }
       if (order.material.rarity !== potion.rarity) { showFeedback("Rarity mismatch.", false); return; }
       if (order.material.version !== null && order.material.version !== undefined && order.material.version !== potion.tier) { showFeedback("Tier mismatch.", false); return; }
+      if (order.material.potionType && order.material.potionType !== potion.type) { showFeedback("Potion type mismatch.", false); return; }
       const goldEarned = order.pricePerUnit;
       removePotionFromBag(potionId);
       fillBuyOrder(order.id, 1, potion.tier, undefined, undefined, potionId);
@@ -671,6 +674,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const isEquip = boCategory === "Equipment";
     const isChest = boCategory === "Chest";
     const isMaterial = boCategory && MATERIAL_TYPES.includes(boCategory as MaterialType);
+    const isPotion = boCategory === "Potion";
     if (!boCategory || !boRarity) { showFeedback("Select type and rarity first.", false); return; }
     if (isEquip && !boSlot) { showFeedback("Select an equipment slot.", false); return; }
     const count = parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0;
@@ -683,12 +687,13 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     if (isEquip && boSlot) material.slot = boSlot;
     if (isEquip && boQuality) material.quality = boQuality;
     if (isEquip && boStatPref) material.statPref = boStatPref;
+    if (isPotion && boPotionType) material.potionType = boPotionType;
     applyGoldXp(-total, 0);
     createBuyOrder(material, count, pricePerUnit);
     setStep("tabs");
     setTab("orders");
     setBoCategory(null); setBoType(null); setBoRarity(null); setBoVersion(null);
-    setBoSlot(null); setBoQuality(null); setBoStatPref(null);
+    setBoSlot(null); setBoQuality(null); setBoStatPref(null); setBoPotionType(null);
     setBoCountStr("1"); setBoPriceStr("");
     showFeedback(`Buy order posted! ${total.toLocaleString()}G locked.`);
   };
@@ -1156,7 +1161,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                               } else if (mType === "Potion") {
                                 const p = char.potionBag.find((p) =>
                                   p.rarity === o.material.rarity &&
-                                  (o.material.version === null || o.material.version === undefined || p.tier === o.material.version)
+                                  (o.material.version === null || o.material.version === undefined || p.tier === o.material.version) &&
+                                  (!o.material.potionType || p.type === o.material.potionType)
                                 );
                                 if (p) matchPotion = { rarity: p.rarity, tier: p.tier, type: p.type, id: p.id };
                               } else {
@@ -1476,6 +1482,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                 setBoSlot(null);
                 setBoQuality(null);
                 setBoStatPref(null);
+                setBoPotionType(null);
               }}
             >
               <Text style={[styles.boChipTxt, boCategory === t && styles.boChipTxtActive]}>{t.toUpperCase()}</Text>
@@ -1553,6 +1560,25 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                 >
                   <Text style={[styles.boChipTxt, boStatPref === (s?.key ?? null) && styles.boChipTxtActive]}>
                     {s ? `${s.icon} ${s.label}` : "ANY"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+        {/* Potion: type selector */}
+        {isPotion && boRarity && (
+          <>
+            <Text style={styles.boSectionLabel}>POTION TYPE</Text>
+            <View style={styles.boTypeRow}>
+              {([null, "Gold", "XP", "Exploration"] as (null | "Gold" | "XP" | "Exploration")[]).map((pt, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[styles.boChip, boPotionType === pt && styles.boChipActive]}
+                  onPress={() => setBoPotionType(pt)}
+                >
+                  <Text style={[styles.boChipTxt, boPotionType === pt && styles.boChipTxtActive]}>
+                    {pt ?? "ANY"}
                   </Text>
                 </Pressable>
               ))}

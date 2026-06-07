@@ -41,7 +41,7 @@ export interface BuyOrder {
   id: string;
   buyerId: string;
   buyerName: string;
-  material: { type: string; rarity: string; version: number | null; slot?: string; quality?: string; statPref?: string };
+  material: { type: string; rarity: string; version: number | null; slot?: string; quality?: string; statPref?: string; potionType?: string };
   count: number;
   filled: number;
   pricePerUnit: number;

@@ -39,7 +39,7 @@ interface BuyOrder {
   id: string;
   buyerId: string;
   buyerName: string;
-  material: { type: string; rarity: string; version: number | null; slot?: string; quality?: string; statPref?: string };
+  material: { type: string; rarity: string; version: number | null; slot?: string; quality?: string; statPref?: string; potionType?: string };
   count: number;
   filled: number;
   pricePerUnit: number;
@@ -803,6 +803,7 @@ async function handleMessage(player: Player, raw: string) {
     if (mat.slot) material.slot = String(mat.slot).slice(0, 20);
     if (mat.quality) material.quality = String(mat.quality).slice(0, 20);
     if (mat.statPref) material.statPref = String(mat.statPref).slice(0, 20);
+    if (mat.potionType) material.potionType = String(mat.potionType).slice(0, 20);
     const order: BuyOrder = {
       id: `bo-${Date.now()}-${player.id}`,
       buyerId: stableId(player),
@@ -983,6 +984,8 @@ async function handleMessage(player: Player, raw: string) {
       const tier = (potion as any).tier ?? 0;
       if (order.material.rarity !== rarity) { send(player.ws, { type: "bo_fill_fail", reason: "Potion rarity does not match the order." }); return; }
       if (order.material.version !== null && order.material.version !== undefined && order.material.version !== tier) { send(player.ws, { type: "bo_fill_fail", reason: "Potion tier does not match the order." }); return; }
+      const potionType = (potion as any).type ?? "";
+      if (order.material.potionType && order.material.potionType !== potionType) { send(player.ws, { type: "bo_fill_fail", reason: "Potion type does not match the order." }); return; }
       removeCachedPotionById(player, potionId);
       updateCachedGold(player, goldEarned);
       send(player.ws, {
