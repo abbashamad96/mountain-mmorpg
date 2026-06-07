@@ -252,7 +252,6 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
             {/* Row 3: drop — material OR item OR chest */}
             {mat && (
               <View style={logStackStyles.inlineRow}>
-                <Text style={logStackStyles.dimLabel}>drop:</Text>
                 <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
                   {mat.type}
                 </Text>
@@ -263,9 +262,6 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                     </Text>
                   </View>
                 )}
-                <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
-                  {mat.rarity}
-                </Text>
               </View>
             )}
             {itemDrop && (
@@ -605,20 +601,22 @@ export default function GameScreen() {
       const result = applyGoldXp(roll.goldGained, roll.xpGained);
       const goldBonus = result.goldBonus;
       const xpBonus = result.xpBonus;
-      if (result.actualGold > 0 || result.actualXp > 0) {
-        const goldStr = result.actualGold > 0
-          ? `+${result.actualGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
+      const baseGold = roll.goldGained;
+      const baseXp = roll.xpGained;
+      if (baseGold > 0 || baseXp > 0) {
+        const goldStr = baseGold > 0
+          ? `+${baseGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
           : "";
-        const xpStr = result.actualXp > 0
-          ? ` +${result.actualXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
+        const xpStr = baseXp > 0
+          ? ` +${baseXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
           : "";
         addLogEntry({
           id: roll.id,
           timestamp: roll.timestamp,
           type: "gold_xp",
           summary: `${goldStr}${xpStr}`,
-          goldGained: result.actualGold,
-          xpGained: result.actualXp,
+          goldGained: baseGold,
+          xpGained: baseXp,
           goldBonus: result.goldBonus > 0 ? result.goldBonus : undefined,
           xpBonus: result.xpBonus > 0 ? result.xpBonus : undefined,
           material: null,
@@ -727,15 +725,13 @@ export default function GameScreen() {
         else if (droppedItem) dropSuffix = ` \u00b7 ${droppedItem.name}`;
         else if (droppedChest) dropSuffix = ` \u00b7 \ud83d\udce6 ${droppedChest.rarity} Chest`;
 
-        const actualGold = battleResult ? battleResult.actualGold : goldReward;
-        const actualXp = battleResult ? battleResult.actualXp : xpReward;
         const goldBonus = battleResult ? battleResult.goldBonus : 0;
         const xpBonus = battleResult ? battleResult.xpBonus : 0;
-        const goldStr = actualGold > 0
-          ? `+${actualGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
+        const goldStr = goldReward > 0
+          ? `+${goldReward}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
           : "";
-        const xpStr = actualXp > 0
-          ? ` +${actualXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
+        const xpStr = xpReward > 0
+          ? ` +${xpReward}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
           : "";
 
         addLogEntry({
@@ -745,8 +741,8 @@ export default function GameScreen() {
           summary: victory
             ? `Defeated ${npc.name} (T${npc.version}) ${goldStr}${xpStr}${dropSuffix}`
             : `Fled from ${npc.name}`,
-          goldGained: actualGold,
-          xpGained: actualXp,
+          goldGained: goldReward,
+          xpGained: xpReward,
           goldBonus: goldBonus > 0 ? goldBonus : undefined,
           xpBonus: xpBonus > 0 ? xpBonus : undefined,
           material: droppedMat,
