@@ -1493,7 +1493,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           <>
             <Text style={styles.boSectionLabel}>RARITY</Text>
             <View style={styles.boRarityGrid}>
-              {RARITIES.map((r) => {
+              {(boCategory === "Potion" ? RARITIES.filter((r) => r !== "Superior" && r !== "Cosmic") : RARITIES).map((r) => {
                 const rc = RARITY_COLORS[r];
                 const active = boRarity === r;
                 return (
