@@ -1,0 +1,9 @@
+rarities,minimum amount - max amount,tool's effect,tool's passive
+common,from 1 to 3,10% extra 1 material,1% to take remaining attempts when gathering
+uncommon,from 1 to 3,50% extra 1 material,2% to take remaining attempts in 1 gathering
+rare,from 2 to 4,20% extra 1 material,3% to take remaining attempts in 1 gathering
+epic,from 2 to 4,60% extra 1 material,5% to take remaining attempts in 1 gathering
+elite,from 3 to 6,25% extra 1 material,7% to take remaining attempts in 1 gathering
+legendary,from 3 to 6,70% extra 1  material,9% to take remaining attempts in 1 gathering
+superior,from 4 to 7,50% extra 1 material,12% to take remaining attempts in 1 gathering
+cosmic,from 5 to 8,50% extra 1 material,15% to take remaining attempts in 1 gathering
