@@ -200,6 +200,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               {entry.xpGained > 0 && (
                 <View style={logStackStyles.inlineRow}>
                   <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                  {entry.xpBonus && entry.xpBonus > 0 && (
+                    <Text style={logStackStyles.bonus}>+{entry.xpBonus} potion</Text>
+                  )}
                 </View>
               )}
             </View>
@@ -407,6 +410,7 @@ export default function GameScreen() {
 
 
   const gatherXpRef = useRef(0);
+  const gatherXpBonusRef = useRef(0);
 
   const [artIndex, setArtIndex] = useState(0);
   const artTriggerRef = useRef(0);
@@ -626,6 +630,7 @@ export default function GameScreen() {
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
     } else if (roll.type === "gather" && roll.material) {
       gatherXpRef.current = 0;
+      gatherXpBonusRef.current = 0;
       setGatherMaterial(roll.material);
       setGatherAttempts(roll.gatherAttempts);
       setShowGather(true);
@@ -674,6 +679,7 @@ export default function GameScreen() {
         addMaterials(gathered);
         const mat = gathered[0];
         const totalXp = gatherXpRef.current;
+        const xpBonus = gatherXpBonusRef.current;
         addLogEntry({
           id: `g-${Date.now()}`,
           timestamp: Date.now(),
@@ -681,6 +687,7 @@ export default function GameScreen() {
           summary: `Gathered ${mat.type} ×${gathered.length}`,
           goldGained: 0,
           xpGained: totalXp,
+          xpBonus: xpBonus > 0 ? xpBonus : undefined,
           material: mat,
         });
       }
@@ -1040,7 +1047,7 @@ export default function GameScreen() {
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
         onComplete={handleGatherComplete}
-        onAttemptXp={(xp) => { gatherXpRef.current += xp; applyGoldXp(0, xp); }}
+        onAttemptXp={(xp) => { const result = applyGoldXp(0, xp); gatherXpRef.current += xp; gatherXpBonusRef.current += result.xpBonus; }}
       />
       <BattleModal
         visible={showBattle}
