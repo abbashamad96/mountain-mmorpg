@@ -124,10 +124,20 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         {entry.type === "gold_xp" && (
           <View style={logStackStyles.inlineRow}>
             {entry.goldGained > 0 && (
-              <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+              <View style={logStackStyles.inlineRow}>
+                <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+                {entry.goldBonus && entry.goldBonus > 0 && (
+                  <Text style={logStackStyles.bonus}>+{entry.goldBonus} potion</Text>
+                )}
+              </View>
             )}
             {entry.xpGained > 0 && (
-              <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+              <View style={logStackStyles.inlineRow}>
+                <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                {entry.xpBonus && entry.xpBonus > 0 && (
+                  <Text style={logStackStyles.bonus}>+{entry.xpBonus} potion</Text>
+                )}
+              </View>
             )}
           </View>
         )}
@@ -221,10 +231,20 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
             {(entry.goldGained > 0 || entry.xpGained > 0) && (
               <View style={logStackStyles.inlineRow}>
                 {entry.goldGained > 0 && (
-                  <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+                  <View style={logStackStyles.inlineRow}>
+                    <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+                    {entry.goldBonus && entry.goldBonus > 0 && (
+                      <Text style={logStackStyles.bonus}>+{entry.goldBonus} potion</Text>
+                    )}
+                  </View>
                 )}
                 {entry.xpGained > 0 && (
-                  <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                  <View style={logStackStyles.inlineRow}>
+                    <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                    {entry.xpBonus && entry.xpBonus > 0 && (
+                      <Text style={logStackStyles.bonus}>+{entry.xpBonus} potion</Text>
+                    )}
+                  </View>
                 )}
               </View>
             )}
@@ -360,6 +380,7 @@ const logStackStyles = StyleSheet.create({
   npcName: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
   gold: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.gold },
   xp: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.purpleLight },
+  bonus: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.blueLight, opacity: 0.8 },
   tierBadge: {
     borderWidth: 1, borderRadius: 5,
     paddingHorizontal: 4, paddingVertical: 1,
@@ -598,6 +619,8 @@ export default function GameScreen() {
           summary: `${goldStr}${xpStr}`,
           goldGained: result.actualGold,
           xpGained: result.actualXp,
+          goldBonus: result.goldBonus > 0 ? result.goldBonus : undefined,
+          xpBonus: result.xpBonus > 0 ? result.xpBonus : undefined,
           material: null,
         });
       }
@@ -724,6 +747,8 @@ export default function GameScreen() {
             : `Fled from ${npc.name}`,
           goldGained: actualGold,
           xpGained: actualXp,
+          goldBonus: goldBonus > 0 ? goldBonus : undefined,
+          xpBonus: xpBonus > 0 ? xpBonus : undefined,
           material: droppedMat,
           dropCount: dropCount > 0 ? dropCount : undefined,
           npcRarity: npc.rarity,

@@ -105,6 +105,8 @@ export interface LogEntry {
   summary: string;
   goldGained: number;
   xpGained: number;
+  goldBonus?: number;
+  xpBonus?: number;
   material: Material | null;
   dropCount?: number;
   victory?: boolean;
