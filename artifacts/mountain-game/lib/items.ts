@@ -269,21 +269,21 @@ export const CHEST_RARITY_ICONS: Record<ItemRarity, string> = {
 
 // [rarity][tier] → { effectPercent, durationSeconds }
 const GOLD_XP_POTION_EFFECTS: Record<PotionRarity, { effectPercent: number; durationSeconds: number }[]> = {
-  Common:    [{ effectPercent: 10, durationSeconds: 90 }, { effectPercent: 10, durationSeconds: 100 }, { effectPercent: 10, durationSeconds: 110 }, { effectPercent: 10, durationSeconds: 120 }],
-  Uncommon:  [{ effectPercent: 15, durationSeconds: 100 }, { effectPercent: 15, durationSeconds: 110 }, { effectPercent: 15, durationSeconds: 120 }, { effectPercent: 15, durationSeconds: 130 }],
-  Rare:      [{ effectPercent: 20, durationSeconds: 120 }, { effectPercent: 20, durationSeconds: 140 }, { effectPercent: 20, durationSeconds: 160 }, { effectPercent: 20, durationSeconds: 180 }],
-  Epic:      [{ effectPercent: 25, durationSeconds: 160 }, { effectPercent: 25, durationSeconds: 190 }, { effectPercent: 25, durationSeconds: 220 }, { effectPercent: 25, durationSeconds: 250 }],
-  Elite:     [{ effectPercent: 30, durationSeconds: 220 }, { effectPercent: 30, durationSeconds: 250 }, { effectPercent: 30, durationSeconds: 280 }, { effectPercent: 30, durationSeconds: 300 }],
-  Legendary: [{ effectPercent: 35, durationSeconds: 300 }, { effectPercent: 45, durationSeconds: 300 }, { effectPercent: 50, durationSeconds: 300 }, { effectPercent: 60, durationSeconds: 300 }],
+  Common:    [{ effectPercent: 10, durationSeconds: 300 }, { effectPercent: 10, durationSeconds: 360 }, { effectPercent: 10, durationSeconds: 420 }, { effectPercent: 10, durationSeconds: 480 }],
+  Uncommon:  [{ effectPercent: 15, durationSeconds: 420 }, { effectPercent: 15, durationSeconds: 480 }, { effectPercent: 15, durationSeconds: 540 }, { effectPercent: 15, durationSeconds: 600 }],
+  Rare:      [{ effectPercent: 20, durationSeconds: 540 }, { effectPercent: 20, durationSeconds: 660 }, { effectPercent: 20, durationSeconds: 780 }, { effectPercent: 20, durationSeconds: 900 }],
+  Epic:      [{ effectPercent: 25, durationSeconds: 780 }, { effectPercent: 25, durationSeconds: 960 }, { effectPercent: 25, durationSeconds: 1140 }, { effectPercent: 25, durationSeconds: 1320 }],
+  Elite:     [{ effectPercent: 30, durationSeconds: 1140 }, { effectPercent: 30, durationSeconds: 1440 }, { effectPercent: 30, durationSeconds: 1740 }, { effectPercent: 30, durationSeconds: 2040 }],
+  Legendary: [{ effectPercent: 35, durationSeconds: 1800 }, { effectPercent: 45, durationSeconds: 2100 }, { effectPercent: 50, durationSeconds: 2400 }, { effectPercent: 60, durationSeconds: 2700 }],
 };
 
 const EXPLORATION_POTION_EFFECTS: Record<PotionRarity, { effectPercent: number; durationSeconds: number }[]> = {
-  Common:    [{ effectPercent: 10, durationSeconds: 90 }, { effectPercent: 10, durationSeconds: 105 }, { effectPercent: 10, durationSeconds: 120 }, { effectPercent: 10, durationSeconds: 135 }],
-  Uncommon:  [{ effectPercent: 10, durationSeconds: 120 }, { effectPercent: 10, durationSeconds: 135 }, { effectPercent: 10, durationSeconds: 150 }, { effectPercent: 10, durationSeconds: 165 }],
-  Rare:      [{ effectPercent: 10, durationSeconds: 150 }, { effectPercent: 10, durationSeconds: 165 }, { effectPercent: 10, durationSeconds: 180 }, { effectPercent: 10, durationSeconds: 200 }],
-  Epic:      [{ effectPercent: 20, durationSeconds: 200 }, { effectPercent: 20, durationSeconds: 230 }, { effectPercent: 20, durationSeconds: 260 }, { effectPercent: 20, durationSeconds: 290 }],
-  Elite:     [{ effectPercent: 20, durationSeconds: 280 }, { effectPercent: 20, durationSeconds: 320 }, { effectPercent: 20, durationSeconds: 360 }, { effectPercent: 20, durationSeconds: 400 }],
-  Legendary: [{ effectPercent: 25, durationSeconds: 380 }, { effectPercent: 25, durationSeconds: 450 }, { effectPercent: 25, durationSeconds: 550 }, { effectPercent: 25, durationSeconds: 700 }],
+  Common:    [{ effectPercent: 10, durationSeconds: 300 }, { effectPercent: 10, durationSeconds: 360 }, { effectPercent: 10, durationSeconds: 420 }, { effectPercent: 10, durationSeconds: 480 }],
+  Uncommon:  [{ effectPercent: 10, durationSeconds: 420 }, { effectPercent: 10, durationSeconds: 480 }, { effectPercent: 10, durationSeconds: 540 }, { effectPercent: 10, durationSeconds: 600 }],
+  Rare:      [{ effectPercent: 10, durationSeconds: 540 }, { effectPercent: 10, durationSeconds: 660 }, { effectPercent: 10, durationSeconds: 780 }, { effectPercent: 10, durationSeconds: 900 }],
+  Epic:      [{ effectPercent: 20, durationSeconds: 780 }, { effectPercent: 20, durationSeconds: 960 }, { effectPercent: 20, durationSeconds: 1140 }, { effectPercent: 20, durationSeconds: 1320 }],
+  Elite:     [{ effectPercent: 20, durationSeconds: 1140 }, { effectPercent: 20, durationSeconds: 1440 }, { effectPercent: 20, durationSeconds: 1740 }, { effectPercent: 20, durationSeconds: 2040 }],
+  Legendary: [{ effectPercent: 25, durationSeconds: 1800 }, { effectPercent: 25, durationSeconds: 2100 }, { effectPercent: 25, durationSeconds: 2400 }, { effectPercent: 25, durationSeconds: 2700 }],
 };
 
 const POTION_RARITIES: PotionRarity[] = ["Common", "Uncommon", "Rare", "Epic", "Elite", "Legendary"];
