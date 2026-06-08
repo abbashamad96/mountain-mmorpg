@@ -11,6 +11,7 @@ import {
   formatToolName,
   GatheringTool,
   TOOL_ICONS,
+  TOOL_LEVEL_REQ,
   TOOL_MATERIAL_MAP,
   TOOL_NAMES,
   TOOL_RARITY_COLORS,
@@ -33,6 +34,7 @@ const SLOT_ORDER: { type: ToolType; material: string; icon: string }[] = [
 export function ToolsTab({ onListOnAh }: ToolsTabProps) {
   const { gameState, equipGatheringTool, unequipGatheringTool } = useGame();
   const char = gameState.character;
+  const playerLevel = char.level;
   const equippedTools = char.equippedTools ?? {};
   const toolBag = char.toolBag ?? [];
   const equippedCount = Object.keys(equippedTools).length;
@@ -73,6 +75,11 @@ export function ToolsTab({ onListOnAh }: ToolsTabProps) {
                   <Text style={styles.equippedStats}>
                     {equipped.passiveChance}% auto-sweep
                   </Text>
+                  {(equipped.levelRequirement ?? TOOL_LEVEL_REQ[equipped.rarity]) > 0 && (
+                    <Text style={styles.equippedReq}>
+                      Req. Lv {equipped.levelRequirement ?? TOOL_LEVEL_REQ[equipped.rarity]}
+                    </Text>
+                  )}
                   <View style={styles.slotBtnRow}>
                     <Pressable
                       style={styles.unequipBtn}
@@ -139,6 +146,16 @@ export function ToolsTab({ onListOnAh }: ToolsTabProps) {
                     <Text style={styles.bagItemStats}>
                       {tool.effectMinBonus}–{tool.effectMaxBonus} nodes · {tool.effectChance}% +1 extra · {tool.passiveChance}% auto-sweep
                     </Text>
+                    {(() => {
+                      const req = tool.levelRequirement ?? TOOL_LEVEL_REQ[tool.rarity];
+                      if (req <= 0) return null;
+                      const meets = playerLevel >= req;
+                      return (
+                        <Text style={[styles.bagItemReq, !meets && styles.bagItemReqFail]}>
+                          Req. Lv {req}{meets ? " ✓" : " ✗"}
+                        </Text>
+                      );
+                    })()}
                   </View>
                   <Text style={styles.bagChevron}>{isSelected ? "▲" : "▼"}</Text>
                 </Pressable>
@@ -146,15 +163,21 @@ export function ToolsTab({ onListOnAh }: ToolsTabProps) {
                 {isSelected && (
                   <View style={[styles.bagActions, { borderColor: rc + "44" }]}>
                     <View style={styles.bagActionRow}>
-                      <Pressable
-                        style={[styles.equipBtn, { borderColor: rc }]}
-                        onPress={() => {
-                          equipGatheringTool(tool);
-                          setSelectedBagId(null);
-                        }}
-                      >
-                        <Text style={[styles.equipBtnTxt, { color: rc }]}>EQUIP</Text>
-                      </Pressable>
+                      {(() => {
+                        const req = tool.levelRequirement ?? TOOL_LEVEL_REQ[tool.rarity];
+                        const meets = playerLevel >= req;
+                        return (
+                          <Pressable
+                            style={[styles.equipBtn, meets ? { borderColor: rc } : styles.equipBtnLocked]}
+                            onPress={meets ? () => { equipGatheringTool(tool); setSelectedBagId(null); } : undefined}
+                            disabled={!meets}
+                          >
+                            <Text style={[styles.equipBtnTxt, { color: meets ? rc : Colors.game.textMuted }]}>
+                              {meets ? "EQUIP" : `LV ${req} REQ`}
+                            </Text>
+                          </Pressable>
+                        );
+                      })()}
                       {tool.tradable && onListOnAh && (
                         <Pressable
                           style={styles.ahBagBtn}
@@ -229,6 +252,12 @@ const styles = StyleSheet.create({
     color: Colors.game.textDim,
   },
   equippedStats: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
+    textAlign: "center",
+  },
+  equippedReq: {
     fontSize: 10,
     fontFamily: "Inter_500Medium",
     color: Colors.game.textMuted,
@@ -327,6 +356,15 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.game.textMuted,
   },
+  bagItemReq: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.green,
+    marginTop: 1,
+  },
+  bagItemReqFail: {
+    color: "#F87171",
+  },
   bagChevron: {
     fontSize: 10,
     color: Colors.game.textMuted,
@@ -355,6 +393,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_700Bold",
     letterSpacing: 2,
+  },
+  equipBtnLocked: {
+    borderColor: Colors.game.border,
+    opacity: 0.5,
   },
   ahBagBtn: {
     flex: 1,

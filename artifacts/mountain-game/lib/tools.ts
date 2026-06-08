@@ -14,6 +14,7 @@ export interface GatheringTool {
   effectMinBonus: number;
   effectMaxBonus: number;
   passiveChance: number;
+  levelRequirement: number;
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
@@ -30,6 +31,11 @@ const TOOL_STATS: Record<
   Legendary: { effectChance: 70, minBonus: 3, maxBonus: 6, passiveChance: 9  },
   Superior:  { effectChance: 50, minBonus: 4, maxBonus: 7, passiveChance: 12 },
   Cosmic:    { effectChance: 50, minBonus: 5, maxBonus: 8, passiveChance: 15 },
+};
+
+export const TOOL_LEVEL_REQ: Record<ItemRarity, number> = {
+  Common: 0, Uncommon: 15, Rare: 45, Epic: 90,
+  Elite: 150, Legendary: 300, Superior: 500, Cosmic: 600,
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -84,10 +90,11 @@ export function generateTool(type: ToolType, rarity: ItemRarity): GatheringTool 
     type,
     rarity,
     tradable: true,
-    effectChance:   stats.effectChance,
-    effectMinBonus: stats.minBonus,
-    effectMaxBonus: stats.maxBonus,
-    passiveChance:  stats.passiveChance,
+    effectChance:    stats.effectChance,
+    effectMinBonus:  stats.minBonus,
+    effectMaxBonus:  stats.maxBonus,
+    passiveChance:   stats.passiveChance,
+    levelRequirement: TOOL_LEVEL_REQ[rarity],
   };
 }
 
