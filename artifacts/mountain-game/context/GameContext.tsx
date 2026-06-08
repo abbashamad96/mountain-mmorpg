@@ -7,6 +7,10 @@ import {
   rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest, rollPotionDrop,
 } from "@/lib/items";
 import { GatheringTool, ToolType, rollToolDrop } from "@/lib/tools";
+import {
+  CraftingSkill, CraftResult, rollCraftResult,
+  CRAFTING_MATERIALS_NEEDED, CRAFTING_XP_REWARDS, applyXpToCraftingSkill,
+} from "@/lib/crafting";
 
 export type { GameItem, ItemSlot, ItemStatBlock, ItemChest, Potion, ChestDrop };
 
@@ -139,6 +143,7 @@ export interface Character {
   activeBuffs: ActiveBuff[];
   equippedTools: Partial<Record<ToolType, GatheringTool>>;
   toolBag: GatheringTool[];
+  craftingSkill: CraftingSkill;
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -489,6 +494,7 @@ const defaultCharacter: Character = {
   activeBuffs: [],
   equippedTools: {},
   toolBag: [],
+  craftingSkill: { level: 1, xp: 0 },
 };
 
 const defaultGameState: GameState = {
@@ -528,6 +534,7 @@ interface GameContextType {
   removeToolFromBag: (id: string) => void;
   equipGatheringTool: (tool: GatheringTool) => void;
   unequipGatheringTool: (type: ToolType) => void;
+  craftItem: (rarity: RarityName, tier: VersionNum) => CraftResult | null;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -559,6 +566,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           activeBuffs: saved.character?.activeBuffs ?? [],
           equippedTools: saved.character?.equippedTools ?? {},
           toolBag: saved.character?.toolBag ?? [],
+          craftingSkill: saved.character?.craftingSkill ?? { level: 1, xp: 0 },
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
@@ -720,6 +728,39 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const craftItem = useCallback((rarity: RarityName, tier: VersionNum): CraftResult | null => {
+    const char = stateRef.current.character;
+    const needed = CRAFTING_MATERIALS_NEEDED[rarity];
+    const available = char.materials
+      .filter((e) => e.material.rarity === rarity && e.material.version === tier)
+      .reduce((sum, e) => sum + e.count, 0);
+    if (available < needed) return null;
+
+    const result = rollCraftResult(rarity as any, tier as any, char.craftingSkill.level);
+    const xpGained = CRAFTING_XP_REWARDS[rarity];
+
+    setGameState((prev) => {
+      let remaining = needed;
+      const materials = prev.character.materials
+        .map((e) => {
+          if (e.material.rarity !== rarity || e.material.version !== tier || remaining <= 0) return e;
+          const consume = Math.min(e.count, remaining);
+          remaining -= consume;
+          return { ...e, count: e.count - consume };
+        })
+        .filter((e) => e.count > 0);
+
+      const newSkill = applyXpToCraftingSkill(prev.character.craftingSkill, xpGained);
+      let c = { ...prev.character, materials, craftingSkill: newSkill };
+      if (result.kind === "equipment" && result.item)   c = { ...c, itemBag: [...c.itemBag, result.item] };
+      if (result.kind === "potion"    && result.potion) c = { ...c, potionBag: [...c.potionBag, result.potion] };
+      if (result.kind === "tool"      && result.tool)   c = { ...c, toolBag: [...c.toolBag, result.tool] };
+      return { ...prev, character: c };
+    });
+
+    return result;
+  }, []);
+
   const unequipGatheringTool = useCallback((type: ToolType) => {
     setGameState((prev) => {
       const tool = prev.character.equippedTools[type];
@@ -787,6 +828,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       chestBag: saved.character?.chestBag ?? [],
       potionBag: saved.character?.potionBag ?? [],
       activeBuffs: saved.character?.activeBuffs ?? [],
+      craftingSkill: saved.character?.craftingSkill ?? { level: 1, xp: 0 },
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -800,7 +842,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem }}
     >
       {children}
     </GameContext.Provider>

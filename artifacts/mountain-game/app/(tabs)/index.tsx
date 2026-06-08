@@ -23,6 +23,7 @@ import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
 import { ToolShopModal } from "@/components/ToolShopModal";
 import { QuickPotionPicker } from "@/components/QuickPotionPicker";
+import { CraftingModal } from "@/components/CraftingModal";
 import { TimerBar } from "@/components/TimerBar";
 import Colors from "@/constants/colors";
 import {
@@ -508,6 +509,7 @@ interface BottomTabBarProps {
   onPressAccount: () => void;
   onPressNotifications: () => void;
   onPressShop: () => void;
+  onPressCraft: () => void;
   unreadCount: number;
   pendingStatPoints: number;
   isAuthenticated: boolean;
@@ -515,7 +517,7 @@ interface BottomTabBarProps {
 }
 
 function BottomTabBar({
-  onPressAH, onPressInventory, onPressChat, onPressAccount, onPressShop,
+  onPressAH, onPressInventory, onPressChat, onPressAccount, onPressShop, onPressCraft,
   unreadCount, pendingStatPoints, isAuthenticated, bottomPad,
 }: BottomTabBarProps) {
   return (
@@ -536,6 +538,12 @@ function BottomTabBar({
       <Pressable style={tabBarStyles.tab} onPress={onPressShop} hitSlop={8}>
         <Text style={tabBarStyles.tabEmoji}>⚒</Text>
         <Text style={tabBarStyles.label}>Shop</Text>
+      </Pressable>
+
+      {/* Crafting */}
+      <Pressable style={tabBarStyles.tab} onPress={onPressCraft} hitSlop={8}>
+        <Text style={tabBarStyles.tabEmoji}>⚗</Text>
+        <Text style={tabBarStyles.label}>Craft</Text>
       </Pressable>
 
       {/* Inventory */}
@@ -653,6 +661,7 @@ export default function GameScreen() {
   const [showBattleDrops, setShowBattleDrops] = useState(false);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
   const [showToolShop, setShowToolShop] = useState(false);
+  const [showCrafting, setShowCrafting] = useState(false);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -1247,6 +1256,7 @@ export default function GameScreen() {
         onPressAccount={() => setShowAuth(true)}
         onPressNotifications={() => setShowNotifications(true)}
         onPressShop={() => setShowToolShop(true)}
+        onPressCraft={() => setShowCrafting(true)}
         unreadCount={unreadCount}
         pendingStatPoints={char.pendingStatPoints}
         isAuthenticated={isAuthenticated}
@@ -1262,6 +1272,10 @@ export default function GameScreen() {
         preSelectedChest={preSelectChestForAh}
         preSelectedPotion={preSelectPotionForAh}
         preSelectedTool={preSelectToolForAh}
+      />
+      <CraftingModal
+        visible={showCrafting}
+        onClose={() => setShowCrafting(false)}
       />
       <ToolShopModal
         visible={showToolShop}
