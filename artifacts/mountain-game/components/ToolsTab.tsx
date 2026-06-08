@@ -68,7 +68,7 @@ export function ToolsTab({ onListOnAh }: ToolsTabProps) {
                     {TOOL_NAMES[type]}
                   </Text>
                   <Text style={styles.equippedStats}>
-                    {equipped.effectChance}% → +{equipped.effectMinBonus}–{equipped.effectMaxBonus} bonus mats
+                    {equipped.effectMinBonus}–{equipped.effectMaxBonus} nodes · {equipped.effectChance}% +1 extra
                   </Text>
                   <Text style={styles.equippedStats}>
                     {equipped.passiveChance}% auto-sweep
@@ -137,7 +137,7 @@ export function ToolsTab({ onListOnAh }: ToolsTabProps) {
                       {TOOL_ICONS[tool.type]} {TOOL_MATERIAL_MAP[tool.type]}
                     </Text>
                     <Text style={styles.bagItemStats}>
-                      {tool.effectChance}% → +{tool.effectMinBonus}–{tool.effectMaxBonus} bonus mats · {tool.passiveChance}% auto-sweep
+                      {tool.effectMinBonus}–{tool.effectMaxBonus} nodes · {tool.effectChance}% +1 extra · {tool.passiveChance}% auto-sweep
                     </Text>
                   </View>
                   <Text style={styles.bagChevron}>{isSelected ? "▲" : "▼"}</Text>

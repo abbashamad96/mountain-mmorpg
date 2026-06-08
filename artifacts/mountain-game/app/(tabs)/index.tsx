@@ -827,7 +827,19 @@ export default function GameScreen() {
       gatherXpRef.current = 0;
       gatherXpBonusRef.current = 0;
       setGatherMaterial(roll.material);
-      setGatherAttempts(roll.gatherAttempts);
+      // Tool determines node count for this event
+      const matchedTool = char.equippedTools[MATERIAL_TO_TOOL[roll.material.type]];
+      let computedAttempts: number;
+      if (matchedTool) {
+        const base =
+          matchedTool.effectMinBonus +
+          Math.floor(Math.random() * (matchedTool.effectMaxBonus - matchedTool.effectMinBonus + 1));
+        const bonus = Math.random() * 100 < matchedTool.effectChance ? 1 : 0;
+        computedAttempts = base + bonus;
+      } else {
+        computedAttempts = roll.gatherAttempts;
+      }
+      setGatherAttempts(computedAttempts);
       setShowGather(true);
     } else if (roll.type === "battle" && roll.npc) {
       battleNpcRef.current = roll.npc;

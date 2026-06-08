@@ -76,27 +76,14 @@ export function GatheringModal({
     const xpGained = Math.max(1, Math.floor(xpToNext * (0.02 + Math.random() * 0.015)));
     onAttemptXp(xpGained);
 
-    // Base: 1 material
+    // 1 material per node (node count was determined by tool at event start)
     gatheredRef.current.push({ ...material });
-
-    // Tool effect: % chance for bonus materials
-    let bonus = 0;
-    if (equippedTool && Math.random() * 100 < equippedTool.effectChance) {
-      bonus =
-        equippedTool.effectMinBonus +
-        Math.floor(
-          Math.random() * (equippedTool.effectMaxBonus - equippedTool.effectMinBonus + 1)
-        );
-      for (let i = 0; i < bonus; i++) gatheredRef.current.push({ ...material });
-      setBonusText(`+${bonus}`);
-    } else {
-      setBonusText("");
-    }
+    setBonusText("");
 
     attemptsRef.current--;
     attemptsCompletedRef.current++;
 
-    // Tool passive: % chance to auto-complete remaining attempts
+    // Tool passive: % chance to auto-complete remaining nodes
     let passiveFired = false;
     if (equippedTool && attemptsRef.current > 0 && Math.random() * 100 < equippedTool.passiveChance) {
       passiveFired = true;
@@ -105,14 +92,6 @@ export function GatheringModal({
         const passXp = Math.max(1, Math.floor(xpToNext * (0.02 + Math.random() * 0.015)));
         onAttemptXp(passXp);
         gatheredRef.current.push({ ...material });
-        if (Math.random() * 100 < equippedTool.effectChance) {
-          const b =
-            equippedTool.effectMinBonus +
-            Math.floor(
-              Math.random() * (equippedTool.effectMaxBonus - equippedTool.effectMinBonus + 1)
-            );
-          for (let i = 0; i < b; i++) gatheredRef.current.push({ ...material });
-        }
         attemptsRef.current--;
         attemptsCompletedRef.current++;
       }
@@ -180,7 +159,7 @@ export function GatheringModal({
                   {equippedTool.rarity} {TOOL_NAMES[equippedTool.type]}
                 </Text>
                 <Text style={styles.toolStats}>
-                  {equippedTool.effectChance}% → +{equippedTool.effectMinBonus}–{equippedTool.effectMaxBonus} bonus mats · {equippedTool.passiveChance}% auto-sweep
+                  {equippedTool.effectMinBonus}–{equippedTool.effectMaxBonus} nodes · {equippedTool.effectChance}% +1 extra · {equippedTool.passiveChance}% auto-sweep
                 </Text>
               </View>
               {bonusText !== "" && (
