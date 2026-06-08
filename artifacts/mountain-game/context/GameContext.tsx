@@ -553,7 +553,7 @@ interface GameContextType {
   craftItem: (rarity: RarityName, tier: VersionNum) => CraftResult | null;
   salvageItem: (itemId: string) => SalvageResult | null;
   sellItemToNpc: (itemId: string) => number | null;
-  startCraftingJob: (rarity: RarityName, tier: VersionNum, materialType: string, count: number) => boolean;
+  startCraftingJob: (rarity: RarityName, tier: VersionNum, allocation: Record<string, number>) => boolean;
   collectCraftBatch: (batchId: string) => CraftResult[];
   regenCraftingEnergy: () => void;
   checkCraftingJobs: () => void;
@@ -826,7 +826,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (existing >= 0) {
           materials = materials.map((e, i) => i === existing ? { ...e, count: e.count + mat.count } : e);
         } else {
-          materials = [...materials, { material: { type: mat.type, rarity: mat.rarity, version: mat.tier }, count: mat.count }];
+          const key = `${mat.type}-${mat.rarity}-${mat.tier}`;
+          materials = [...materials, { key, material: { type: mat.type, rarity: mat.rarity, version: mat.tier }, count: mat.count }];
         }
       }
 
@@ -875,34 +876,41 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const startCraftingJob = useCallback((rarity: RarityName, tier: VersionNum, materialType: string, count: number): boolean => {
+  const startCraftingJob = useCallback((rarity: RarityName, tier: VersionNum, allocation: Record<string, number>): boolean => {
     const char = stateRef.current.character;
+    if (char.craftingJobs.length >= 1) return false;
     const needed = CRAFTING_MATERIALS_NEEDED[rarity];
-    const totalNeeded = count * needed;
-    const energyCost = count * CRAFTING_ENERGY_COST[rarity];
+    const totalAllocated = Object.values(allocation).reduce((a, b) => a + b, 0);
+    if (totalAllocated !== needed) return false;
+    const energyCost = CRAFTING_ENERGY_COST[rarity];
     if (char.craftingEnergy < energyCost) return false;
-    const matEntry = char.materials.find(
-      e => e.material.rarity === rarity && e.material.version === tier && e.material.type === materialType,
-    );
-    if (!matEntry || matEntry.count < totalNeeded) return false;
+    for (const [matType, count] of Object.entries(allocation)) {
+      if (count <= 0) continue;
+      const entry = char.materials.find(
+        e => e.material.rarity === rarity && e.material.version === tier && e.material.type === matType,
+      );
+      if (!entry || entry.count < count) return false;
+    }
     const now = Date.now();
+    const typeLabel = Object.entries(allocation).filter(([, v]) => v > 0).map(([k]) => k).join("+");
     const job: CraftingJob = {
       id: `cj-${now}-${Math.random().toString(36).slice(2, 6)}`,
       rarity: rarity as any, tier: tier as any,
-      materialType, count, energyCost,
+      materialType: typeLabel, count: 1, energyCost,
       startedAt: now,
       completesAt: now + CRAFTING_DURATION_MS[rarity],
     };
     setGameState((prev) => {
-      let remaining = totalNeeded;
-      const materials = prev.character.materials
-        .map(e => {
-          if (e.material.rarity !== rarity || e.material.version !== tier || e.material.type !== materialType || remaining <= 0) return e;
-          const consume = Math.min(e.count, remaining);
-          remaining -= consume;
-          return { ...e, count: e.count - consume };
-        })
-        .filter(e => e.count > 0);
+      let materials = [...prev.character.materials];
+      for (const [matType, count] of Object.entries(allocation)) {
+        if (count <= 0) continue;
+        materials = materials
+          .map(e => {
+            if (e.material.rarity !== rarity || e.material.version !== tier || e.material.type !== matType) return e;
+            return { ...e, count: e.count - count };
+          })
+          .filter(e => e.count > 0);
+      }
       const next = {
         ...prev,
         character: {

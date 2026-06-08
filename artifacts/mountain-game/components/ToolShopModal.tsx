@@ -233,7 +233,7 @@ const ss = StyleSheet.create({
   cardList: { paddingHorizontal: 14, gap: 10, paddingBottom: 6 },
   card: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    backgroundColor: Colors.game.bg,
+    backgroundColor: Colors.game.surfaceAlt,
     borderRadius: 12, borderWidth: 1,
     padding: 12,
   },

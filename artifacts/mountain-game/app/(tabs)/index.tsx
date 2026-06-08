@@ -508,7 +508,6 @@ interface BottomTabBarProps {
   onPressChat: () => void;
   onPressAccount: () => void;
   onPressNotifications: () => void;
-  onPressShop: () => void;
   onPressCraft: () => void;
   unreadCount: number;
   pendingStatPoints: number;
@@ -517,7 +516,7 @@ interface BottomTabBarProps {
 }
 
 function BottomTabBar({
-  onPressAH, onPressInventory, onPressChat, onPressAccount, onPressShop, onPressCraft,
+  onPressAH, onPressInventory, onPressChat, onPressAccount, onPressCraft,
   unreadCount, pendingStatPoints, isAuthenticated, bottomPad,
 }: BottomTabBarProps) {
   return (
@@ -530,20 +529,20 @@ function BottomTabBar({
 
       {/* Market / AH */}
       <Pressable style={tabBarStyles.tab} onPress={onPressAH} hitSlop={8}>
-        <Feather name="shopping-bag" size={22} color={Colors.game.textDim} />
-        <Text style={tabBarStyles.label}>Market</Text>
-      </Pressable>
-
-      {/* Tool Shop */}
-      <Pressable style={tabBarStyles.tab} onPress={onPressShop} hitSlop={8}>
-        <Text style={tabBarStyles.tabEmoji}>⚒</Text>
-        <Text style={tabBarStyles.label}>Shop</Text>
+        <View style={tabBarStyles.highlightWrap}>
+          <Feather name="shopping-bag" size={22} color={Colors.game.gold} />
+          <View style={[tabBarStyles.highlightDot, { backgroundColor: Colors.game.gold }]} />
+        </View>
+        <Text style={[tabBarStyles.label, { color: Colors.game.gold }]}>Market</Text>
       </Pressable>
 
       {/* Crafting */}
       <Pressable style={tabBarStyles.tab} onPress={onPressCraft} hitSlop={8}>
-        <Text style={tabBarStyles.tabEmoji}>⚗</Text>
-        <Text style={tabBarStyles.label}>Craft</Text>
+        <View style={tabBarStyles.highlightWrap}>
+          <Text style={[tabBarStyles.tabEmoji, { color: Colors.game.blue }]}>⚗</Text>
+          <View style={[tabBarStyles.highlightDot, { backgroundColor: Colors.game.blue }]} />
+        </View>
+        <Text style={[tabBarStyles.label, { color: Colors.game.blue }]}>Craft</Text>
       </Pressable>
 
       {/* Inventory */}
@@ -596,6 +595,8 @@ const tabBarStyles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3 },
   iconWrap: { position: "relative" },
+  highlightWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
+  highlightDot: { position: "absolute", bottom: -4, width: 4, height: 4, borderRadius: 2 },
   label: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textDim, letterSpacing: 0.3 },
   tabEmoji: { fontSize: 20, lineHeight: 26 },
   badge: {
@@ -660,7 +661,7 @@ export default function GameScreen() {
   const [battleDropNpcName, setBattleDropNpcName] = useState("");
   const [showBattleDrops, setShowBattleDrops] = useState(false);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
-  const [showToolShop, setShowToolShop] = useState(false);
+  const [_showToolShop] = useState(false);
   const [showCrafting, setShowCrafting] = useState(false);
 
   const insets = useSafeAreaInsets();
@@ -1255,7 +1256,6 @@ export default function GameScreen() {
         onPressChat={() => setShowChat(true)}
         onPressAccount={() => setShowAuth(true)}
         onPressNotifications={() => setShowNotifications(true)}
-        onPressShop={() => setShowToolShop(true)}
         onPressCraft={() => setShowCrafting(true)}
         unreadCount={unreadCount}
         pendingStatPoints={char.pendingStatPoints}
@@ -1264,6 +1264,10 @@ export default function GameScreen() {
       />
 
       {/* Modals */}
+      <CraftingModal
+        visible={showCrafting}
+        onClose={() => setShowCrafting(false)}
+      />
       <AuctionHouseModal
         visible={showAuction}
         onClose={handleAhClose}
@@ -1272,19 +1276,10 @@ export default function GameScreen() {
         preSelectedChest={preSelectChestForAh}
         preSelectedPotion={preSelectPotionForAh}
         preSelectedTool={preSelectToolForAh}
-      />
-      <CraftingModal
-        visible={showCrafting}
-        onClose={() => setShowCrafting(false)}
-      />
-      <ToolShopModal
-        visible={showToolShop}
-        gold={char.gold}
-        onBuy={(tool) => {
+        onShopBuy={(tool) => {
           applyGoldXp(-SHOP_PRICES[tool.rarity as keyof typeof SHOP_PRICES], 0);
           addToolToBag(tool);
         }}
-        onClose={() => setShowToolShop(false)}
       />
       <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
       {autoOpenChest && (

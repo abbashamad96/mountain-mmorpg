@@ -16,8 +16,9 @@ import {
   ITEM_SLOT_ICONS,
 } from "@/lib/items";
 import { SALVAGE_NPC_PRICES, SALVAGE_XP_REWARDS, SalvageResult } from "@/lib/salvaging";
-const MATERIAL_ICONS: Record<string, string> = { Wood: "🪵", Herb: "🌿", Ore: "⛏", Leather: "🧶" };
 import { ItemImage } from "./ItemImage";
+import { MaterialImage } from "./MaterialImage";
+import { RARITY_COLORS, RarityName, VersionNum } from "@/context/GameContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -175,9 +176,20 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
               <Text style={ss.salvageResultTitle}>🔨 Salvage Result</Text>
               {salvageResult.materials.map((m, i) => (
                 <View key={i} style={ss.salvageResultRow}>
-                  <Text style={ss.salvageResultIcon}>{MATERIAL_ICONS[m.type] ?? "📦"}</Text>
-                  <Text style={ss.salvageResultMat}>{m.type}</Text>
-                  <Text style={ss.salvageResultCount}>+{m.count}</Text>
+                  <MaterialImage
+                    type={m.type as any}
+                    rarity={item.rarity as RarityName}
+                    version={m.tier as VersionNum}
+                    size={46}
+                    compact
+                    animateParticles={false}
+                  />
+                  <View style={ss.salvageResultInfo}>
+                    <Text style={[ss.salvageResultMat, { color: RARITY_COLORS[item.rarity as RarityName] }]}>
+                      {item.rarity} {m.type}
+                    </Text>
+                    <Text style={ss.salvageResultSub}>T{m.tier} · +{m.count} material{m.count !== 1 ? "s" : ""}</Text>
+                  </View>
                 </View>
               ))}
               <Text style={ss.salvageResultTotal}>
@@ -321,10 +333,10 @@ const ss = StyleSheet.create({
   salvageResultTitle: {
     fontSize: 13, fontFamily: "Inter_700Bold", color: "#C4A06A", marginBottom: 2,
   },
-  salvageResultRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  salvageResultIcon: { fontSize: 16, width: 22, textAlign: "center" },
-  salvageResultMat: { flex: 1, fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
-  salvageResultCount: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.green },
+  salvageResultRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  salvageResultInfo: { flex: 1, gap: 2 },
+  salvageResultMat: { fontSize: 12, fontFamily: "Inter_700Bold" },
+  salvageResultSub: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
   salvageResultTotal: {
     fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted,
     borderTopWidth: 1, borderTopColor: Colors.game.border, paddingTop: 8, marginTop: 2,

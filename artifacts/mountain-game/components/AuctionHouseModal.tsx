@@ -46,7 +46,7 @@ import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
 import { PotionImage } from "./PotionImage";
 import { RarityText } from "./RarityText";
-import { GatheringTool, formatToolName, ToolType, TOOL_TYPES, TOOL_ICONS, TOOL_NAMES } from "@/lib/tools";
+import { GatheringTool, formatToolName, ToolType, TOOL_TYPES, TOOL_ICONS, TOOL_NAMES, generateTool, TOOL_MATERIAL_MAP, TOOL_RARITY_COLORS } from "@/lib/tools";
 import { ToolImage } from "./ToolImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -435,6 +435,12 @@ function ToolListingCard({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
+const SHOP_RARITIES = ["Common", "Uncommon", "Rare", "Epic"] as const;
+type ShopRarity = typeof SHOP_RARITIES[number];
+const SHOP_PRICES: Record<ShopRarity, number> = {
+  Common: 50_000, Uncommon: 200_000, Rare: 1_000_000, Epic: 5_000_000,
+};
+
 interface AuctionHouseModalProps {
   visible: boolean;
   onClose: () => void;
@@ -443,9 +449,11 @@ interface AuctionHouseModalProps {
   preSelectedChest?: GameItemChest | null;
   preSelectedPotion?: any | null;
   preSelectedTool?: GatheringTool | null;
+  initialMarketTab?: "ah" | "shop";
+  onShopBuy?: (tool: GatheringTool) => void;
 }
 
-export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion, preSelectedTool }: AuctionHouseModalProps) {
+export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelectedItem, preSelectedChest, preSelectedPotion, preSelectedTool, initialMarketTab, onShopBuy }: AuctionHouseModalProps) {
   const { gameState, applyGoldXp, removeMaterial, removeItemFromBag, removeChestFromBag, removePotionFromBag, removeToolFromBag } = useGame();
   const {
     yourId,
@@ -455,6 +463,29 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     createBuyOrder, cancelBuyOrder, fillBuyOrder,
   } = useMultiplayer();
   const char = gameState.character;
+
+  // Market view: "ah" = auction house, "shop" = NPC tool shop
+  const [marketView, setMarketView] = useState<"ah" | "shop">("ah");
+  const [shopRarity, setShopRarity] = useState<ShopRarity>("Common");
+  const [shopFeedback, setShopFeedback] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Sync initial tab when modal opens
+  useEffect(() => {
+    if (visible) setMarketView(initialMarketTab ?? "ah");
+  }, [visible, initialMarketTab]);
+
+  const shopShowFeedback = useCallback((msg: string, ok: boolean) => {
+    setShopFeedback({ msg, ok });
+    setTimeout(() => setShopFeedback(null), 2200);
+  }, []);
+
+  const handleShopBuy = useCallback((type: ToolType) => {
+    const price = SHOP_PRICES[shopRarity];
+    if (char.gold < price) { shopShowFeedback("Not enough gold!", false); return; }
+    const tool = generateTool(type, shopRarity as any);
+    onShopBuy?.(tool);
+    shopShowFeedback(`Bought ${tool.rarity} ${TOOL_NAMES[type]}!`, true);
+  }, [shopRarity, char.gold, onShopBuy, shopShowFeedback]);
 
   const [tab, setTab] = useState<Tab>("listings");
   const [step, setStep] = useState<Step>("tabs");
@@ -1863,7 +1894,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>AUCTION HOUSE</Text>
+            <Text style={styles.headerTitle}>MARKET</Text>
             <View style={styles.headerRight}>
               <View style={styles.goldPill}>
                 <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
@@ -1884,45 +1915,135 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             </View>
           )}
 
-          {showFilters && renderFilters()}
+          {/* Market / Shop tab switcher */}
+          <View style={styles.marketTabs}>
+            <Pressable
+              style={[styles.marketTab, marketView === "ah" && styles.marketTabActive]}
+              onPress={() => setMarketView("ah")}
+            >
+              <Text style={[styles.marketTabTxt, marketView === "ah" && styles.marketTabTxtActive]}>
+                AUCTION HOUSE
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.marketTab, marketView === "shop" && styles.marketTabActive]}
+              onPress={() => setMarketView("shop")}
+            >
+              <Text style={[styles.marketTabTxt, marketView === "shop" && styles.marketTabTxtActive]}>
+                ⚒ NPC SHOP
+              </Text>
+            </Pressable>
+          </View>
 
-          {showTabs && (
-            <View style={styles.tabs}>
-              <Pressable
-                style={[styles.tabBtn, tab === "listings" && styles.tabBtnActive]}
-                onPress={() => setTab("listings")}
+          {/* ── Auction House content ── */}
+          {marketView === "ah" && (
+            <>
+              {showFilters && renderFilters()}
+
+              {showTabs && (
+                <View style={styles.tabs}>
+                  <Pressable
+                    style={[styles.tabBtn, tab === "listings" && styles.tabBtnActive]}
+                    onPress={() => setTab("listings")}
+                  >
+                    <Text style={[styles.tabBtnTxt, tab === "listings" && styles.tabBtnTxtActive]}>
+                      SELL ({listingsCount})
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.tabBtn, tab === "orders" && styles.tabBtnActive]}
+                    onPress={() => setTab("orders")}
+                  >
+                    <Text style={[styles.tabBtnTxt, tab === "orders" && styles.tabBtnTxtActive]}>
+                      BUY ORDERS ({ordersCount})
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              <ScrollView
+                style={styles.contentScroll}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
               >
-                <Text style={[styles.tabBtnTxt, tab === "listings" && styles.tabBtnTxtActive]}>
-                  SELL ({listingsCount})
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tabBtn, tab === "orders" && styles.tabBtnActive]}
-                onPress={() => setTab("orders")}
-              >
-                <Text style={[styles.tabBtnTxt, tab === "orders" && styles.tabBtnTxtActive]}>
-                  BUY ORDERS ({ordersCount})
-                </Text>
-              </Pressable>
-            </View>
+                {step === "tabs" && tab === "listings" && renderListings()}
+                {step === "tabs" && tab === "orders" && renderOrders()}
+                {step === "pick" && renderPickStep()}
+                {step === "price" && renderPriceStep()}
+                {step === "item-price" && renderItemPriceStep()}
+                {step === "chest-price" && renderChestPriceStep()}
+                {step === "potion-price" && renderPotionPriceStep()}
+                {step === "tool-price" && renderToolPriceStep()}
+                {step === "bo-create" && renderBoCreate()}
+              </ScrollView>
+            </>
           )}
 
-          {/* Scrollable content area */}
-          <ScrollView
-            style={styles.contentScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {step === "tabs" && tab === "listings" && renderListings()}
-            {step === "tabs" && tab === "orders" && renderOrders()}
-            {step === "pick" && renderPickStep()}
-            {step === "price" && renderPriceStep()}
-            {step === "item-price" && renderItemPriceStep()}
-            {step === "chest-price" && renderChestPriceStep()}
-            {step === "potion-price" && renderPotionPriceStep()}
-            {step === "tool-price" && renderToolPriceStep()}
-            {step === "bo-create" && renderBoCreate()}
-          </ScrollView>
+          {/* ── NPC Shop content ── */}
+          {marketView === "shop" && (
+            <>
+              {shopFeedback && (
+                <View style={[styles.feedbackBanner, !shopFeedback.ok && styles.feedbackBannerErr]}>
+                  <Text style={[styles.feedbackText, !shopFeedback.ok && styles.feedbackTextErr]}>
+                    {shopFeedback.msg}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.shopRarityRow}>
+                {SHOP_RARITIES.map((r) => {
+                  const rc = TOOL_RARITY_COLORS[r as ItemRarity];
+                  const active = r === shopRarity;
+                  return (
+                    <Pressable
+                      key={r}
+                      style={[styles.shopRarityChip, active && { borderColor: rc, backgroundColor: rc + "22" }]}
+                      onPress={() => setShopRarity(r)}
+                    >
+                      <Text style={[styles.shopRarityLabel, { color: active ? rc : Colors.game.textDim }]}>
+                        {r.toUpperCase()}
+                      </Text>
+                      <Text style={[styles.shopRarityPrice, { color: active ? rc : Colors.game.textMuted }]}>
+                        {SHOP_PRICES[r].toLocaleString()}G
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.shopCardList}>
+                {TOOL_TYPES.map((type) => {
+                  const tool = generateTool(type, shopRarity as any);
+                  const rc = TOOL_RARITY_COLORS[shopRarity as ItemRarity];
+                  const canAfford = char.gold >= SHOP_PRICES[shopRarity];
+                  return (
+                    <View key={type} style={[styles.shopCard, { borderColor: rc + "44" }]}>
+                      <ToolImage type={type} rarity={shopRarity as ItemRarity} size={54} />
+                      <View style={styles.shopCardInfo}>
+                        <Text style={[styles.shopCardRarity, { color: rc }]}>{shopRarity}</Text>
+                        <Text style={styles.shopCardName}>{TOOL_NAMES[type]}</Text>
+                        <Text style={styles.shopCardMaterial}>
+                          {TOOL_ICONS[type]} Gathers {TOOL_MATERIAL_MAP[type]}
+                        </Text>
+                        <Text style={styles.shopCardStats}>
+                          {tool.effectMinBonus}–{tool.effectMaxBonus} nodes · {tool.effectChance}% +1 extra · {tool.passiveChance}% auto-sweep
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={[styles.shopBuyBtn, canAfford ? { backgroundColor: rc + "22", borderColor: rc } : styles.shopBuyBtnDisabled]}
+                        onPress={() => handleShopBuy(type)}
+                      >
+                        <Text style={[styles.shopBuyPrice, { color: canAfford ? rc : Colors.game.textDim }]}>
+                          🪙 {SHOP_PRICES[shopRarity].toLocaleString()}
+                        </Text>
+                        <Text style={[styles.shopBuyLabel, { color: canAfford ? rc : Colors.game.textDim }]}>
+                          BUY
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
 
           <Pressable style={styles.closeBtn} onPress={handleClose}>
             <Text style={styles.closeBtnTxt}>CLOSE</Text>
@@ -2255,6 +2376,58 @@ const styles = StyleSheet.create({
   },
   closeBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
   // Collapsible sections
+  // Market / NPC Shop tab switcher
+  marketTabs: {
+    flexDirection: "row", gap: 0,
+    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
+  },
+  marketTab: {
+    flex: 1, alignItems: "center", justifyContent: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 2, borderBottomColor: "transparent",
+  },
+  marketTabActive: {
+    borderBottomColor: Colors.game.gold,
+  },
+  marketTabTxt: {
+    fontSize: 11, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 0.8,
+  },
+  marketTabTxtActive: { color: Colors.game.gold },
+
+  // NPC Shop
+  shopRarityRow: {
+    flexDirection: "row", gap: 6,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
+  },
+  shopRarityChip: {
+    flex: 1, alignItems: "center", paddingVertical: 6, paddingHorizontal: 4,
+    borderRadius: 8, borderWidth: 1, borderColor: Colors.game.border, gap: 2,
+  },
+  shopRarityLabel: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  shopRarityPrice: { fontSize: 9, fontFamily: "Inter_500Medium" },
+  shopCardList: { padding: 14, gap: 10 },
+  shopCard: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: Colors.game.surfaceAlt,
+    borderRadius: 12, borderWidth: 1, padding: 12,
+  },
+  shopCardInfo: { flex: 1, gap: 2 },
+  shopCardRarity: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  shopCardName: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.text },
+  shopCardMaterial: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
+  shopCardStats: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim, marginTop: 1 },
+  shopBuyBtn: {
+    alignItems: "center", justifyContent: "center",
+    borderRadius: 10, borderWidth: 1,
+    paddingVertical: 8, paddingHorizontal: 10,
+    minWidth: 72, gap: 2,
+  },
+  shopBuyBtnDisabled: { borderColor: Colors.game.border, backgroundColor: "transparent" },
+  shopBuyPrice: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  shopBuyLabel: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+
   sectionHeader: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: Colors.game.surface,
