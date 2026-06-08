@@ -153,11 +153,6 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
         onPress={() => setOpen((v) => !v)}
       >
         <Text style={ss.triggerIcon}>🧪</Text>
-        {total > 0 && (
-          <View style={ss.badge}>
-            <Text style={ss.badgeText}>{total > 99 ? "99+" : String(total)}</Text>
-          </View>
-        )}
       </Pressable>
 
     </View>

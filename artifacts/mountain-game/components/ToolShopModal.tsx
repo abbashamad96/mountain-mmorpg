@@ -109,9 +109,6 @@ export function ToolShopModal({ visible, gold, onBuy, onClose }: ToolShopModalPr
                   <Text style={[ss.rarityChipLabel, { color: active ? rc : Colors.game.textDim }]}>
                     {RARITY_LABELS[r]}
                   </Text>
-                  <Text style={[ss.rarityChipPrice, { color: active ? rc : Colors.game.textDim }]}>
-                    {(SHOP_PRICES[r] / 1000).toFixed(0)}k
-                  </Text>
                 </Pressable>
               );
             })}
