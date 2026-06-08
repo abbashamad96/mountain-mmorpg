@@ -58,6 +58,41 @@ export const CRAFTING_LEVEL_XP: number[] = [
 
 export const CRAFTING_MAX_LEVEL = 150;
 
+// ─── Energy & Time-based Crafting ────────────────────────────────────────────
+
+export const CRAFTING_MAX_ENERGY = 5;
+export const CRAFTING_ENERGY_REGEN_MS = 5 * 60 * 1000; // 5 minutes per point
+
+export const CRAFTING_ENERGY_COST: Record<ItemRarity, number> = {
+  Common: 1, Uncommon: 1, Rare: 1,
+  Epic: 2, Elite: 2, Legendary: 2,
+  Superior: 3, Cosmic: 3,
+};
+
+export const CRAFTING_DURATION_MS: Record<ItemRarity, number> = {
+  Common:    60_000, Uncommon:   60_000, Rare:       60_000,
+  Epic:     120_000, Elite:     120_000, Legendary: 120_000,
+  Superior: 180_000, Cosmic:   180_000,
+};
+
+export interface CraftingJob {
+  id: string;
+  rarity: ItemRarity;
+  tier: ItemTier;
+  materialType: string;
+  count: number;
+  energyCost: number;
+  startedAt: number;
+  completesAt: number;
+}
+
+export interface PendingCraftBatch {
+  id: string;
+  rarity: ItemRarity;
+  tier: ItemTier;
+  count: number;
+}
+
 // ─── Quality ──────────────────────────────────────────────────────────────────
 
 // Returns [basic%, good%, excellent%] weights for a given crafting level

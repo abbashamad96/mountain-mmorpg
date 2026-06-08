@@ -635,7 +635,6 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             onListItemOnAh(item);
           } : undefined}
           onSalvage={() => {
-            salvageItem(selectedBagItem.id);
             setSelectedBagItem(null);
           }}
           onSellToNpc={() => {

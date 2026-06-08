@@ -15,7 +15,8 @@ import {
   ITEM_RARITY_COLORS,
   ITEM_SLOT_ICONS,
 } from "@/lib/items";
-import { SALVAGE_NPC_PRICES } from "@/lib/salvaging";
+import { SALVAGE_NPC_PRICES, SALVAGE_XP_REWARDS, SalvageResult } from "@/lib/salvaging";
+const MATERIAL_ICONS: Record<string, string> = { Wood: "🪵", Herb: "🌿", Ore: "⛏", Leather: "🧶" };
 import { ItemImage } from "./ItemImage";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ interface ItemBagModalProps {
 }
 
 export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, onSellToNpc }: ItemBagModalProps) {
-  const { gameState } = useGame();
+  const { gameState, salvageItem } = useGame();
   const level = gameState.character.level;
   const rc = ITEM_RARITY_COLORS[item.rarity];
   const qc = ITEM_QUALITY_COLORS[item.quality];
@@ -59,6 +60,7 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
 
   const [confirmSalvage, setConfirmSalvage] = useState(false);
   const [confirmSellNpc, setConfirmSellNpc] = useState(false);
+  const [salvageResult, setSalvageResult] = useState<SalvageResult | null>(null);
 
   const hasFlatStat = STAT_ROWS.some(({ key }) => item.stats[key] > 0);
   const hasPctStat  = STAT_ROWS.some(({ key }) => item.percentStats[key] > 0);
@@ -167,11 +169,36 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
             )}
           </View>
 
+          {/* ── Salvage result ───────────────────────────────────────── */}
+          {salvageResult && (
+            <View style={ss.salvageResultBox}>
+              <Text style={ss.salvageResultTitle}>🔨 Salvage Result</Text>
+              {salvageResult.materials.map((m, i) => (
+                <View key={i} style={ss.salvageResultRow}>
+                  <Text style={ss.salvageResultIcon}>{MATERIAL_ICONS[m.type] ?? "📦"}</Text>
+                  <Text style={ss.salvageResultMat}>{m.type}</Text>
+                  <Text style={ss.salvageResultCount}>+{m.count}</Text>
+                </View>
+              ))}
+              <Text style={ss.salvageResultTotal}>
+                {salvageResult.totalCount} material{salvageResult.totalCount !== 1 ? "s" : ""} recovered ·{" "}
+                +{SALVAGE_XP_REWARDS[item.rarity as keyof typeof SALVAGE_XP_REWARDS] ?? 5} salvage XP
+              </Text>
+              <Pressable style={ss.salvageDoneBtn} onPress={() => { onSalvage?.(); onClose(); }}>
+                <Text style={ss.salvageDoneBtnTxt}>DONE</Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* ── Salvage / Sell to NPC row ─────────────────────────────── */}
+          {!salvageResult && (
           <View style={ss.actions}>
             {onSalvage && (
               confirmSalvage ? (
-                <Pressable style={[ss.actionBtn, ss.confirmBtn]} onPress={onSalvage}>
+                <Pressable style={[ss.actionBtn, ss.confirmBtn]} onPress={() => {
+                  const result = salvageItem(item.id);
+                  if (result) setSalvageResult(result);
+                }}>
                   <Text style={ss.confirmBtnTxt}>⚠ CONFIRM SALVAGE</Text>
                 </Pressable>
               ) : (
@@ -180,7 +207,6 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
                   onPress={() => setConfirmSalvage(true)}
                 >
                   <Text style={ss.salvageBtnTxt}>🔨 SALVAGE</Text>
-                  <Text style={ss.subHint}>10–30% materials back</Text>
                 </Pressable>
               )
             )}
@@ -200,10 +226,13 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
               )
             )}
           </View>
+          )}
 
+          {!salvageResult && (
           <Pressable style={ss.closeBtn} onPress={onClose}>
             <Text style={ss.closeBtnTxt}>CLOSE</Text>
           </Pressable>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
@@ -284,6 +313,27 @@ const ss = StyleSheet.create({
     fontSize: 12, fontFamily: "Inter_700Bold",
     color: "#C4A06A", letterSpacing: 1,
   },
+  salvageResultBox: {
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1, borderColor: "#7C6544",
+    padding: 14, gap: 8,
+  },
+  salvageResultTitle: {
+    fontSize: 13, fontFamily: "Inter_700Bold", color: "#C4A06A", marginBottom: 2,
+  },
+  salvageResultRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  salvageResultIcon: { fontSize: 16, width: 22, textAlign: "center" },
+  salvageResultMat: { flex: 1, fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
+  salvageResultCount: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.green },
+  salvageResultTotal: {
+    fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted,
+    borderTopWidth: 1, borderTopColor: Colors.game.border, paddingTop: 8, marginTop: 2,
+  },
+  salvageDoneBtn: {
+    borderRadius: 10, borderWidth: 1, borderColor: "#7C6544",
+    backgroundColor: "rgba(124,101,68,0.15)", paddingVertical: 10, alignItems: "center",
+  },
+  salvageDoneBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#C4A06A", letterSpacing: 1 },
 
   // NPC sell
   npcBtn: {

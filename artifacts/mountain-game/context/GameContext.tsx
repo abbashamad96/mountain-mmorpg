@@ -10,6 +10,8 @@ import { GatheringTool, ToolType, rollToolDrop } from "@/lib/tools";
 import {
   CraftingSkill, CraftResult, rollCraftResult,
   CRAFTING_MATERIALS_NEEDED, CRAFTING_XP_REWARDS, applyXpToCraftingSkill,
+  CRAFTING_ENERGY_COST, CRAFTING_DURATION_MS, CRAFTING_MAX_ENERGY, CRAFTING_ENERGY_REGEN_MS,
+  CraftingJob, PendingCraftBatch,
 } from "@/lib/crafting";
 import {
   SalvagingSkill, SalvageResult, rollSalvageYield,
@@ -149,6 +151,10 @@ export interface Character {
   toolBag: GatheringTool[];
   craftingSkill: CraftingSkill;
   salvagingSkill: SalvagingSkill;
+  craftingEnergy: number;
+  energyLastRegen: number;
+  craftingJobs: CraftingJob[];
+  pendingCraftBatches: PendingCraftBatch[];
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -501,6 +507,10 @@ const defaultCharacter: Character = {
   toolBag: [],
   craftingSkill: { level: 1, xp: 0 },
   salvagingSkill: { level: 1, xp: 0 },
+  craftingEnergy: CRAFTING_MAX_ENERGY,
+  energyLastRegen: 0,
+  craftingJobs: [],
+  pendingCraftBatches: [],
 };
 
 const defaultGameState: GameState = {
@@ -543,6 +553,10 @@ interface GameContextType {
   craftItem: (rarity: RarityName, tier: VersionNum) => CraftResult | null;
   salvageItem: (itemId: string) => SalvageResult | null;
   sellItemToNpc: (itemId: string) => number | null;
+  startCraftingJob: (rarity: RarityName, tier: VersionNum, materialType: string, count: number) => boolean;
+  collectCraftBatch: (batchId: string) => CraftResult[];
+  regenCraftingEnergy: () => void;
+  checkCraftingJobs: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -576,7 +590,28 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           toolBag: saved.character?.toolBag ?? [],
           craftingSkill: saved.character?.craftingSkill ?? { level: 1, xp: 0 },
           salvagingSkill: saved.character?.salvagingSkill ?? { level: 1, xp: 0 },
+          craftingEnergy: saved.character?.craftingEnergy ?? CRAFTING_MAX_ENERGY,
+          energyLastRegen: saved.character?.energyLastRegen ?? 0,
+          craftingJobs: saved.character?.craftingJobs ?? [],
+          pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
         };
+        // Apply offline energy regen
+        const now = Date.now();
+        if (char.craftingEnergy < CRAFTING_MAX_ENERGY && char.energyLastRegen > 0) {
+          const steps = Math.floor((now - char.energyLastRegen) / CRAFTING_ENERGY_REGEN_MS);
+          if (steps > 0) {
+            char.craftingEnergy = Math.min(CRAFTING_MAX_ENERGY, char.craftingEnergy + steps);
+            char.energyLastRegen = char.energyLastRegen + steps * CRAFTING_ENERGY_REGEN_MS;
+          }
+        }
+        if (char.energyLastRegen === 0) char.energyLastRegen = now;
+        // Move completed jobs to pending
+        const doneJobs = char.craftingJobs.filter(j => j.completesAt <= now);
+        char.craftingJobs = char.craftingJobs.filter(j => j.completesAt > now);
+        char.pendingCraftBatches = [
+          ...char.pendingCraftBatches,
+          ...doneJobs.map(j => ({ id: j.id, rarity: j.rarity, tier: j.tier, count: j.count })),
+        ];
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
         // Corrupt data — still mark as loaded so saves proceed
@@ -801,6 +836,113 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
+  const regenCraftingEnergy = useCallback(() => {
+    const now = Date.now();
+    setGameState((prev) => {
+      const char = prev.character;
+      if (char.craftingEnergy >= CRAFTING_MAX_ENERGY) return prev;
+      const lastRegen = char.energyLastRegen > 0 ? char.energyLastRegen : now;
+      const steps = Math.floor((now - lastRegen) / CRAFTING_ENERGY_REGEN_MS);
+      if (steps <= 0) return prev;
+      const newEnergy = Math.min(CRAFTING_MAX_ENERGY, char.craftingEnergy + steps);
+      const newLastRegen = lastRegen + steps * CRAFTING_ENERGY_REGEN_MS;
+      const next = { ...prev, character: { ...char, craftingEnergy: newEnergy, energyLastRegen: newLastRegen } };
+      stateRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const checkCraftingJobs = useCallback(() => {
+    const now = Date.now();
+    setGameState((prev) => {
+      const char = prev.character;
+      const done = char.craftingJobs.filter(j => j.completesAt <= now);
+      if (done.length === 0) return prev;
+      const remaining = char.craftingJobs.filter(j => j.completesAt > now);
+      const newBatches: PendingCraftBatch[] = done.map(j => ({
+        id: j.id, rarity: j.rarity, tier: j.tier, count: j.count,
+      }));
+      const next = {
+        ...prev,
+        character: {
+          ...char,
+          craftingJobs: remaining,
+          pendingCraftBatches: [...char.pendingCraftBatches, ...newBatches],
+        },
+      };
+      stateRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const startCraftingJob = useCallback((rarity: RarityName, tier: VersionNum, materialType: string, count: number): boolean => {
+    const char = stateRef.current.character;
+    const needed = CRAFTING_MATERIALS_NEEDED[rarity];
+    const totalNeeded = count * needed;
+    const energyCost = count * CRAFTING_ENERGY_COST[rarity];
+    if (char.craftingEnergy < energyCost) return false;
+    const matEntry = char.materials.find(
+      e => e.material.rarity === rarity && e.material.version === tier && e.material.type === materialType,
+    );
+    if (!matEntry || matEntry.count < totalNeeded) return false;
+    const now = Date.now();
+    const job: CraftingJob = {
+      id: `cj-${now}-${Math.random().toString(36).slice(2, 6)}`,
+      rarity: rarity as any, tier: tier as any,
+      materialType, count, energyCost,
+      startedAt: now,
+      completesAt: now + CRAFTING_DURATION_MS[rarity],
+    };
+    setGameState((prev) => {
+      let remaining = totalNeeded;
+      const materials = prev.character.materials
+        .map(e => {
+          if (e.material.rarity !== rarity || e.material.version !== tier || e.material.type !== materialType || remaining <= 0) return e;
+          const consume = Math.min(e.count, remaining);
+          remaining -= consume;
+          return { ...e, count: e.count - consume };
+        })
+        .filter(e => e.count > 0);
+      const next = {
+        ...prev,
+        character: {
+          ...prev.character,
+          materials,
+          craftingEnergy: prev.character.craftingEnergy - energyCost,
+          craftingJobs: [...prev.character.craftingJobs, job],
+        },
+      };
+      stateRef.current = next;
+      return next;
+    });
+    return true;
+  }, []);
+
+  const collectCraftBatch = useCallback((batchId: string): CraftResult[] => {
+    const char = stateRef.current.character;
+    const batch = char.pendingCraftBatches.find(b => b.id === batchId);
+    if (!batch) return [];
+    const results: CraftResult[] = [];
+    for (let i = 0; i < batch.count; i++) {
+      results.push(rollCraftResult(batch.rarity, batch.tier, char.craftingSkill.level));
+    }
+    const xpGained = CRAFTING_XP_REWARDS[batch.rarity] * batch.count;
+    setGameState((prev) => {
+      const pendingCraftBatches = prev.character.pendingCraftBatches.filter(b => b.id !== batchId);
+      const newSkill = applyXpToCraftingSkill(prev.character.craftingSkill, xpGained);
+      let c = { ...prev.character, pendingCraftBatches, craftingSkill: newSkill };
+      for (const r of results) {
+        if (r.kind === "equipment" && r.item)   c = { ...c, itemBag:   [...c.itemBag,   r.item]   };
+        if (r.kind === "potion"    && r.potion) c = { ...c, potionBag: [...c.potionBag, r.potion] };
+        if (r.kind === "tool"      && r.tool)   c = { ...c, toolBag:   [...c.toolBag,   r.tool]   };
+      }
+      const next = { ...prev, character: c };
+      stateRef.current = next;
+      return next;
+    });
+    return results;
+  }, []);
+
   const sellItemToNpc = useCallback((itemId: string): number | null => {
     const char = stateRef.current.character;
     const item = char.itemBag.find((i) => i.id === itemId);
@@ -885,6 +1027,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       activeBuffs: saved.character?.activeBuffs ?? [],
       craftingSkill: saved.character?.craftingSkill ?? { level: 1, xp: 0 },
       salvagingSkill: saved.character?.salvagingSkill ?? { level: 1, xp: 0 },
+      craftingEnergy: saved.character?.craftingEnergy ?? CRAFTING_MAX_ENERGY,
+      energyLastRegen: saved.character?.energyLastRegen ?? Date.now(),
+      craftingJobs: saved.character?.craftingJobs ?? [],
+      pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -898,7 +1044,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs }}
     >
       {children}
     </GameContext.Provider>
