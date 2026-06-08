@@ -21,6 +21,7 @@ import { GatheringModal } from "@/components/GatheringModal";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
+import { ToolShopModal } from "@/components/ToolShopModal";
 import { TimerBar } from "@/components/TimerBar";
 import Colors from "@/constants/colors";
 import {
@@ -41,6 +42,15 @@ import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPo
 import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
 import { FullChestDrop } from "@/components/ChestOpenModal";
 import { useMultiplayer } from "@/context/MultiplayerContext";
+
+// ─── Tool shop prices ─────────────────────────────────────────────────────────
+
+const SHOP_PRICES: Record<string, number> = {
+  Common:   50_000,
+  Uncommon: 200_000,
+  Rare:     1_000_000,
+  Epic:     5_000_000,
+};
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
 
@@ -496,6 +506,7 @@ interface BottomTabBarProps {
   onPressChat: () => void;
   onPressAccount: () => void;
   onPressNotifications: () => void;
+  onPressShop: () => void;
   unreadCount: number;
   pendingStatPoints: number;
   isAuthenticated: boolean;
@@ -503,7 +514,7 @@ interface BottomTabBarProps {
 }
 
 function BottomTabBar({
-  onPressAH, onPressInventory, onPressChat, onPressAccount,
+  onPressAH, onPressInventory, onPressChat, onPressAccount, onPressShop,
   unreadCount, pendingStatPoints, isAuthenticated, bottomPad,
 }: BottomTabBarProps) {
   return (
@@ -518,6 +529,12 @@ function BottomTabBar({
       <Pressable style={tabBarStyles.tab} onPress={onPressAH} hitSlop={8}>
         <Feather name="shopping-bag" size={22} color={Colors.game.textDim} />
         <Text style={tabBarStyles.label}>Market</Text>
+      </Pressable>
+
+      {/* Tool Shop */}
+      <Pressable style={tabBarStyles.tab} onPress={onPressShop} hitSlop={8}>
+        <Text style={tabBarStyles.tabEmoji}>⚒</Text>
+        <Text style={tabBarStyles.label}>Shop</Text>
       </Pressable>
 
       {/* Inventory */}
@@ -571,6 +588,7 @@ const tabBarStyles = StyleSheet.create({
   tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3 },
   iconWrap: { position: "relative" },
   label: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textDim, letterSpacing: 0.3 },
+  tabEmoji: { fontSize: 20, lineHeight: 26 },
   badge: {
     position: "absolute", top: -5, right: -8,
     backgroundColor: Colors.game.purple,
@@ -633,6 +651,7 @@ export default function GameScreen() {
   const [battleDropNpcName, setBattleDropNpcName] = useState("");
   const [showBattleDrops, setShowBattleDrops] = useState(false);
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
+  const [showToolShop, setShowToolShop] = useState(false);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -1222,6 +1241,7 @@ export default function GameScreen() {
         onPressChat={() => setShowChat(true)}
         onPressAccount={() => setShowAuth(true)}
         onPressNotifications={() => setShowNotifications(true)}
+        onPressShop={() => setShowToolShop(true)}
         unreadCount={unreadCount}
         pendingStatPoints={char.pendingStatPoints}
         isAuthenticated={isAuthenticated}
@@ -1237,6 +1257,15 @@ export default function GameScreen() {
         preSelectedChest={preSelectChestForAh}
         preSelectedPotion={preSelectPotionForAh}
         preSelectedTool={preSelectToolForAh}
+      />
+      <ToolShopModal
+        visible={showToolShop}
+        gold={char.gold}
+        onBuy={(tool) => {
+          applyGoldXp(-SHOP_PRICES[tool.rarity as keyof typeof SHOP_PRICES], 0);
+          addToolToBag(tool);
+        }}
+        onClose={() => setShowToolShop(false)}
       />
       <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
       {autoOpenChest && (
