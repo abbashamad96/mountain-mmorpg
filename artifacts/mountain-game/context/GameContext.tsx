@@ -155,6 +155,7 @@ export interface Character {
   energyLastRegen: number;
   craftingJobs: CraftingJob[];
   pendingCraftBatches: PendingCraftBatch[];
+  rubies: number;
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -511,6 +512,7 @@ const defaultCharacter: Character = {
   energyLastRegen: 0,
   craftingJobs: [],
   pendingCraftBatches: [],
+  rubies: 0,
 };
 
 const defaultGameState: GameState = {
@@ -594,6 +596,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           energyLastRegen: saved.character?.energyLastRegen ?? 0,
           craftingJobs: saved.character?.craftingJobs ?? [],
           pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
+          rubies: saved.character?.rubies ?? 0,
         };
         // Apply offline energy regen
         const now = Date.now();

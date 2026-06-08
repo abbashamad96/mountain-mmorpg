@@ -44,6 +44,7 @@ import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPo
 import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
 import { FullChestDrop } from "@/components/ChestOpenModal";
 import { useMultiplayer } from "@/context/MultiplayerContext";
+import { CRAFTING_MAX_ENERGY } from "@/lib/crafting";
 
 // ─── Tool shop prices ─────────────────────────────────────────────────────────
 
@@ -1201,6 +1202,10 @@ export default function GameScreen() {
               <Text style={styles.goldIcon}>🪙</Text>
               <Text style={styles.goldValue}>{char.gold.toLocaleString()}</Text>
             </View>
+            <View style={styles.rubyRow}>
+              <Text style={styles.rubyIcon}>💎</Text>
+              <Text style={styles.rubyValue}>{char.rubies.toLocaleString()}</Text>
+            </View>
             {(() => {
               const act = SCENE_ACTIVITY_MAP[gameState.currentScene] ?? SCENE_ACTIVITY_MAP.default;
               return (
@@ -1210,6 +1215,19 @@ export default function GameScreen() {
               );
             })()}
           </View>
+        </View>
+        {/* Energy bar */}
+        <View style={styles.energyBarRow}>
+          <Text style={styles.energyBarIcon}>⚡</Text>
+          <View style={styles.energyTrack}>
+            <View
+              style={[
+                styles.energyFill,
+                { width: `${Math.min(100, (char.craftingEnergy / CRAFTING_MAX_ENERGY) * 100)}%` as any },
+              ]}
+            />
+          </View>
+          <Text style={styles.energyText}>{char.craftingEnergy}/{CRAFTING_MAX_ENERGY}</Text>
         </View>
       </View>
 
@@ -1431,6 +1449,20 @@ const styles = StyleSheet.create({
   goldRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   goldIcon: { fontSize: 14 },
   goldValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  rubyRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  rubyIcon: { fontSize: 13 },
+  rubyValue: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#E91E8C" },
+  energyBarRow: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginTop: 6, paddingHorizontal: 2,
+  },
+  energyBarIcon: { fontSize: 11, color: "#3B9EFF" },
+  energyTrack: {
+    flex: 1, height: 4, backgroundColor: Colors.game.border,
+    borderRadius: 2, overflow: "hidden",
+  },
+  energyFill: { height: "100%" as any, backgroundColor: "#3B9EFF", borderRadius: 2 },
+  energyText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, minWidth: 28, textAlign: "right" },
   activityBadge: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   activityText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },
 

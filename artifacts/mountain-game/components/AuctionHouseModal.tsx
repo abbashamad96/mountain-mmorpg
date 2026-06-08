@@ -474,18 +474,24 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     if (visible) setMarketView(initialMarketTab ?? "ah");
   }, [visible, initialMarketTab]);
 
+  // Reset drill-down state when switching between AH and Shop
+  useEffect(() => {
+    setShopLevel(0); setShopNavToolType(null);
+    setBrowseLevel(0); setBrowseCategory(null); setBrowseSub(null);
+  }, [marketView]);
+
   const shopShowFeedback = useCallback((msg: string, ok: boolean) => {
     setShopFeedback({ msg, ok });
     setTimeout(() => setShopFeedback(null), 2200);
   }, []);
 
-  const handleShopBuy = useCallback((type: ToolType) => {
-    const price = SHOP_PRICES[shopRarity];
+  const handleShopBuyAtRarity = useCallback((type: ToolType, rarity: ShopRarity) => {
+    const price = SHOP_PRICES[rarity];
     if (char.gold < price) { shopShowFeedback("Not enough gold!", false); return; }
-    const tool = generateTool(type, shopRarity as any);
+    const tool = generateTool(type, rarity as any);
     onShopBuy?.(tool);
     shopShowFeedback(`Bought ${tool.rarity} ${TOOL_NAMES[type]}!`, true);
-  }, [shopRarity, char.gold, onShopBuy, shopShowFeedback]);
+  }, [char.gold, onShopBuy, shopShowFeedback]);
 
   const [tab, setTab] = useState<Tab>("listings");
   const [step, setStep] = useState<Step>("tabs");
@@ -529,6 +535,15 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   const [boToolType, setBoToolType] = useState<ToolType | null>(null);
   const [boCountStr, setBoCountStr] = useState("1");
   const [boPriceStr, setBoPriceStr] = useState("");
+
+  // Shop drill-down navigation
+  const [shopLevel, setShopLevel] = useState<0 | 1 | 2>(0);
+  const [shopNavToolType, setShopNavToolType] = useState<ToolType | null>(null);
+
+  // Market browse navigation
+  const [browseLevel, setBrowseLevel] = useState<0 | 1 | 2>(0);
+  const [browseCategory, setBrowseCategory] = useState<string | null>(null);
+  const [browseSub, setBrowseSub] = useState<string | null>(null);
 
   // Handle pre-selected entry/item/chest from inventory
   useEffect(() => {
@@ -837,6 +852,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     setBoCategory(null); setBoType(null); setBoRarity(null); setBoVersion(null);
     setBoSlot(null); setBoQuality(null); setBoStatPref(null); setBoPotionType(null); setBoToolType(null);
     setBoCountStr("1"); setBoPriceStr("");
+    setShopLevel(0); setShopNavToolType(null);
+    setBrowseLevel(0); setBrowseCategory(null); setBrowseSub(null);
     onClose();
   };
 
@@ -885,6 +902,252 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   );
 
   // ── Sell listings tab (grouped by type + rarity) ─────────────────────────
+
+  // ── Shop drill-down (3 levels) ────────────────────────────────────────────
+  const SHOP_RARITIES_ORDERED: ShopRarity[] = ["Common", "Uncommon", "Rare", "Epic"];
+
+  const renderShopDrillDown = () => {
+    // Level 0 — categories
+    if (shopLevel === 0) {
+      return (
+        <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+          {shopFeedback && (
+            <View style={[styles.feedbackBanner, !shopFeedback.ok && styles.feedbackBannerErr]}>
+              <Text style={[styles.feedbackText, !shopFeedback.ok && styles.feedbackTextErr]}>{shopFeedback.msg}</Text>
+            </View>
+          )}
+          <Pressable style={styles.drillRow} onPress={() => setShopLevel(1)}>
+            <Text style={styles.drillRowIcon}>⚒</Text>
+            <View style={styles.drillRowBody}>
+              <Text style={styles.drillRowLabel}>Tools</Text>
+              <Text style={styles.drillRowSub}>Axes, Pickaxes, Knives, Sickles</Text>
+            </View>
+            <Text style={styles.drillRowCount}>(4 types)</Text>
+            <Text style={styles.drillRowArrow}>›</Text>
+          </Pressable>
+        </ScrollView>
+      );
+    }
+
+    // Level 1 — tool types
+    if (shopLevel === 1) {
+      return (
+        <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+          {shopFeedback && (
+            <View style={[styles.feedbackBanner, !shopFeedback.ok && styles.feedbackBannerErr]}>
+              <Text style={[styles.feedbackText, !shopFeedback.ok && styles.feedbackTextErr]}>{shopFeedback.msg}</Text>
+            </View>
+          )}
+          <Pressable style={styles.drillBack} onPress={() => setShopLevel(0)}>
+            <Text style={styles.drillBackTxt}>‹ Back</Text>
+          </Pressable>
+          {TOOL_TYPES.map((type) => (
+            <Pressable
+              key={type}
+              style={styles.drillRow}
+              onPress={() => { setShopNavToolType(type); setShopLevel(2); }}
+            >
+              <ToolImage type={type} rarity="Common" size={38} />
+              <View style={styles.drillRowBody}>
+                <Text style={styles.drillRowLabel}>{TOOL_NAMES[type]}</Text>
+                <Text style={styles.drillRowSub}>{TOOL_ICONS[type]} Gathers {TOOL_MATERIAL_MAP[type]}</Text>
+              </View>
+              <Text style={styles.drillRowArrow}>›</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      );
+    }
+
+    // Level 2 — items for selected tool type (4 rarities, sorted ascending)
+    if (shopLevel === 2 && shopNavToolType) {
+      return (
+        <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
+          {shopFeedback && (
+            <View style={[styles.feedbackBanner, !shopFeedback.ok && styles.feedbackBannerErr]}>
+              <Text style={[styles.feedbackText, !shopFeedback.ok && styles.feedbackTextErr]}>{shopFeedback.msg}</Text>
+            </View>
+          )}
+          <Pressable style={styles.drillBack} onPress={() => setShopLevel(1)}>
+            <Text style={styles.drillBackTxt}>‹ {TOOL_NAMES[shopNavToolType]}</Text>
+          </Pressable>
+          {SHOP_RARITIES_ORDERED.map((rarity) => {
+            const tool = generateTool(shopNavToolType, rarity as any);
+            const price = SHOP_PRICES[rarity];
+            const canAfford = char.gold >= price;
+            const rc = TOOL_RARITY_COLORS[rarity as ItemRarity];
+            return (
+              <View key={rarity} style={[styles.shopItemRow, { borderColor: rc + "44" }]}>
+                <ToolImage type={shopNavToolType} rarity={rarity as ItemRarity} size={44} />
+                <View style={styles.shopItemInfo}>
+                  <Text style={[styles.shopItemRarity, { color: rc }]}>{rarity} {TOOL_NAMES[shopNavToolType]}</Text>
+                  <Text style={styles.shopItemStats}>
+                    {tool.effectMinBonus}–{tool.effectMaxBonus} nodes · {tool.effectChance}% +1 · {tool.passiveChance}% sweep
+                  </Text>
+                </View>
+                <Pressable
+                  style={[styles.shopItemBuyBtn, canAfford ? { borderColor: rc, backgroundColor: rc + "22" } : styles.shopBuyBtnDisabled]}
+                  onPress={() => handleShopBuyAtRarity(shopNavToolType, rarity)}
+                >
+                  <Text style={[styles.shopBuyPrice, { color: canAfford ? rc : Colors.game.textDim }]}>
+                    🪙 {price.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.shopBuyLabel, { color: canAfford ? rc : Colors.game.textDim }]}>BUY</Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </ScrollView>
+      );
+    }
+
+    return null;
+  };
+
+  // ── Market browse (3 levels) ──────────────────────────────────────────────
+  const renderBrowseListings = () => {
+    const matListings  = listings.filter((l) => ["Ore","Wood","Herb","Leather"].includes(l.material.type as string));
+    const equipListings = listings.filter((l) => l.material.type === "Equipment");
+    const chestListings = listings.filter((l) => l.material.type === "Chest");
+    const potionListings = listings.filter((l) => l.material.type === "Potion");
+    const toolListings  = listings.filter((l) => l.material.type === "Tool");
+
+    // Level 0 — main categories
+    if (browseLevel === 0) {
+      const cats = [
+        { key: "Materials", label: "Materials", icon: "⛏", count: matListings.length,  hasSub: true  },
+        { key: "Equipment", label: "Equipment", icon: "⚔",  count: equipListings.length, hasSub: false },
+        { key: "Chests",    label: "Chests",    icon: "📦", count: chestListings.length, hasSub: false },
+        { key: "Potions",   label: "Potions",   icon: "⚗",  count: potionListings.length, hasSub: true  },
+        { key: "Tools",     label: "Tools",     icon: "🔨", count: toolListings.length, hasSub: true  },
+      ];
+      return (
+        <View>
+          <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
+            <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
+          </Pressable>
+          {cats.map((cat) => (
+            <Pressable
+              key={cat.key}
+              style={styles.drillRow}
+              onPress={() => {
+                setBrowseCategory(cat.key);
+                if (cat.hasSub) { setBrowseLevel(1); } else { setBrowseSub(null); setBrowseLevel(2); }
+              }}
+            >
+              <Text style={styles.drillRowIcon}>{cat.icon}</Text>
+              <Text style={styles.drillRowLabel}>{cat.label}</Text>
+              <Text style={styles.drillRowCount}>({cat.count})</Text>
+              <Text style={styles.drillRowArrow}>›</Text>
+            </Pressable>
+          ))}
+        </View>
+      );
+    }
+
+    // Level 1 — subcategories
+    if (browseLevel === 1 && browseCategory) {
+      type SubItem = { key: string; label: string; icon: string; count: number };
+      let subs: SubItem[] = [];
+
+      if (browseCategory === "Materials") {
+        const matSubs = [
+          { key: "Ore",     label: "Ore",     icon: "⛏" },
+          { key: "Wood",    label: "Wood",    icon: "🪵" },
+          { key: "Herb",    label: "Herb",    icon: "🌿" },
+          { key: "Leather", label: "Leather", icon: "🧶" },
+        ];
+        subs = matSubs.map((s) => ({ ...s, count: matListings.filter((l) => l.material.type === s.key).length }));
+      } else if (browseCategory === "Potions") {
+        const potSubs = [
+          { key: "Gold",        label: "Gold Potion",        icon: "🪙" },
+          { key: "XP",          label: "XP Potion",          icon: "📚" },
+          { key: "Exploration", label: "Exploration Potion", icon: "🌟" },
+        ];
+        subs = potSubs.map((s) => ({ ...s, count: potionListings.filter((l) => (l.material as any).potionType === s.key).length }));
+      } else if (browseCategory === "Tools") {
+        subs = TOOL_TYPES.map((t) => ({
+          key: t, label: TOOL_NAMES[t], icon: TOOL_ICONS[t],
+          count: toolListings.filter((l) => (l.material as any).toolType === t).length,
+        }));
+      }
+
+      return (
+        <View>
+          <Pressable style={styles.drillBack} onPress={() => { setBrowseLevel(0); setBrowseCategory(null); }}>
+            <Text style={styles.drillBackTxt}>‹ {browseCategory}</Text>
+          </Pressable>
+          {subs.map((sub) => (
+            <Pressable
+              key={sub.key}
+              style={styles.drillRow}
+              onPress={() => { setBrowseSub(sub.key); setBrowseLevel(2); }}
+            >
+              <Text style={styles.drillRowIcon}>{sub.icon}</Text>
+              <Text style={styles.drillRowLabel}>{sub.label}</Text>
+              <Text style={styles.drillRowCount}>({sub.count})</Text>
+              <Text style={styles.drillRowArrow}>›</Text>
+            </Pressable>
+          ))}
+        </View>
+      );
+    }
+
+    // Level 2 — filtered listings sorted by price ascending
+    if (browseLevel === 2 && browseCategory) {
+      let filtered: AuctionListing[] = [];
+      if (browseCategory === "Materials" && browseSub) {
+        filtered = matListings.filter((l) => l.material.type === browseSub);
+      } else if (browseCategory === "Equipment") {
+        filtered = equipListings;
+      } else if (browseCategory === "Chests") {
+        filtered = chestListings;
+      } else if (browseCategory === "Potions" && browseSub) {
+        filtered = potionListings.filter((l) => (l.material as any).potionType === browseSub);
+      } else if (browseCategory === "Tools" && browseSub) {
+        filtered = toolListings.filter((l) => (l.material as any).toolType === browseSub);
+      }
+      const sorted = [...filtered].sort((a, b) => a.price - b.price);
+
+      const backLabel = browseSub ?? browseCategory;
+      const onBack = () => {
+        if (browseCategory === "Equipment" || browseCategory === "Chests") {
+          setBrowseLevel(0); setBrowseCategory(null); setBrowseSub(null);
+        } else {
+          setBrowseLevel(1); setBrowseSub(null);
+        }
+      };
+
+      return (
+        <View>
+          <Pressable style={styles.drillBack} onPress={onBack}>
+            <Text style={styles.drillBackTxt}>‹ {backLabel}</Text>
+          </Pressable>
+          <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
+            <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
+          </Pressable>
+          {sorted.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>No listings in this category yet.</Text>
+            </View>
+          ) : (
+            sorted.map((l) => {
+              const isOwn = l.sellerId === yourId;
+              const canAfford = char.gold >= l.price;
+              const t = l.material.type as string;
+              if (t === "Equipment") return <ItemListingCard  key={l.id} listing={l} isOwn={isOwn} canAfford={canAfford} onBuy={() => handleBuy(l)} onCancel={() => handleCancel(l)} />;
+              if (t === "Chest")     return <ChestListingCard  key={l.id} listing={l} isOwn={isOwn} canAfford={canAfford} onBuy={() => handleBuy(l)} onCancel={() => handleCancel(l)} />;
+              if (t === "Potion")    return <PotionListingCard key={l.id} listing={l} isOwn={isOwn} canAfford={canAfford} onBuy={() => handleBuy(l)} onCancel={() => handleCancel(l)} />;
+              if (t === "Tool")      return <ToolListingCard   key={l.id} listing={l} isOwn={isOwn} canAfford={canAfford} onBuy={() => handleBuy(l)} onCancel={() => handleCancel(l)} />;
+              return <ListingCard key={l.id} listing={l} isOwn={isOwn} canAfford={canAfford} onBuy={() => handleBuy(l)} onCancel={() => handleCancel(l)} />;
+            })
+          )}
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   const renderListings = () => {
     const filtered = applyTypeFilter(listings) as AuctionListing[];
@@ -1883,7 +2146,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   const listingsCount = (applyTypeFilter(listings) as AuctionListing[]).length;
   const ordersCount = (applyTypeFilter(buyOrders.filter((o) => o.count - o.filled > 0)) as BuyOrder[]).length;
 
-  const showFilters = step === "tabs";
+  const showFilters = step === "tabs" && tab === "orders";
   const showTabs = step === "tabs";
 
   return (
@@ -1966,7 +2229,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
-                {step === "tabs" && tab === "listings" && renderListings()}
+                {step === "tabs" && tab === "listings" && renderBrowseListings()}
                 {step === "tabs" && tab === "orders" && renderOrders()}
                 {step === "pick" && renderPickStep()}
                 {step === "price" && renderPriceStep()}
@@ -1980,70 +2243,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           )}
 
           {/* ── NPC Shop content ── */}
-          {marketView === "shop" && (
-            <>
-              {shopFeedback && (
-                <View style={[styles.feedbackBanner, !shopFeedback.ok && styles.feedbackBannerErr]}>
-                  <Text style={[styles.feedbackText, !shopFeedback.ok && styles.feedbackTextErr]}>
-                    {shopFeedback.msg}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.shopRarityRow}>
-                {SHOP_RARITIES.map((r) => {
-                  const rc = TOOL_RARITY_COLORS[r as ItemRarity];
-                  const active = r === shopRarity;
-                  return (
-                    <Pressable
-                      key={r}
-                      style={[styles.shopRarityChip, active && { borderColor: rc, backgroundColor: rc + "22" }]}
-                      onPress={() => setShopRarity(r)}
-                    >
-                      <Text style={[styles.shopRarityLabel, { color: active ? rc : Colors.game.textDim }]}>
-                        {r.toUpperCase()}
-                      </Text>
-                      <Text style={[styles.shopRarityPrice, { color: active ? rc : Colors.game.textMuted }]}>
-                        {SHOP_PRICES[r].toLocaleString()}G
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.shopCardList}>
-                {TOOL_TYPES.map((type) => {
-                  const tool = generateTool(type, shopRarity as any);
-                  const rc = TOOL_RARITY_COLORS[shopRarity as ItemRarity];
-                  const canAfford = char.gold >= SHOP_PRICES[shopRarity];
-                  return (
-                    <View key={type} style={[styles.shopCard, { borderColor: rc + "44" }]}>
-                      <ToolImage type={type} rarity={shopRarity as ItemRarity} size={54} />
-                      <View style={styles.shopCardInfo}>
-                        <Text style={[styles.shopCardRarity, { color: rc }]}>{shopRarity}</Text>
-                        <Text style={styles.shopCardName}>{TOOL_NAMES[type]}</Text>
-                        <Text style={styles.shopCardMaterial}>
-                          {TOOL_ICONS[type]} Gathers {TOOL_MATERIAL_MAP[type]}
-                        </Text>
-                        <Text style={styles.shopCardStats}>
-                          {tool.effectMinBonus}–{tool.effectMaxBonus} nodes · {tool.effectChance}% +1 extra · {tool.passiveChance}% auto-sweep
-                        </Text>
-                      </View>
-                      <Pressable
-                        style={[styles.shopBuyBtn, canAfford ? { backgroundColor: rc + "22", borderColor: rc } : styles.shopBuyBtnDisabled]}
-                        onPress={() => handleShopBuy(type)}
-                      >
-                        <Text style={[styles.shopBuyPrice, { color: canAfford ? rc : Colors.game.textDim }]}>
-                          🪙 {SHOP_PRICES[shopRarity].toLocaleString()}
-                        </Text>
-                        <Text style={[styles.shopBuyLabel, { color: canAfford ? rc : Colors.game.textDim }]}>
-                          BUY
-                        </Text>
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            </>
-          )}
+          {marketView === "shop" && renderShopDrillDown()}
 
           <Pressable style={styles.closeBtn} onPress={handleClose}>
             <Text style={styles.closeBtnTxt}>CLOSE</Text>
@@ -2427,6 +2627,45 @@ const styles = StyleSheet.create({
   shopBuyBtnDisabled: { borderColor: Colors.game.border, backgroundColor: "transparent" },
   shopBuyPrice: { fontSize: 11, fontFamily: "Inter_700Bold" },
   shopBuyLabel: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+
+  // Drill-down navigation rows
+  drillBack: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 8, paddingHorizontal: 4, marginBottom: 4,
+  },
+  drillBackTxt: {
+    fontSize: 13, fontFamily: "Inter_600SemiBold",
+    color: Colors.game.blue, letterSpacing: 0.2,
+  },
+  drillRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1, borderColor: Colors.game.border,
+    paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8,
+  },
+  drillRowIcon: { fontSize: 22, width: 28, textAlign: "center" },
+  drillRowBody: { flex: 1, gap: 2 },
+  drillRowLabel: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.text, flex: 1 },
+  drillRowSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  drillRowCount: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.textMuted },
+  drillRowArrow: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.game.textDim },
+
+  // Shop item rows (level 2)
+  shopItemRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1,
+    paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8,
+  },
+  shopItemInfo: { flex: 1, gap: 3 },
+  shopItemRarity: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  shopItemStats: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  shopItemBuyBtn: {
+    alignItems: "center", justifyContent: "center",
+    borderRadius: 10, borderWidth: 1,
+    paddingVertical: 8, paddingHorizontal: 10,
+    minWidth: 72, gap: 2,
+  },
 
   sectionHeader: {
     flexDirection: "row", alignItems: "center", gap: 8,
