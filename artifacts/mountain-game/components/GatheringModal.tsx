@@ -180,7 +180,7 @@ export function GatheringModal({
                   {equippedTool.rarity} {TOOL_NAMES[equippedTool.type]}
                 </Text>
                 <Text style={styles.toolStats}>
-                  {equippedTool.effectChance}% +{equippedTool.effectMinBonus}-{equippedTool.effectMaxBonus} mats · {equippedTool.passiveChance}% sweep
+                  {equippedTool.effectChance}% → +{equippedTool.effectMinBonus}–{equippedTool.effectMaxBonus} bonus mats · {equippedTool.passiveChance}% auto-sweep
                 </Text>
               </View>
               {bonusText !== "" && (

@@ -224,10 +224,12 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   }, [char.chestBag]);
 
   const potionStacks = useMemo(() => {
-    const stacks = new Map<string, { rep: typeof char.potionBag[0]; count: number }>();
+    const stacks = new Map<string, { rep: Potion; count: number }>();
     for (const p of char.potionBag ?? []) {
+      // Guard: skip any non-Potion objects that may have ended up in potionBag
+      if (!("effectPercent" in p)) continue;
       const key = `${p.type}|${p.rarity}|${p.tier}`;
-      if (!stacks.has(key)) stacks.set(key, { rep: p, count: 0 });
+      if (!stacks.has(key)) stacks.set(key, { rep: p as Potion, count: 0 });
       stacks.get(key)!.count++;
     }
     return Array.from(stacks.values());
@@ -599,7 +601,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
         <ChestOpenModal
           chest={selectedChest}
           onClaim={(drop) => {
-            if ("sweepChance" in drop) {
+            if ("passiveChance" in drop) {
               addToolToBag(drop as any);
             } else if ("slot" in drop) {
               addItemToBag(drop);

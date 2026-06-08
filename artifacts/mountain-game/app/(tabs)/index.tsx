@@ -1232,7 +1232,7 @@ export default function GameScreen() {
           key={autoOpenChest.id}
           chest={autoOpenChest}
           onClaim={(drop: FullChestDrop) => {
-            const isTool = "sweepChance" in drop;
+            const isTool = "passiveChance" in drop;
             const isItem = !isTool && "slot" in drop;
             if (isTool) {
               addToolToBag(drop as GatheringTool);
