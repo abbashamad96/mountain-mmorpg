@@ -14,7 +14,10 @@ import {
 } from "@/lib/crafting";
 import { useGame } from "@/context/GameContext";
 import { RarityName, VersionNum, RARITY_COLORS } from "@/context/GameContext";
+import { GameItem, Potion } from "@/lib/items";
+import { ItemBagModal } from "./ItemBagModal";
 import { ItemImage } from "./ItemImage";
+import { PotionBagModal } from "./PotionBagModal";
 import { PotionImage } from "./PotionImage";
 import { ToolImage } from "./ToolImage";
 import { MaterialImage } from "./MaterialImage";
@@ -89,7 +92,7 @@ const eS = StyleSheet.create({
   regen: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
 });
 
-function ResultCard({ result }: { result: CraftResult }) {
+function ResultCard({ result, onPress }: { result: CraftResult; onPress?: () => void }) {
   const rarity =
     result.item?.rarity ?? result.potion?.rarity ?? result.tool?.rarity ?? "Common";
   const rc = ITEM_RARITY_COLORS[rarity as keyof typeof ITEM_RARITY_COLORS];
@@ -105,8 +108,9 @@ function ResultCard({ result }: { result: CraftResult }) {
     label = `${rarity} ${TOOL_NAMES[result.tool.type]}`;
     sub = `${result.tool.effectMinBonus}–${result.tool.effectMaxBonus} nodes`;
   }
+  const manageable = result.kind === "equipment" || result.kind === "potion";
   return (
-    <View style={[rcS.card, { borderColor: rc + "55" }]}>
+    <Pressable style={[rcS.card, { borderColor: rc + "55" }]} onPress={manageable ? onPress : undefined}>
       <View style={rcS.img}>
         {result.kind === "equipment" && result.item && (
           <ItemImage slot={result.item.slot} rarity={result.item.rarity} tier={result.item.tier} quality={result.item.quality} size={40} />
@@ -122,7 +126,10 @@ function ResultCard({ result }: { result: CraftResult }) {
         <Text style={[rcS.label, { color: rc }]} numberOfLines={1}>{label}</Text>
         <Text style={rcS.sub}>{sub}</Text>
       </View>
-    </View>
+      {manageable && onPress && (
+        <Text style={rcS.tapHint}>TAP →</Text>
+      )}
+    </Pressable>
   );
 }
 const rcS = StyleSheet.create({
@@ -131,16 +138,22 @@ const rcS = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   label: { fontSize: 12, fontFamily: "Inter_700Bold" },
   sub: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  tapHint: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
 });
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-interface Props { visible: boolean; onClose: () => void; }
+interface Props {
+  visible: boolean;
+  onClose: () => void;
+  onListItemOnAh?: (item: GameItem) => void;
+  onListPotionOnAh?: (potion: Potion) => void;
+}
 
 const INITIAL_ALLOCATION: Record<MaterialType, number> = { Wood: 0, Ore: 0, Herb: 0, Leather: 0 };
 
-export function CraftingModal({ visible, onClose }: Props) {
-  const { gameState, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs } = useGame();
+export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOnAh }: Props) {
+  const { gameState, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, equipItem, removeItemFromBag, salvageItem, sellItemToNpc, consumePotion } = useGame();
   const char = gameState.character;
   const skill = char.craftingSkill;
 
@@ -149,6 +162,7 @@ export function CraftingModal({ visible, onClose }: Props) {
   const [allocation, setAllocation] = useState<Record<MaterialType, number>>({ ...INITIAL_ALLOCATION });
   const [now, setNow] = useState(Date.now());
   const [lastCollected, setLastCollected] = useState<CraftResult[] | null>(null);
+  const [selectedCraftResult, setSelectedCraftResult] = useState<CraftResult | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -238,6 +252,7 @@ export function CraftingModal({ visible, onClose }: Props) {
   const rc = RARITY_COLORS[selectedRarity];
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={s.overlay}>
         <View style={s.sheet}>
@@ -316,7 +331,9 @@ export function CraftingModal({ visible, onClose }: Props) {
                 <Text style={[s.sectionLabel, { color: Colors.game.gold, marginTop: 14 }]}>
                   COLLECTED ({lastCollected.length})
                 </Text>
-                {lastCollected.map((r, i) => <ResultCard key={i} result={r} />)}
+                {lastCollected.map((r, i) => (
+                  <ResultCard key={i} result={r} onPress={() => setSelectedCraftResult(r)} />
+                ))}
               </>
             )}
 
@@ -492,6 +509,49 @@ export function CraftingModal({ visible, onClose }: Props) {
         </View>
       </View>
     </Modal>
+
+    {selectedCraftResult?.kind === "equipment" && selectedCraftResult.item && (
+      <ItemBagModal
+        item={selectedCraftResult.item}
+        onClose={() => setSelectedCraftResult(null)}
+        onEquip={() => {
+          const item = selectedCraftResult.item!;
+          equipItem(item);
+          removeItemFromBag(item.id);
+          setSelectedCraftResult(null);
+        }}
+        onSalvage={() => {
+          salvageItem(selectedCraftResult.item!.id);
+          setSelectedCraftResult(null);
+        }}
+        onSellToNpc={() => {
+          sellItemToNpc(selectedCraftResult.item!.id);
+          setSelectedCraftResult(null);
+        }}
+        onSellOnAh={onListItemOnAh && selectedCraftResult.item.tradable ? () => {
+          const item = selectedCraftResult.item!;
+          setSelectedCraftResult(null);
+          onListItemOnAh(item);
+        } : undefined}
+      />
+    )}
+
+    {selectedCraftResult?.kind === "potion" && selectedCraftResult.potion && (
+      <PotionBagModal
+        potion={selectedCraftResult.potion}
+        onClose={() => setSelectedCraftResult(null)}
+        onConsume={() => {
+          consumePotion(selectedCraftResult.potion!);
+          setSelectedCraftResult(null);
+        }}
+        onSellOnAh={onListPotionOnAh && selectedCraftResult.potion.tradable ? () => {
+          const potion = selectedCraftResult.potion!;
+          setSelectedCraftResult(null);
+          onListPotionOnAh(potion);
+        } : undefined}
+      />
+    )}
+    </>
   );
 }
 

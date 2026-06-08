@@ -324,13 +324,11 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
               {char.activeBuffs.length > 0 && (
                 <View style={{ marginBottom: 10, gap: 6 }}>
                   {char.activeBuffs.map((buff) => {
-                    const now = Date.now();
-                    const remaining = Math.max(0, Math.ceil((buff.expiresAt - now) / 1000));
                     const label = buff.type === "Gold" ? "🟡 Gold Boost" : buff.type === "XP" ? "✨ XP Boost" : "⚡ Speed Boost";
                     const color = buff.type === "Gold" ? Colors.game.gold : buff.type === "XP" ? Colors.game.purpleLight : Colors.game.blue;
                     return (
                       <View key={buff.type} style={[styles.buffBadge, { borderColor: color }]}>
-                        <Text style={[styles.buffText, { color }]}>{label} · {Math.round((buff.multiplier - 1) * 100)}% · {remaining}s left</Text>
+                        <Text style={[styles.buffText, { color }]}>{label} · {Math.round((buff.multiplier - 1) * 100)}%</Text>
                       </View>
                     );
                   })}
@@ -617,6 +615,31 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             setSelectedChest(null);
             onListChestOnAh(c);
           } : undefined}
+          onEquipItem={(item) => {
+            addItemToBag(item);
+            equipItem(item);
+            removeItemFromBag(item.id);
+            removeChestFromBag(selectedChest!.id);
+            setSelectedChest(null);
+          }}
+          onSalvageItem={(item) => {
+            addItemToBag(item);
+            salvageItem(item.id);
+            removeChestFromBag(selectedChest!.id);
+            setSelectedChest(null);
+          }}
+          onSellItemToNpc={(item) => {
+            addItemToBag(item);
+            sellItemToNpc(item.id);
+            removeChestFromBag(selectedChest!.id);
+            setSelectedChest(null);
+          }}
+          onConsumePotion={(potion) => {
+            addPotionToBag(potion as any);
+            consumePotion(potion);
+            removeChestFromBag(selectedChest!.id);
+            setSelectedChest(null);
+          }}
         />
       )}
 

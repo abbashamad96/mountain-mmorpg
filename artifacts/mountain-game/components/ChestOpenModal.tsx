@@ -42,6 +42,10 @@ interface ChestOpenModalProps {
   onClaim: (drop: FullChestDrop) => void;
   onClose?: () => void;
   onSellOnAh?: () => void;
+  onEquipItem?: (item: GameItem) => void;
+  onSalvageItem?: (item: GameItem) => void;
+  onSellItemToNpc?: (item: GameItem) => void;
+  onConsumePotion?: (potion: Potion) => void;
 }
 
 const RARITY_LABELS: Record<string, string> = {
@@ -66,7 +70,7 @@ const OPEN_MESSAGES: Record<string, string> = {
   Cosmic:    "The cosmos pour forth!",
 };
 
-export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpenModalProps) {
+export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipItem, onSalvageItem, onSellItemToNpc, onConsumePotion }: ChestOpenModalProps) {
   const [phase, setPhase] = useState<"idle" | "opening" | "revealed">("idle");
   const [revealedDrop, setRevealedDrop] = useState<FullChestDrop | null>(null);
 
@@ -243,6 +247,38 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                   )}
                 </ScrollView>
               </View>
+              {(onEquipItem || (onSellOnAh && (revealedDrop as GameItem).tradable) || onSalvageItem || onSellItemToNpc) && (
+                <View style={styles.actionBlock}>
+                  {(onEquipItem || (onSellOnAh && (revealedDrop as GameItem).tradable)) && (
+                    <View style={styles.actionRow}>
+                      {onEquipItem && (
+                        <Pressable style={[styles.claimBtn, styles.actionHalf, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onEquipItem(revealedDrop as GameItem)}>
+                          <Text style={[styles.claimBtnTxt, { color: dropRc }]}>EQUIP</Text>
+                        </Pressable>
+                      )}
+                      {onSellOnAh && (revealedDrop as GameItem).tradable && (
+                        <Pressable style={[styles.claimBtn, styles.actionHalf, styles.ahBtn]} onPress={onSellOnAh}>
+                          <Text style={[styles.claimBtnTxt, styles.ahTxt]}>LIST ON AH</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                  {(onSalvageItem || onSellItemToNpc) && (
+                    <View style={styles.actionRow}>
+                      {onSalvageItem && (
+                        <Pressable style={[styles.claimBtn, styles.actionHalf, styles.salvageBtn]} onPress={() => onSalvageItem(revealedDrop as GameItem)}>
+                          <Text style={[styles.claimBtnTxt, styles.salvageTxt]}>SALVAGE</Text>
+                        </Pressable>
+                      )}
+                      {onSellItemToNpc && (
+                        <Pressable style={[styles.claimBtn, styles.actionHalf, styles.npcBtn]} onPress={() => onSellItemToNpc(revealedDrop as GameItem)}>
+                          <Text style={[styles.claimBtnTxt, styles.npcTxt]}>SELL TO NPC</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
               <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
                 <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
               </Pressable>
@@ -281,6 +317,20 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh }: ChestOpe
                   </Text>
                 </View>
               </View>
+              {(onConsumePotion || (onSellOnAh && (revealedDrop as Potion).tradable)) && (
+                <View style={styles.actionRow}>
+                  {onConsumePotion && (
+                    <Pressable style={[styles.claimBtn, styles.actionHalf, styles.consumeBtn]} onPress={() => onConsumePotion(revealedDrop as Potion)}>
+                      <Text style={[styles.claimBtnTxt, styles.consumeTxt]}>CONSUME</Text>
+                    </Pressable>
+                  )}
+                  {onSellOnAh && (revealedDrop as Potion).tradable && (
+                    <Pressable style={[styles.claimBtn, styles.actionHalf, styles.ahBtn]} onPress={onSellOnAh}>
+                      <Text style={[styles.claimBtnTxt, styles.ahTxt]}>LIST ON AH</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
               <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
                 <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
               </Pressable>
@@ -400,8 +450,19 @@ const styles = StyleSheet.create({
   pctVal:  { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.gold },
   noStat:  { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim, fontStyle: "italic" },
   potionDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
-  claimBtn: { width: "100%", borderWidth: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
+  claimBtn: { borderWidth: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
   claimBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },
+  actionBlock: { width: "100%", gap: 8 },
+  actionRow: { flexDirection: "row", gap: 8, width: "100%" },
+  actionHalf: { flex: 1 },
+  ahBtn: { borderColor: "#F59E0B", backgroundColor: "rgba(245,158,11,0.08)" },
+  ahTxt: { color: "#F59E0B" },
+  salvageBtn: { borderColor: "#7C6544", backgroundColor: "rgba(124,101,68,0.15)" },
+  salvageTxt: { color: "#C4A06A" },
+  npcBtn: { borderColor: "#4ade8088", backgroundColor: "rgba(74,222,128,0.08)" },
+  npcTxt: { color: "#4ade80" },
+  consumeBtn: { borderColor: "#4ade8088", backgroundColor: "rgba(74,222,128,0.08)" },
+  consumeTxt: { color: "#4ade80" },
   closeBtn: {
     width: "100%", backgroundColor: Colors.game.surface,
     borderRadius: 14, paddingVertical: 12,

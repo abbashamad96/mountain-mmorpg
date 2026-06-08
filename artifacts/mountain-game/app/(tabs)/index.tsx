@@ -40,7 +40,7 @@ import {
   getEffectiveStats,
   ActiveBuff,
 } from "@/context/GameContext";
-import { GameItem, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPotionName, ChestDrop } from "@/lib/items";
+import { GameItem, Potion, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPotionName, ChestDrop } from "@/lib/items";
 import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
 import { FullChestDrop } from "@/components/ChestOpenModal";
 import { useMultiplayer } from "@/context/MultiplayerContext";
@@ -614,7 +614,7 @@ export default function GameScreen() {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
     incrementEvents, loadState, resetGameState,
     addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
-    addToolToBag, consumePotion,
+    addToolToBag, consumePotion, equipItem, removeItemFromBag, salvageItem, sellItemToNpc,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -1021,8 +1021,9 @@ export default function GameScreen() {
     [applyGoldXp, addLogEntry]
   );
 
-  const handleCollectBattleDrops = useCallback(() => {
-    for (const drop of battleDrops) {
+  const handleCollectBattleDrops = useCallback((handledIndices: Set<number> = new Set()) => {
+    battleDrops.forEach((drop, idx) => {
+      if (handledIndices.has(idx)) return;
       if (drop.type === "material") {
         const mats = Array.from({ length: drop.count }, () => ({ ...drop.material }));
         addMaterials(mats);
@@ -1036,7 +1037,7 @@ export default function GameScreen() {
       } else if (drop.type === "tool") {
         addToolToBag(drop.tool);
       }
-    }
+    });
     setShowBattleDrops(false);
     setBattleDrops([]);
     if (!battleDrops.some((d) => d.type === "chest")) {
@@ -1105,9 +1106,23 @@ export default function GameScreen() {
     } else if (drop.type === "chest") {
       setPreSelectChestForAh(drop.chest);
     }
-    handleCollectBattleDrops();
     setShowAuction(true);
-  }, [handleCollectBattleDrops]);
+  }, []);
+
+  const handleBattleDropListItemOnAh = useCallback((item: GameItem) => {
+    setPreSelectItemForAh(item);
+    setShowAuction(true);
+  }, []);
+
+  const handleBattleDropListPotionOnAh = useCallback((potion: Potion) => {
+    setPreSelectPotionForAh(potion);
+    setShowAuction(true);
+  }, []);
+
+  const handleBattleDropListToolOnAh = useCallback((tool: GatheringTool) => {
+    setPreSelectToolForAh(tool);
+    setShowAuction(true);
+  }, []);
 
   const handleChestDropCollect = useCallback((chest: ItemChest) => {
     addChestToBag(chest);
@@ -1285,6 +1300,16 @@ export default function GameScreen() {
       <CraftingModal
         visible={showCrafting}
         onClose={() => setShowCrafting(false)}
+        onListItemOnAh={(item) => {
+          setPreSelectItemForAh(item);
+          setShowAuction(true);
+          setShowCrafting(false);
+        }}
+        onListPotionOnAh={(potion) => {
+          setPreSelectPotionForAh(potion);
+          setShowAuction(true);
+          setShowCrafting(false);
+        }}
       />
       <AuctionHouseModal
         visible={showAuction}
@@ -1352,6 +1377,43 @@ export default function GameScreen() {
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
             cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
           }}
+          onEquipItem={(item) => {
+            addItemToBag(item);
+            equipItem(item);
+            removeItemFromBag(item.id);
+            pushToast(`Equipped ${formatItemName(item)}`, false);
+            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and equipped ${formatItemName(item)}`, goldGained: 0, xpGained: 0, material: null, itemDrop: item, chest: autoOpenChest });
+            setAutoOpenChest(null);
+            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+          }}
+          onSalvageItem={(item) => {
+            addItemToBag(item);
+            salvageItem(item.id);
+            pushToast(`Salvaged ${formatItemName(item)}`, false);
+            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and salvaged ${formatItemName(item)}`, goldGained: 0, xpGained: 0, material: null, chest: autoOpenChest });
+            setAutoOpenChest(null);
+            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+          }}
+          onSellItemToNpc={(item) => {
+            addItemToBag(item);
+            sellItemToNpc(item.id);
+            pushToast(`Sold ${formatItemName(item)} to NPC`, false);
+            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and sold ${formatItemName(item)} to NPC`, goldGained: 0, xpGained: 0, material: null, chest: autoOpenChest });
+            setAutoOpenChest(null);
+            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+          }}
+          onConsumePotion={(potion) => {
+            addPotionToBag(potion as any);
+            consumePotion(potion as any);
+            pushToast(`Consumed ${formatPotionName(potion as any)}`, false);
+            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and consumed ${formatPotionName(potion as any)}`, goldGained: 0, xpGained: 0, material: null, chest: autoOpenChest });
+            setAutoOpenChest(null);
+            if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+          }}
         />
       )}
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
@@ -1389,6 +1451,9 @@ export default function GameScreen() {
         onCollectAll={handleCollectBattleDrops}
         onClose={handleCloseBattleDrops}
         onListOnAh={handleListBattleDropOnAh}
+        onListItemOnAh={handleBattleDropListItemOnAh}
+        onListPotionOnAh={handleBattleDropListPotionOnAh}
+        onListToolOnAh={handleBattleDropListToolOnAh}
       />
 
       {/* Offline / disconnected overlay — Modal so it renders above all RN modals.

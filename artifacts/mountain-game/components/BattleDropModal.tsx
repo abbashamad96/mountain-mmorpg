@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Modal,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { Material, RARITY_COLORS, RarityName } from "@/context/GameContext";
+import { Material, RARITY_COLORS, useGame } from "@/context/GameContext";
 import {
   formatChestName,
   formatItemName,
@@ -25,13 +25,15 @@ import {
   formatToolName,
   GatheringTool,
   TOOL_ICONS,
+  TOOL_LEVEL_REQ,
   TOOL_MATERIAL_MAP,
-  TOOL_NAMES,
   TOOL_RARITY_COLORS,
 } from "@/lib/tools";
 import { ChestImage } from "./ChestImage";
+import { ItemBagModal } from "./ItemBagModal";
 import { ItemImage } from "./ItemImage";
 import { MaterialImage } from "./MaterialImage";
+import { PotionBagModal } from "./PotionBagModal";
 import { PotionImage } from "./PotionImage";
 import { ToolImage } from "./ToolImage";
 
@@ -48,9 +50,12 @@ interface BattleDropModalProps {
   visible: boolean;
   npcName: string;
   drops: BattleDrop[];
-  onCollectAll: () => void;
+  onCollectAll: (handledIndices: Set<number>) => void;
   onClose: () => void;
   onListOnAh?: (drop: BattleDrop) => void;
+  onListItemOnAh?: (item: GameItem) => void;
+  onListPotionOnAh?: (potion: Potion) => void;
+  onListToolOnAh?: (tool: GatheringTool) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -62,12 +67,45 @@ export function BattleDropModal({
   onCollectAll,
   onClose,
   onListOnAh,
+  onListItemOnAh,
+  onListPotionOnAh,
+  onListToolOnAh,
 }: BattleDropModalProps) {
+  const {
+    addItemToBag,
+    addPotionToBag,
+    addToolToBag,
+    equipItem,
+    removeItemFromBag,
+    consumePotion,
+    sellItemToNpc,
+    equipGatheringTool,
+    gameState,
+  } = useGame();
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
+  const handledRef = useRef<Set<number>>(new Set());
+  const [handledDrops, setHandledDrops] = useState<Set<number>>(new Set());
+  const [selectedItemDrop, setSelectedItemDrop] = useState<{ item: GameItem; idx: number } | null>(null);
+  const [selectedPotionDrop, setSelectedPotionDrop] = useState<{ potion: Potion; idx: number } | null>(null);
+  const [selectedToolDrop, setSelectedToolDrop] = useState<{ tool: GatheringTool; idx: number } | null>(null);
+
+  function markHandled(idx: number) {
+    const next = new Set([...handledRef.current, idx]);
+    handledRef.current = next;
+    setHandledDrops(next);
+  }
+
   useEffect(() => {
     if (visible) {
+      const empty = new Set<number>();
+      handledRef.current = empty;
+      setHandledDrops(empty);
+      setSelectedItemDrop(null);
+      setSelectedPotionDrop(null);
+      setSelectedToolDrop(null);
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.85);
       Animated.parallel([
@@ -78,6 +116,8 @@ export function BattleDropModal({
   }, [visible]);
 
   if (!visible || drops.length === 0) return null;
+
+  const playerLevel = gameState.character.level;
 
   return (
     <Modal transparent visible animationType="none">
@@ -96,32 +136,225 @@ export function BattleDropModal({
             contentContainerStyle={{ gap: 10, paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}
           >
-            {drops.map((drop, idx) => (
-              <DropCard
-                key={idx}
-                drop={drop}
-                onListOnAh={onListOnAh ? () => {
-                  onListOnAh(drop);
-                } : undefined}
-              />
-            ))}
+            {drops.map((drop, idx) => {
+              const claimed = handledDrops.has(idx);
+
+              if (drop.type === "material") {
+                return (
+                  <DropCard
+                    key={idx}
+                    drop={drop}
+                    claimed={claimed}
+                    onListOnAh={onListOnAh ? () => {
+                      onCollectAll(handledRef.current);
+                      onListOnAh(drop);
+                    } : undefined}
+                  />
+                );
+              }
+
+              if (drop.type === "chest") {
+                return (
+                  <DropCard
+                    key={idx}
+                    drop={drop}
+                    claimed={claimed}
+                    onListOnAh={onListOnAh ? () => {
+                      onCollectAll(handledRef.current);
+                      onListOnAh(drop);
+                    } : undefined}
+                  />
+                );
+              }
+
+              if (drop.type === "item") {
+                return (
+                  <DropCard
+                    key={idx}
+                    drop={drop}
+                    claimed={claimed}
+                    onPress={() => {
+                      if (!handledRef.current.has(idx)) {
+                        addItemToBag(drop.item);
+                        markHandled(idx);
+                      }
+                      setSelectedItemDrop({ item: drop.item, idx });
+                    }}
+                  />
+                );
+              }
+
+              if (drop.type === "potion") {
+                return (
+                  <DropCard
+                    key={idx}
+                    drop={drop}
+                    claimed={claimed}
+                    onPress={() => {
+                      if (!handledRef.current.has(idx)) {
+                        addPotionToBag(drop.potion);
+                        markHandled(idx);
+                      }
+                      setSelectedPotionDrop({ potion: drop.potion, idx });
+                    }}
+                  />
+                );
+              }
+
+              if (drop.type === "tool") {
+                return (
+                  <DropCard
+                    key={idx}
+                    drop={drop}
+                    claimed={claimed}
+                    onPress={() => {
+                      if (!handledRef.current.has(idx)) {
+                        addToolToBag(drop.tool);
+                        markHandled(idx);
+                      }
+                      setSelectedToolDrop({ tool: drop.tool, idx });
+                    }}
+                  />
+                );
+              }
+
+              return null;
+            })}
           </ScrollView>
 
-          {/* Actions */}
+          {/* Footer */}
           <View style={styles.actions}>
-            <Pressable style={styles.closeBtn} onPress={onCollectAll}>
+            <Pressable style={styles.closeBtn} onPress={() => onCollectAll(handledRef.current)}>
               <Text style={styles.closeBtnText}>CLOSE</Text>
             </Pressable>
           </View>
         </Animated.View>
       </Animated.View>
+
+      {/* ── Item options ── */}
+      {selectedItemDrop && (
+        <ItemBagModal
+          item={selectedItemDrop.item}
+          onClose={() => setSelectedItemDrop(null)}
+          onEquip={() => {
+            equipItem(selectedItemDrop.item);
+            removeItemFromBag(selectedItemDrop.item.id);
+            setSelectedItemDrop(null);
+          }}
+          onSalvage={() => setSelectedItemDrop(null)}
+          onSellToNpc={() => {
+            sellItemToNpc(selectedItemDrop.item.id);
+            setSelectedItemDrop(null);
+          }}
+          onSellOnAh={onListItemOnAh && selectedItemDrop.item.tradable ? () => {
+            const item = selectedItemDrop.item;
+            setSelectedItemDrop(null);
+            onCollectAll(handledRef.current);
+            onListItemOnAh(item);
+          } : undefined}
+        />
+      )}
+
+      {/* ── Potion options ── */}
+      {selectedPotionDrop && (
+        <PotionBagModal
+          potion={selectedPotionDrop.potion}
+          onClose={() => setSelectedPotionDrop(null)}
+          onConsume={() => {
+            consumePotion(selectedPotionDrop.potion);
+            setSelectedPotionDrop(null);
+          }}
+          onSellOnAh={onListPotionOnAh && selectedPotionDrop.potion.tradable ? () => {
+            const potion = selectedPotionDrop.potion;
+            setSelectedPotionDrop(null);
+            onCollectAll(handledRef.current);
+            onListPotionOnAh(potion);
+          } : undefined}
+        />
+      )}
+
+      {/* ── Tool options ── */}
+      {selectedToolDrop && (() => {
+        const { tool } = selectedToolDrop;
+        const rc = TOOL_RARITY_COLORS[tool.rarity] ?? "#9CA3AF";
+        const req = tool.levelRequirement ?? TOOL_LEVEL_REQ[tool.rarity] ?? 0;
+        const meetsLevel = playerLevel >= req;
+        return (
+          <Modal transparent visible animationType="fade" onRequestClose={() => setSelectedToolDrop(null)}>
+            <Pressable style={styles.overlay} onPress={() => setSelectedToolDrop(null)}>
+              <Pressable style={[styles.toolCard, { borderColor: rc + "88" }]} onPress={e => e.stopPropagation()}>
+                <ToolImage type={tool.type} rarity={tool.rarity} size={72} compact />
+                <Text style={[styles.toolName, { color: rc }]} numberOfLines={1}>{formatToolName(tool)}</Text>
+                <View style={styles.toolTagRow}>
+                  <View style={[styles.toolTag, { borderColor: rc }]}>
+                    <Text style={[styles.toolTagTxt, { color: rc }]}>{tool.rarity.toUpperCase()}</Text>
+                  </View>
+                  <View style={[styles.toolTag, { borderColor: "#555" }]}>
+                    <Text style={[styles.toolTagTxt, { color: "#aaa" }]}>
+                      {TOOL_ICONS[tool.type]} {TOOL_MATERIAL_MAP[tool.type]}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.toolStats}>
+                  {tool.effectChance}% +{tool.effectMinBonus}–{tool.effectMaxBonus} mats  ·  {tool.passiveChance}% sweep
+                </Text>
+                {req > 0 && (
+                  <Text style={[styles.toolReq, !meetsLevel && styles.toolReqFail]}>
+                    Req. Lv {req}{meetsLevel ? " ✓" : " ✗"}
+                  </Text>
+                )}
+                <View style={styles.toolActions}>
+                  <Pressable
+                    style={[styles.toolActionBtn, meetsLevel ? { borderColor: rc, backgroundColor: rc + "22" } : styles.toolBtnDim]}
+                    onPress={meetsLevel ? () => {
+                      equipGatheringTool(tool);
+                      setSelectedToolDrop(null);
+                    } : undefined}
+                    disabled={!meetsLevel}
+                  >
+                    <Text style={[styles.toolActionTxt, { color: meetsLevel ? rc : Colors.game.textMuted }]}>
+                      {meetsLevel ? "EQUIP" : `LV ${req} REQ`}
+                    </Text>
+                  </Pressable>
+                  {tool.tradable && onListToolOnAh && (
+                    <Pressable
+                      style={[styles.toolActionBtn, styles.toolAhBtn]}
+                      onPress={() => {
+                        const t = tool;
+                        setSelectedToolDrop(null);
+                        onCollectAll(handledRef.current);
+                        onListToolOnAh(t);
+                      }}
+                    >
+                      <Text style={styles.toolAhTxt}>LIST ON AH</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <Pressable style={styles.toolCloseBtn} onPress={() => setSelectedToolDrop(null)}>
+                  <Text style={styles.toolCloseTxt}>CLOSE</Text>
+                </Pressable>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        );
+      })()}
     </Modal>
   );
 }
 
-// ─── Drop card ──────────────────────────────────────────────────────────────
+// ─── Drop Card ──────────────────────────────────────────────────────────────
 
-function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => void }) {
+function DropCard({
+  drop,
+  onListOnAh,
+  onPress,
+  claimed,
+}: {
+  drop: BattleDrop;
+  onListOnAh?: () => void;
+  onPress?: () => void;
+  claimed?: boolean;
+}) {
   if (drop.type === "material") {
     const rc = RARITY_COLORS[drop.material.rarity];
     return (
@@ -163,7 +396,12 @@ function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => v
     const hasStats = Object.values(drop.item.stats).some((v) => v > 0) ||
       Object.values(drop.item.percentStats).some((v) => v > 0);
     return (
-      <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
+      <Pressable style={[styles.dropCard, { borderColor: rc + "55" }]} onPress={onPress}>
+        {claimed && (
+          <View style={styles.claimedBadge}>
+            <Text style={styles.claimedTxt}>✓ IN BAG</Text>
+          </View>
+        )}
         <View style={styles.dropRow}>
           <ItemImage
             slot={drop.item.slot}
@@ -196,19 +434,24 @@ function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => v
             )}
           </View>
         )}
-        {onListOnAh && (
-          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
-            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
-          </Pressable>
+        {!claimed && (
+          <View style={styles.tapHint}>
+            <Text style={styles.tapHintTxt}>TAP TO MANAGE →</Text>
+          </View>
         )}
-      </View>
+      </Pressable>
     );
   }
 
   if (drop.type === "potion") {
     const rc = ITEM_RARITY_COLORS[drop.potion.rarity];
     return (
-      <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
+      <Pressable style={[styles.dropCard, { borderColor: rc + "55" }]} onPress={onPress}>
+        {claimed && (
+          <View style={styles.claimedBadge}>
+            <Text style={styles.claimedTxt}>✓ IN BAG</Text>
+          </View>
+        )}
         <View style={styles.dropRow}>
           <PotionImage type={drop.potion.type} rarity={drop.potion.rarity} tier={drop.potion.tier} size={56} compact />
           <View style={styles.dropInfo}>
@@ -220,12 +463,12 @@ function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => v
             </Text>
           </View>
         </View>
-        {onListOnAh && (
-          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
-            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
-          </Pressable>
+        {!claimed && (
+          <View style={styles.tapHint}>
+            <Text style={styles.tapHintTxt}>TAP TO MANAGE →</Text>
+          </View>
         )}
-      </View>
+      </Pressable>
     );
   }
 
@@ -254,7 +497,12 @@ function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => v
   if (drop.type === "tool") {
     const rc = TOOL_RARITY_COLORS[drop.tool.rarity] ?? "#9CA3AF";
     return (
-      <View style={[styles.dropCard, { borderColor: rc + "55" }]}>
+      <Pressable style={[styles.dropCard, { borderColor: rc + "55" }]} onPress={onPress}>
+        {claimed && (
+          <View style={styles.claimedBadge}>
+            <Text style={styles.claimedTxt}>✓ IN BAG</Text>
+          </View>
+        )}
         <View style={styles.dropRow}>
           <ToolImage type={drop.tool.type} rarity={drop.tool.rarity} size={56} compact />
           <View style={styles.dropInfo}>
@@ -272,12 +520,12 @@ function DropCard({ drop, onListOnAh }: { drop: BattleDrop; onListOnAh?: () => v
             <Text style={[styles.toolBadgeTxt, { color: rc }]}>TOOL</Text>
           </View>
         </View>
-        {onListOnAh && (
-          <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
-            <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
-          </Pressable>
+        {!claimed && (
+          <View style={styles.tapHint}>
+            <Text style={styles.tapHintTxt}>TAP TO MANAGE →</Text>
+          </View>
         )}
-      </View>
+      </Pressable>
     );
   }
 
@@ -402,7 +650,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   ahCardBtn: {
-    marginTop: 8,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: Colors.game.blue + "88",
     borderRadius: 10,
@@ -415,5 +663,122 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: Colors.game.blue,
     letterSpacing: 1,
+  },
+  claimedBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: Colors.game.green + "33",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.game.green + "66",
+    zIndex: 1,
+  },
+  claimedTxt: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.green,
+    letterSpacing: 0.5,
+  },
+  tapHint: {
+    alignItems: "flex-end",
+  },
+  tapHintTxt: {
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
+    letterSpacing: 0.5,
+  },
+  toolCard: {
+    backgroundColor: Colors.game.surfaceAlt,
+    borderRadius: 20,
+    borderWidth: 2,
+    padding: 20,
+    width: "90%",
+    maxWidth: 340,
+    alignItems: "center",
+    gap: 10,
+  },
+  toolName: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  toolTagRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  toolTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  toolTagTxt: {
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1,
+  },
+  toolStats: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+    textAlign: "center",
+  },
+  toolReq: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.green,
+  },
+  toolReqFail: {
+    color: "#F87171",
+  },
+  toolActions: {
+    flexDirection: "row",
+    gap: 8,
+    width: "100%",
+  },
+  toolActionBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  toolActionTxt: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 1.5,
+  },
+  toolBtnDim: {
+    opacity: 0.4,
+    borderColor: Colors.game.border,
+  },
+  toolAhBtn: {
+    borderColor: Colors.game.gold,
+    backgroundColor: "rgba(201,168,76,0.10)",
+  },
+  toolAhTxt: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
+    letterSpacing: 1.5,
+  },
+  toolCloseBtn: {
+    width: "100%",
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+  },
+  toolCloseTxt: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+    letterSpacing: 2,
   },
 });
