@@ -574,6 +574,13 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             </ScrollView>
           )}
 
+          {/* ── Tools tab ─────────────────────────────────────────────── */}
+          {activeTab === "tools" && (
+            <View style={styles.tabContent}>
+              <ToolsTab onListOnAh={onListToolOnAh} />
+            </View>
+          )}
+
           <Pressable style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>CLOSE</Text>
           </Pressable>
@@ -626,12 +633,6 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             onListItemOnAh(item);
           } : undefined}
         />
-      )}
-
-      {activeTab === "tools" && (
-        <View style={styles.tabContent}>
-          <ToolsTab onListOnAh={onListToolOnAh} />
-        </View>
       )}
 
       {selectedPotion && (
