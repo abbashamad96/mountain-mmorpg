@@ -22,6 +22,7 @@ import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
 import { ToolShopModal } from "@/components/ToolShopModal";
+import { QuickPotionPicker } from "@/components/QuickPotionPicker";
 import { TimerBar } from "@/components/TimerBar";
 import Colors from "@/constants/colors";
 import {
@@ -603,7 +604,7 @@ export default function GameScreen() {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
     incrementEvents, loadState, resetGameState,
     addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
-    addToolToBag,
+    addToolToBag, consumePotion,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -1224,6 +1225,10 @@ export default function GameScreen() {
           artIndex={artIndex}
           onPress={handleScenePress}
           disabled={isInteracting}
+        />
+        <QuickPotionPicker
+          potionBag={char.potionBag}
+          onUse={consumePotion}
         />
       </View>
 
