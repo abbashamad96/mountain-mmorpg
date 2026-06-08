@@ -174,7 +174,7 @@ function ItemDetailModal({
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh }: StatsModalProps) {
-  const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag } = useGame();
+  const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag, salvageItem, sellItemToNpc } = useGame();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
@@ -634,6 +634,14 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
             setSelectedBagItem(null);
             onListItemOnAh(item);
           } : undefined}
+          onSalvage={() => {
+            salvageItem(selectedBagItem.id);
+            setSelectedBagItem(null);
+          }}
+          onSellToNpc={() => {
+            sellItemToNpc(selectedBagItem.id);
+            setSelectedBagItem(null);
+          }}
         />
       )}
 

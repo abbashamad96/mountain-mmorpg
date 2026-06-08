@@ -11,6 +11,10 @@ import {
   CraftingSkill, CraftResult, rollCraftResult,
   CRAFTING_MATERIALS_NEEDED, CRAFTING_XP_REWARDS, applyXpToCraftingSkill,
 } from "@/lib/crafting";
+import {
+  SalvagingSkill, SalvageResult, rollSalvageYield,
+  SALVAGE_XP_REWARDS, SALVAGE_NPC_PRICES, applySalvagingXp,
+} from "@/lib/salvaging";
 
 export type { GameItem, ItemSlot, ItemStatBlock, ItemChest, Potion, ChestDrop };
 
@@ -144,6 +148,7 @@ export interface Character {
   equippedTools: Partial<Record<ToolType, GatheringTool>>;
   toolBag: GatheringTool[];
   craftingSkill: CraftingSkill;
+  salvagingSkill: SalvagingSkill;
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -495,6 +500,7 @@ const defaultCharacter: Character = {
   equippedTools: {},
   toolBag: [],
   craftingSkill: { level: 1, xp: 0 },
+  salvagingSkill: { level: 1, xp: 0 },
 };
 
 const defaultGameState: GameState = {
@@ -535,6 +541,8 @@ interface GameContextType {
   equipGatheringTool: (tool: GatheringTool) => void;
   unequipGatheringTool: (type: ToolType) => void;
   craftItem: (rarity: RarityName, tier: VersionNum) => CraftResult | null;
+  salvageItem: (itemId: string) => SalvageResult | null;
+  sellItemToNpc: (itemId: string) => number | null;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -567,6 +575,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           equippedTools: saved.character?.equippedTools ?? {},
           toolBag: saved.character?.toolBag ?? [],
           craftingSkill: saved.character?.craftingSkill ?? { level: 1, xp: 0 },
+          salvagingSkill: saved.character?.salvagingSkill ?? { level: 1, xp: 0 },
         };
         setGameState({ ...defaultGameState, ...saved, character: char });
       } catch {
@@ -761,6 +770,52 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
+  const salvageItem = useCallback((itemId: string): SalvageResult | null => {
+    const char = stateRef.current.character;
+    const item = char.itemBag.find((i) => i.id === itemId);
+    if (!item) return null;
+
+    const result = rollSalvageYield(item.rarity as any, item.tier as any, char.salvagingSkill.level);
+    const xpGained = SALVAGE_XP_REWARDS[item.rarity as keyof typeof SALVAGE_XP_REWARDS] ?? 5;
+
+    setGameState((prev) => {
+      const itemBag = prev.character.itemBag.filter((i) => i.id !== itemId);
+      const newSkill = applySalvagingXp(prev.character.salvagingSkill, xpGained);
+
+      // Merge salvaged materials into existing stack
+      let materials = [...prev.character.materials];
+      for (const mat of result.materials) {
+        const existing = materials.findIndex(
+          (e) => e.material.type === mat.type && e.material.rarity === mat.rarity && e.material.version === mat.tier,
+        );
+        if (existing >= 0) {
+          materials = materials.map((e, i) => i === existing ? { ...e, count: e.count + mat.count } : e);
+        } else {
+          materials = [...materials, { material: { type: mat.type, rarity: mat.rarity, version: mat.tier }, count: mat.count }];
+        }
+      }
+
+      return { ...prev, character: { ...prev.character, itemBag, materials, salvagingSkill: newSkill } };
+    });
+
+    return result;
+  }, []);
+
+  const sellItemToNpc = useCallback((itemId: string): number | null => {
+    const char = stateRef.current.character;
+    const item = char.itemBag.find((i) => i.id === itemId);
+    if (!item) return null;
+
+    const gold = SALVAGE_NPC_PRICES[item.rarity as keyof typeof SALVAGE_NPC_PRICES] ?? 1000;
+
+    setGameState((prev) => {
+      const itemBag = prev.character.itemBag.filter((i) => i.id !== itemId);
+      return { ...prev, character: { ...prev.character, itemBag, gold: prev.character.gold + gold } };
+    });
+
+    return gold;
+  }, []);
+
   const unequipGatheringTool = useCallback((type: ToolType) => {
     setGameState((prev) => {
       const tool = prev.character.equippedTools[type];
@@ -829,6 +884,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       potionBag: saved.character?.potionBag ?? [],
       activeBuffs: saved.character?.activeBuffs ?? [],
       craftingSkill: saved.character?.craftingSkill ?? { level: 1, xp: 0 },
+      salvagingSkill: saved.character?.salvagingSkill ?? { level: 1, xp: 0 },
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -842,7 +898,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc }}
     >
       {children}
     </GameContext.Provider>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Modal,
   Pressable,
@@ -15,12 +15,21 @@ import {
   ITEM_RARITY_COLORS,
   ITEM_SLOT_ICONS,
 } from "@/lib/items";
+import { SALVAGE_NPC_PRICES } from "@/lib/salvaging";
 import { ItemImage } from "./ItemImage";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function pct(v: number) {
   return v > 0 ? `+${(v * 100).toFixed(1)}%` : `${(v * 100).toFixed(1)}%`;
+}
+
+function formatGold(n: number) {
+  return n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(1)}M`
+    : n >= 1_000
+    ? `${(n / 1_000).toFixed(0)}k`
+    : String(n);
 }
 
 const STAT_ROWS = [
@@ -37,17 +46,24 @@ interface ItemBagModalProps {
   onClose: () => void;
   onEquip?: () => void;
   onSellOnAh?: () => void;
+  onSalvage?: () => void;
+  onSellToNpc?: () => void;
 }
 
-export function ItemBagModal({ item, onClose, onEquip, onSellOnAh }: ItemBagModalProps) {
+export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, onSellToNpc }: ItemBagModalProps) {
   const { gameState } = useGame();
   const level = gameState.character.level;
   const rc = ITEM_RARITY_COLORS[item.rarity];
   const qc = ITEM_QUALITY_COLORS[item.quality];
   const meetsLevel = level >= (item.levelRequirement ?? 0);
 
+  const [confirmSalvage, setConfirmSalvage] = useState(false);
+  const [confirmSellNpc, setConfirmSellNpc] = useState(false);
+
   const hasFlatStat = STAT_ROWS.some(({ key }) => item.stats[key] > 0);
   const hasPctStat  = STAT_ROWS.some(({ key }) => item.percentStats[key] > 0);
+
+  const npcPrice = SALVAGE_NPC_PRICES[item.rarity as keyof typeof SALVAGE_NPC_PRICES] ?? 1000;
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onClose}>
@@ -135,19 +151,53 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh }: ItemBagModa
           <View style={ss.actions}>
             {onEquip && (
               <Pressable
-                style={[ss.equipBtn, { borderColor: rc, backgroundColor: rc + "22" }, !meetsLevel && ss.btnDim]}
+                style={[ss.actionBtn, { borderColor: rc, backgroundColor: rc + "22" }, !meetsLevel && ss.btnDim]}
                 onPress={meetsLevel ? onEquip : undefined}
                 disabled={!meetsLevel}
               >
-                <Text style={[ss.equipBtnTxt, { color: meetsLevel ? rc : Colors.game.textMuted }]}>
+                <Text style={[ss.actionBtnTxt, { color: meetsLevel ? rc : Colors.game.textMuted }]}>
                   EQUIP
                 </Text>
               </Pressable>
             )}
             {onSellOnAh && item.tradable && (
-              <Pressable style={ss.ahBtn} onPress={onSellOnAh}>
+              <Pressable style={[ss.actionBtn, ss.ahBtn]} onPress={onSellOnAh}>
                 <Text style={ss.ahBtnTxt}>SELL ON AH</Text>
               </Pressable>
+            )}
+          </View>
+
+          {/* ── Salvage / Sell to NPC row ─────────────────────────────── */}
+          <View style={ss.actions}>
+            {onSalvage && (
+              confirmSalvage ? (
+                <Pressable style={[ss.actionBtn, ss.confirmBtn]} onPress={onSalvage}>
+                  <Text style={ss.confirmBtnTxt}>⚠ CONFIRM SALVAGE</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[ss.actionBtn, ss.salvageBtn]}
+                  onPress={() => setConfirmSalvage(true)}
+                >
+                  <Text style={ss.salvageBtnTxt}>🔨 SALVAGE</Text>
+                  <Text style={ss.subHint}>10–30% materials back</Text>
+                </Pressable>
+              )
+            )}
+            {onSellToNpc && (
+              confirmSellNpc ? (
+                <Pressable style={[ss.actionBtn, ss.confirmBtn]} onPress={onSellToNpc}>
+                  <Text style={ss.confirmBtnTxt}>⚠ CONFIRM SELL</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[ss.actionBtn, ss.npcBtn]}
+                  onPress={() => setConfirmSellNpc(true)}
+                >
+                  <Text style={ss.npcBtnTxt}>🪙 SELL TO NPC</Text>
+                  <Text style={ss.subHint}>{formatGold(npcPrice)} gold</Text>
+                </Pressable>
+              )
             )}
           </View>
 
@@ -204,15 +254,19 @@ const ss = StyleSheet.create({
     textAlign: "center", letterSpacing: 0.5,
   },
   actions: { flexDirection: "row", gap: 8 },
-  equipBtn: {
-    flex: 1, borderRadius: 12, borderWidth: 1.5,
-    paddingVertical: 12, alignItems: "center",
+  subHint: {
+    fontSize: 9, fontFamily: "Inter_400Regular",
+    color: Colors.game.textMuted, marginTop: 2,
   },
-  equipBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5 },
+
+  // Equip / AH
+  actionBtn: {
+    flex: 1, borderRadius: 12, borderWidth: 1.5,
+    paddingVertical: 10, alignItems: "center",
+  },
+  actionBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5 },
   btnDim: { opacity: 0.4 },
   ahBtn: {
-    flex: 1, borderRadius: 12, borderWidth: 1.5,
-    paddingVertical: 12, alignItems: "center",
     borderColor: Colors.game.gold,
     backgroundColor: "rgba(201,168,76,0.10)",
   },
@@ -220,6 +274,37 @@ const ss = StyleSheet.create({
     fontSize: 12, fontFamily: "Inter_700Bold",
     color: Colors.game.gold, letterSpacing: 1.5,
   },
+
+  // Salvage
+  salvageBtn: {
+    borderColor: "#7C6544",
+    backgroundColor: "rgba(124,101,68,0.15)",
+  },
+  salvageBtnTxt: {
+    fontSize: 12, fontFamily: "Inter_700Bold",
+    color: "#C4A06A", letterSpacing: 1,
+  },
+
+  // NPC sell
+  npcBtn: {
+    borderColor: Colors.game.green + "99",
+    backgroundColor: Colors.game.green + "18",
+  },
+  npcBtnTxt: {
+    fontSize: 12, fontFamily: "Inter_700Bold",
+    color: Colors.game.green, letterSpacing: 1,
+  },
+
+  // Confirm (orange warning state)
+  confirmBtn: {
+    borderColor: "#F59E0B",
+    backgroundColor: "rgba(245,158,11,0.15)",
+  },
+  confirmBtnTxt: {
+    fontSize: 11, fontFamily: "Inter_700Bold",
+    color: "#F59E0B", letterSpacing: 0.8,
+  },
+
   closeBtn: {
     borderRadius: 12, paddingVertical: 11, alignItems: "center",
     backgroundColor: Colors.game.surface,
