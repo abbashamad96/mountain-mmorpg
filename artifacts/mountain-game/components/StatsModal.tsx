@@ -183,7 +183,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment" | "tools">("profile");
-  const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
+  const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Wood", "Ore", "Herb", "Leather", "Chests", "Potions", "Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
 
   const toggleSlot = (slot: string) => {
     setExpandedSlots((prev) => {
@@ -402,13 +402,15 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                     const typeColor = TYPE_COLORS[type];
                     return (
                       <View key={type} style={styles.typeSection}>
-                        <View style={[styles.typeHeader, { borderColor: typeColor }]}>
+                        <Pressable style={[styles.typeHeader, { borderColor: typeColor }]} onPress={() => toggleSlot(type)}>
                           <Text style={[styles.typeHeaderIcon, { color: typeColor }]}>{TYPE_ICONS[type]}</Text>
                           <Text style={[styles.typeHeaderName, { color: typeColor }]}>{type.toUpperCase()}</Text>
                           <View style={[styles.typeHeaderBadge, { backgroundColor: typeColor }]}>
                             <Text style={styles.typeHeaderBadgeText}>×{entries.reduce((s, e) => s + e.count, 0)}</Text>
                           </View>
-                        </View>
+                          <Text style={styles.equipSlotChevron}>{expandedSlots.has(type) ? "▼" : "▶"}</Text>
+                        </Pressable>
+                        {expandedSlots.has(type) && (
                         <View style={styles.inventoryGrid}>
                           {entries.map((entry) => {
                             const rc = RARITY_COLORS[entry.material.rarity];
@@ -428,7 +430,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                               </Pressable>
                             );
                           })}
-                        </View>
+                        </View>)}
                       </View>
                     );
                   })}
@@ -436,13 +438,15 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                   {/* ── Chests ── */}
                   {chestStacks.length > 0 && (
                     <View style={styles.typeSection}>
-                      <View style={[styles.typeHeader, { borderColor: Colors.game.gold }]}>
+                      <Pressable style={[styles.typeHeader, { borderColor: Colors.game.gold }]} onPress={() => toggleSlot("Chests")}>
                         <Text style={[styles.typeHeaderIcon, { color: Colors.game.gold }]}>📦</Text>
                         <Text style={[styles.typeHeaderName, { color: Colors.game.gold }]}>CHESTS</Text>
                         <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.gold }]}>
                           <Text style={styles.typeHeaderBadgeText}>×{chestStacks.reduce((s, { count }) => s + count, 0)}</Text>
                         </View>
-                      </View>
+                        <Text style={styles.equipSlotChevron}>{expandedSlots.has("Chests") ? "▼" : "▶"}</Text>
+                      </Pressable>
+                      {expandedSlots.has("Chests") && (
                       <View style={styles.inventoryGrid}>
                         {chestStacks.map(({ rep, count }) => {
                           const rc = ITEM_RARITY_COLORS[rep.rarity];
@@ -462,20 +466,22 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                             </Pressable>
                           );
                         })}
-                      </View>
+                      </View>)}
                     </View>
                   )}
 
                   {/* ── Potions ── */}
                   {potionStacks.length > 0 && (
                     <View style={styles.typeSection}>
-                      <View style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]}>
+                      <Pressable style={[styles.typeHeader, { borderColor: Colors.game.purpleLight }]} onPress={() => toggleSlot("Potions")}>
                         <Text style={[styles.typeHeaderIcon, { color: Colors.game.purpleLight }]}>⚗</Text>
                         <Text style={[styles.typeHeaderName, { color: Colors.game.purpleLight }]}>POTIONS</Text>
                         <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.purpleLight }]}>
                           <Text style={styles.typeHeaderBadgeText}>×{char.potionBag.length}</Text>
                         </View>
-                      </View>
+                        <Text style={styles.equipSlotChevron}>{expandedSlots.has("Potions") ? "▼" : "▶"}</Text>
+                      </Pressable>
+                      {expandedSlots.has("Potions") && (
                       <View style={styles.inventoryGrid}>
                         {potionStacks.map(({ rep, count }) => {
                           const rc = ITEM_RARITY_COLORS[rep.rarity];
@@ -498,7 +504,7 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                             </Pressable>
                           );
                         })}
-                      </View>
+                      </View>)}
                     </View>
                   )}
 
