@@ -4,8 +4,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
-import { ITEM_RARITIES, ITEM_RARITY_COLORS, formatItemName, formatPotionName } from "@/lib/items";
-import { TOOL_NAMES } from "@/lib/tools";
+import { ITEM_RARITIES } from "@/lib/items";
 import {
   CraftResult, CRAFTING_MATERIALS_NEEDED, CRAFTING_UNLOCK_LEVELS,
   CRAFTING_XP_REWARDS, getXpToNextCraftingLevel, CRAFTING_MAX_LEVEL,
@@ -15,12 +14,11 @@ import {
 import { useGame } from "@/context/GameContext";
 import { RarityName, VersionNum, RARITY_COLORS } from "@/context/GameContext";
 import { GameItem, Potion } from "@/lib/items";
-import { ItemBagModal } from "./ItemBagModal";
 import { ItemImage } from "./ItemImage";
-import { PotionBagModal } from "./PotionBagModal";
 import { PotionImage } from "./PotionImage";
 import { ToolImage } from "./ToolImage";
 import { MaterialImage } from "./MaterialImage";
+import { CraftRevealModal } from "./CraftRevealModal";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -92,55 +90,6 @@ const eS = StyleSheet.create({
   regen: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
 });
 
-function ResultCard({ result, onPress }: { result: CraftResult; onPress?: () => void }) {
-  const rarity =
-    result.item?.rarity ?? result.potion?.rarity ?? result.tool?.rarity ?? "Common";
-  const rc = ITEM_RARITY_COLORS[rarity as keyof typeof ITEM_RARITY_COLORS];
-  let label = "";
-  let sub = "";
-  if (result.kind === "equipment" && result.item) {
-    label = formatItemName(result.item);
-    sub = `${result.item.quality} · ${result.item.slot}`;
-  } else if (result.kind === "potion" && result.potion) {
-    label = formatPotionName(result.potion);
-    sub = `+${result.potion.effectPercent}% · ${Math.floor(result.potion.durationSeconds / 60)}m`;
-  } else if (result.kind === "tool" && result.tool) {
-    label = `${rarity} ${TOOL_NAMES[result.tool.type]}`;
-    sub = `${result.tool.effectMinBonus}–${result.tool.effectMaxBonus} nodes`;
-  }
-  const manageable = result.kind === "equipment" || result.kind === "potion";
-  return (
-    <Pressable style={[rcS.card, { borderColor: rc + "55" }]} onPress={manageable ? onPress : undefined}>
-      <View style={rcS.img}>
-        {result.kind === "equipment" && result.item && (
-          <ItemImage slot={result.item.slot} rarity={result.item.rarity} tier={result.item.tier} quality={result.item.quality} size={40} />
-        )}
-        {result.kind === "potion" && result.potion && (
-          <PotionImage type={result.potion.type as any} rarity={result.potion.rarity as any} tier={result.potion.tier as any} size={40} />
-        )}
-        {result.kind === "tool" && result.tool && (
-          <ToolImage type={result.tool.type} rarity={result.tool.rarity} size={40} />
-        )}
-      </View>
-      <View style={rcS.info}>
-        <Text style={[rcS.label, { color: rc }]} numberOfLines={1}>{label}</Text>
-        <Text style={rcS.sub}>{sub}</Text>
-      </View>
-      {manageable && onPress && (
-        <Text style={rcS.tapHint}>TAP →</Text>
-      )}
-    </Pressable>
-  );
-}
-const rcS = StyleSheet.create({
-  card: { flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: Colors.game.surface, borderRadius: 8, borderWidth: 1, padding: 8, marginTop: 6 },
-  img: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  info: { flex: 1, gap: 2 },
-  label: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  sub: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
-  tapHint: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
-});
-
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 interface Props {
@@ -159,10 +108,11 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
 
   const [selectedRarity, setSelectedRarity] = useState<RarityName>("Common");
   const [selectedTier, setSelectedTier] = useState<VersionNum>(0);
+  const [quantity, setQuantity] = useState(1);
   const [allocation, setAllocation] = useState<Record<MaterialType, number>>({ ...INITIAL_ALLOCATION });
   const [now, setNow] = useState(Date.now());
-  const [lastCollected, setLastCollected] = useState<CraftResult[] | null>(null);
-  const [selectedCraftResult, setSelectedCraftResult] = useState<CraftResult | null>(null);
+  const [showReveal, setShowReveal] = useState(false);
+  const [revealResults, setRevealResults] = useState<CraftResult[]>([]);
 
   useEffect(() => {
     if (!visible) return;
@@ -178,11 +128,11 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
 
   const resetAllocation = useCallback(() => {
     setAllocation({ ...INITIAL_ALLOCATION });
-    setLastCollected(null);
   }, []);
 
   const handleSelectRarity = useCallback((r: RarityName) => {
     setSelectedRarity(r);
+    setQuantity(1);
     resetAllocation();
   }, [resetAllocation]);
 
@@ -195,8 +145,10 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
   const needed = CRAFTING_MATERIALS_NEEDED[selectedRarity];
   const unlockLevel = CRAFTING_UNLOCK_LEVELS[selectedRarity];
   const isRarityUnlocked = skill.level >= unlockLevel;
-  const energyCost = CRAFTING_ENERGY_COST[selectedRarity];
-  const durationMs = CRAFTING_DURATION_MS[selectedRarity];
+  const baseEnergyCost = CRAFTING_ENERGY_COST[selectedRarity];
+  const baseDurationMs = CRAFTING_DURATION_MS[selectedRarity];
+  const energyCost = baseEnergyCost * quantity;
+  const durationMs = baseDurationMs * quantity;
 
   const matByType = useMemo(() => {
     const counts: Record<string, number> = { Wood: 0, Ore: 0, Herb: 0, Leather: 0 };
@@ -213,40 +165,49 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
   const pendingBatches = char.pendingCraftBatches ?? [];
 
   const hasActiveJob = activeJobs.length >= 1;
+  const hasMatsForQuantity = MATERIAL_TYPES.every(t => {
+    const qty = allocation[t] ?? 0;
+    if (qty === 0) return true;
+    return (matByType[t] ?? 0) >= qty * quantity;
+  });
   const canCraft =
     isRarityUnlocked &&
     !hasActiveJob &&
     totalAllocated === needed &&
-    char.craftingEnergy >= energyCost;
+    char.craftingEnergy >= energyCost &&
+    hasMatsForQuantity;
 
   const adjustAllocation = useCallback((type: MaterialType, delta: number) => {
     setAllocation((prev) => {
       const current = prev[type] ?? 0;
       const avail = matByType[type] ?? 0;
+      const effectiveMax = Math.floor(avail / quantity);
       const remaining = needed - totalAllocated;
       let next = current + delta;
       if (delta > 0) {
-        next = Math.min(current + delta, current + remaining, avail);
+        next = Math.min(current + delta, current + remaining, effectiveMax);
       } else {
         next = Math.max(0, next);
       }
       if (next === current) return prev;
       return { ...prev, [type]: next };
     });
-  }, [matByType, needed, totalAllocated]);
+  }, [matByType, needed, quantity, totalAllocated]);
 
   const handleCraft = () => {
     if (!canCraft) return;
-    const ok = startCraftingJob(selectedRarity, selectedTier, allocation as Record<string, number>);
+    const ok = startCraftingJob(selectedRarity, selectedTier, allocation as Record<string, number>, quantity);
     if (ok) {
       setAllocation({ ...INITIAL_ALLOCATION });
-      setLastCollected(null);
     }
   };
 
   const handleCollect = (batchId: string) => {
     const results = collectCraftBatch(batchId);
-    setLastCollected(results);
+    if (results.length > 0) {
+      setRevealResults(results);
+      setShowReveal(true);
+    }
   };
 
   const rc = RARITY_COLORS[selectedRarity];
@@ -287,7 +248,9 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                   return (
                     <View key={job.id} style={[s.jobCard, { borderColor: jrc + "44" }]}>
                       <View style={s.jobInfo}>
-                        <Text style={[s.jobRarity, { color: jrc }]}>{job.rarity} T{job.tier}</Text>
+                        <Text style={[s.jobRarity, { color: jrc }]}>
+                          {job.rarity} T{job.tier}{job.count > 1 ? ` ×${job.count}` : ""}
+                        </Text>
                         <Text style={s.jobMat}>{job.materialType}</Text>
                       </View>
                       <Text style={[s.jobTimer, msLeft <= 0 && { color: Colors.game.green }]}>
@@ -313,10 +276,12 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                   return (
                     <View key={batch.id} style={[s.batchCard, { borderColor: brc + "55" }]}>
                       <View style={s.batchInfo}>
-                        <Text style={[s.batchRarity, { color: brc }]}>{batch.rarity} T{batch.tier}</Text>
-                        <Text style={s.batchSub}>Crafting complete!</Text>
+                        <Text style={[s.batchRarity, { color: brc }]}>
+                          {batch.rarity} T{batch.tier}{batch.count > 1 ? ` ×${batch.count}` : ""}
+                        </Text>
+                        <Text style={s.batchSub}>✨ Crafting complete!</Text>
                       </View>
-                      <Pressable style={[s.collectBtn, { borderColor: brc }]} onPress={() => handleCollect(batch.id)}>
+                      <Pressable style={[s.collectBtn, { borderColor: brc, backgroundColor: brc + "22" }]} onPress={() => handleCollect(batch.id)}>
                         <Text style={[s.collectBtnTxt, { color: brc }]}>COLLECT</Text>
                       </Pressable>
                     </View>
@@ -325,19 +290,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
               </>
             )}
 
-            {/* ── Collected results ── */}
-            {lastCollected && lastCollected.length > 0 && (
-              <>
-                <Text style={[s.sectionLabel, { color: Colors.game.gold, marginTop: 14 }]}>
-                  COLLECTED ({lastCollected.length})
-                </Text>
-                {lastCollected.map((r, i) => (
-                  <ResultCard key={i} result={r} onPress={() => setSelectedCraftResult(r)} />
-                ))}
-              </>
-            )}
-
-            {(activeJobs.length > 0 || pendingBatches.length > 0 || (lastCollected && lastCollected.length > 0)) && (
+            {(activeJobs.length > 0 || pendingBatches.length > 0) && (
               <View style={s.divider} />
             )}
 
@@ -386,6 +339,34 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
               ))}
             </View>
 
+            {/* ── Quantity selector ── */}
+            {isRarityUnlocked && !hasActiveJob && (
+              <>
+                <Text style={[s.sectionLabel, { marginTop: 10 }]}>QUANTITY</Text>
+                <View style={s.tierRow}>
+                  {[1, 2, 3, 4, 5].map((q) => {
+                    const maxForEnergy = Math.floor(char.craftingEnergy / baseEnergyCost);
+                    const disabled = q > maxForEnergy;
+                    return (
+                      <Pressable
+                        key={q}
+                        style={[
+                          s.tierBtn,
+                          quantity === q && { borderColor: rc, backgroundColor: rc + "22" },
+                          quantity !== q && { borderColor: Colors.game.border },
+                          disabled && { opacity: 0.35 },
+                        ]}
+                        onPress={() => { setQuantity(q); setAllocation({ ...INITIAL_ALLOCATION }); }}
+                        disabled={disabled}
+                      >
+                        <Text style={[s.tierBtnText, { color: quantity === q ? rc : disabled ? Colors.game.textMuted : Colors.game.textDim }]}>×{q}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
             {/* ── 1-craft-at-a-time notice ── */}
             {hasActiveJob && (
               <View style={s.busyNotice}>
@@ -409,12 +390,13 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                 <View style={s.allocGrid}>
                   {MATERIAL_TYPES.map((type) => {
                     const avail = matByType[type] ?? 0;
+                    const effectiveAvail = quantity > 1 ? Math.floor(avail / quantity) : avail;
                     const qty = allocation[type] ?? 0;
-                    const canAdd = qty < avail && totalAllocated < needed;
+                    const canAdd = qty < effectiveAvail && totalAllocated < needed;
                     const canSub = qty > 0;
 
                     return (
-                      <View key={type} style={[s.allocRow, avail === 0 && s.allocRowDisabled]}>
+                      <View key={type} style={[s.allocRow, effectiveAvail === 0 && s.allocRowDisabled]}>
                         <MaterialImage
                           type={type as any}
                           rarity={selectedRarity}
@@ -424,11 +406,15 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                           animateParticles={false}
                         />
                         <View style={s.allocInfo}>
-                          <Text style={[s.allocType, { color: avail > 0 ? rc : Colors.game.textMuted }]}>
+                          <Text style={[s.allocType, { color: effectiveAvail > 0 ? rc : Colors.game.textMuted }]}>
                             {type}
                           </Text>
                           <Text style={s.allocAvail}>
-                            {avail > 0 ? `${avail} available` : "none available"}
+                            {avail > 0
+                              ? quantity > 1
+                                ? `${effectiveAvail} usable (${avail} total ÷${quantity})`
+                                : `${avail} available`
+                              : "none available"}
                           </Text>
                         </View>
                         <View style={s.allocStepper}>
@@ -463,16 +449,21 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                 <View style={s.costRow}>
                   <Text style={s.costLabel}>Energy</Text>
                   <Text style={[s.costVal, char.craftingEnergy < energyCost && { color: "#F87171" }]}>
-                    ⚡ {energyCost} (have {char.craftingEnergy})
+                    ⚡ {energyCost}{quantity > 1 ? ` (${baseEnergyCost}×${quantity})` : ""} — have {char.craftingEnergy}
                   </Text>
                 </View>
                 <View style={s.costRow}>
                   <Text style={s.costLabel}>Duration</Text>
-                  <Text style={s.costVal}>⏱ {durationMs / 60_000} min</Text>
+                  <Text style={s.costVal}>
+                    ⏱ {durationMs / 60_000} min{quantity > 1 ? ` (${baseDurationMs / 60_000}×${quantity})` : ""}
+                  </Text>
                 </View>
                 <View style={s.costRow}>
                   <Text style={s.costLabel}>XP reward</Text>
-                  <Text style={[s.costVal, { color: Colors.game.blue }]}>+{CRAFTING_XP_REWARDS[selectedRarity]} crafting XP</Text>
+                  <Text style={[s.costVal, { color: Colors.game.blue }]}>
+                    +{CRAFTING_XP_REWARDS[selectedRarity] * quantity} crafting XP
+                    {quantity > 1 ? ` (×${quantity})` : ""}
+                  </Text>
                 </View>
               </View>
             )}
@@ -495,12 +486,12 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
               >
                 <Text style={[s.craftBtnText, { color: canCraft ? rc : Colors.game.textMuted }]}>
                   {canCraft
-                    ? `⚗  CRAFT`
+                    ? `⚗  CRAFT ×${quantity}`
                     : char.craftingEnergy < energyCost
                       ? `Need ⚡${energyCost} energy (have ${char.craftingEnergy})`
                       : totalAllocated < needed
                         ? `Allocate ${needed} materials (${totalAllocated}/${needed})`
-                        : "Insufficient materials"}
+                        : "Insufficient materials for ×" + quantity}
                 </Text>
               </Pressable>
             )}
@@ -510,47 +501,26 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
       </View>
     </Modal>
 
-    {selectedCraftResult?.kind === "equipment" && selectedCraftResult.item && (
-      <ItemBagModal
-        item={selectedCraftResult.item}
-        onClose={() => setSelectedCraftResult(null)}
-        onEquip={() => {
-          const item = selectedCraftResult.item!;
-          equipItem(item);
-          removeItemFromBag(item.id);
-          setSelectedCraftResult(null);
-        }}
-        onSalvage={() => {
-          salvageItem(selectedCraftResult.item!.id);
-          setSelectedCraftResult(null);
-        }}
-        onSellToNpc={() => {
-          sellItemToNpc(selectedCraftResult.item!.id);
-          setSelectedCraftResult(null);
-        }}
-        onSellOnAh={onListItemOnAh && selectedCraftResult.item.tradable ? () => {
-          const item = selectedCraftResult.item!;
-          setSelectedCraftResult(null);
-          onListItemOnAh(item);
-        } : undefined}
-      />
-    )}
-
-    {selectedCraftResult?.kind === "potion" && selectedCraftResult.potion && (
-      <PotionBagModal
-        potion={selectedCraftResult.potion}
-        onClose={() => setSelectedCraftResult(null)}
-        onConsume={() => {
-          consumePotion(selectedCraftResult.potion!);
-          setSelectedCraftResult(null);
-        }}
-        onSellOnAh={onListPotionOnAh && selectedCraftResult.potion.tradable ? () => {
-          const potion = selectedCraftResult.potion!;
-          setSelectedCraftResult(null);
-          onListPotionOnAh(potion);
-        } : undefined}
-      />
-    )}
+    <CraftRevealModal
+      visible={showReveal}
+      results={revealResults}
+      onClose={() => setShowReveal(false)}
+      onEquipItem={(item) => {
+        equipItem(item);
+        removeItemFromBag(item.id);
+      }}
+      onSalvageItem={(item) => salvageItem(item.id)}
+      onSellItemToNpc={(item) => sellItemToNpc(item.id)}
+      onSellOnAh={onListItemOnAh ? (item) => {
+        setShowReveal(false);
+        onListItemOnAh(item);
+      } : undefined}
+      onUsePotion={(potion) => consumePotion(potion)}
+      onSellPotionOnAh={onListPotionOnAh ? (potion) => {
+        setShowReveal(false);
+        onListPotionOnAh(potion);
+      } : undefined}
+    />
     </>
   );
 }
