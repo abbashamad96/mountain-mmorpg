@@ -1,30 +1,57 @@
 import Stripe from "stripe";
 import { StripeSync } from "stripe-replit-sync";
 
-async function getStripeCredentials(): Promise<{
-  secretKey: string;
-  webhookSecret?: string;
-}> {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? "repl " + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-      ? "depl " + process.env.WEB_REPL_RENEWAL
-      : null;
+  async function getStripeCredentials(): Promise<{
+    secretKey: string;
+    webhookSecret?: string;
+  }> {
+    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+    const xReplitToken = process.env.REPL_IDENTITY
+      ? "repl " + process.env.REPL_IDENTITY
+      : process.env.WEB_REPL_RENEWAL
+        ? "depl " + process.env.WEB_REPL_RENEWAL
+        : null;
 
-  if (process.env.STRIPE_SECRET_KEY) {
-    return { 
-      secretKey: process.env.STRIPE_SECRET_KEY, 
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "" 
+    // 1. Render Fallback: If a key is provided in settings, use it
+    if (process.env.STRIPE_SECRET_KEY) {
+      return {
+        secretKey: process.env.STRIPE_SECRET_KEY,
+        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || ""
+      };
+    }
+
+    // 2. Safe Fallback: If no Replit or Render keys exist, log a warning and return empty keys instead of crashing
+    if (!hostname || !xReplitToken) {
+      console.warn("⚠️ Running in production outside of Replit. Stripe payments are disabled.");
+      return { secretKey: "mock_key", webhookSecret: "" };
+    }
+
+    const resp = await fetch(
+      `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=stripe`,
+      {
+        headers: { Accept: "application/json", "X-Replit-Token": xReplitToken },
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+
+    if (!resp.ok) {
+      console.warn("⚠️ Failed to fetch Replit Stripe credentials. Using placeholder keys.");
+      return { secretKey: "mock_key", webhookSecret: "" };
+    }
+
+    const data = await resp.json();
+    const settings = data.items?.[0]?.settings;
+
+    if (!settings?.secret) {
+      return { secretKey: "mock_key", webhookSecret: "" };
+    }
+
+    return {
+      secretKey: settings.secret,
+      webhookSecret: settings.webhook_secret,
     };
   }
 
-  if (!hostname || !xReplitToken) {
-    throw new Error(
-      "Missing Replit environment variables. " +
-      "Ensure the Stripe integration is connected via the Integrations tab."
-    );
-  }
 
   const resp = await fetch(
     `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=stripe`,
