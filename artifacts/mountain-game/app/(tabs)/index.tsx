@@ -394,20 +394,20 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
 }
 
 const logStackStyles = StyleSheet.create({
-  container: { gap: 5 },
+  container: { gap: 3 },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "rgba(10,7,18,0.88)",
-    borderRadius: 12,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
+    gap: 6,
+    backgroundColor: "rgba(10,7,18,0.85)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "rgba(201,168,76,0.5)",
+    borderColor: "rgba(201,168,76,0.35)",
   },
   iconWrap: {
-    width: 22,
+    width: 16,
     alignItems: "center",
     justifyContent: "flex-start",
     paddingTop: 1,
@@ -420,22 +420,22 @@ const logStackStyles = StyleSheet.create({
   },
   gCoinTxt: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#3d2e00" },
   xpStar: { fontSize: 13, color: Colors.game.purpleLight },
-  emoji: { fontSize: 14 },
-  content: { flex: 1, gap: 3 },
-  battleBlock: { gap: 3 },
-  inlineRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 5 },
-  dimLabel: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
-  matName: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  rarityLabel: { fontSize: 11, fontFamily: "Inter_500Medium", opacity: 0.85 },
-  npcName: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
-  gold: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.gold },
-  xp: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: Colors.game.purpleLight },
-  bonus: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.blueLight, opacity: 0.8 },
+  emoji: { fontSize: 11 },
+  content: { flex: 1, gap: 2 },
+  battleBlock: { gap: 2 },
+  inlineRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 },
+  dimLabel: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  matName: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  rarityLabel: { fontSize: 10, fontFamily: "Inter_500Medium", opacity: 0.85 },
+  npcName: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
+  gold: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  xp: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.purpleLight },
+  bonus: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.blueLight, opacity: 0.8 },
   tierBadge: {
-    borderWidth: 1, borderRadius: 5,
-    paddingHorizontal: 4, paddingVertical: 1,
+    borderWidth: 1, borderRadius: 4,
+    paddingHorizontal: 3, paddingVertical: 1,
   },
-  tierTxt: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  tierTxt: { fontSize: 9, fontFamily: "Inter_700Bold" },
 });
 
 // ─── Active buff countdown pills ──────────────────────────────────────────────
@@ -486,19 +486,19 @@ function ActiveBuffPills({ buffs }: { buffs: ActiveBuff[] }) {
 
 const pillStyles = StyleSheet.create({
   row: {
-    flexDirection: "row", flexWrap: "wrap", gap: 6,
-    paddingHorizontal: 16, paddingTop: 6,
+    flexDirection: "row", flexWrap: "wrap", gap: 4,
+    paddingHorizontal: 16, paddingTop: 4,
   },
   pill: {
-    flexDirection: "row", alignItems: "center", gap: 5,
+    flexDirection: "row", alignItems: "center", gap: 3,
     backgroundColor: Colors.game.surface,
-    borderRadius: 20, borderWidth: 1,
-    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 7, paddingVertical: 3,
   },
-  pillIcon: { fontSize: 12 },
-  pillLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  pillTimer: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, marginLeft: 2 },
-  pillTime:  { fontSize: 10, fontFamily: "Inter_700Bold" },
+  pillIcon: { fontSize: 10 },
+  pillLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold" },
+  pillTimer: { borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, marginLeft: 1 },
+  pillTime:  { fontSize: 9, fontFamily: "Inter_700Bold" },
 });
 
 // ─── Bottom tab bar ───────────────────────────────────────────────────────────
@@ -1218,7 +1218,7 @@ export default function GameScreen() {
               <Text style={styles.goldValue}>{char.gold.toLocaleString()}</Text>
             </View>
             <View style={styles.rubyRow}>
-              <Text style={styles.rubyIcon}>💎</Text>
+              <Text style={[styles.rubyIcon, { color: "#8B0000" }]}>◆</Text>
               <Text style={styles.rubyValue}>{char.rubies.toLocaleString()}</Text>
             </View>
             {(() => {

@@ -478,6 +478,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   useEffect(() => {
     setShopLevel(0); setShopNavToolType(null);
     setBrowseLevel(0); setBrowseCategory(null); setBrowseSub(null);
+    setEquipRarityFilter("All"); setEquipTierFilter("All"); setEquipQualityFilter("All");
   }, [marketView]);
 
   const shopShowFeedback = useCallback((msg: string, ok: boolean) => {
@@ -511,6 +512,11 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
 
   // Inventory strip toggle
   const [showInventoryTop, setShowInventoryTop] = useState(false);
+
+  // Equipment sub-filters for browse
+  const [equipRarityFilter, setEquipRarityFilter] = useState<string>("All");
+  const [equipTierFilter, setEquipTierFilter] = useState<number | "All">("All");
+  const [equipQualityFilter, setEquipQualityFilter] = useState<string>("All");
 
   // Section expand/collapse
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -854,6 +860,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     setBoCountStr("1"); setBoPriceStr("");
     setShopLevel(0); setShopNavToolType(null);
     setBrowseLevel(0); setBrowseCategory(null); setBrowseSub(null);
+    setEquipRarityFilter("All"); setEquipTierFilter("All"); setEquipQualityFilter("All");
     onClose();
   };
 
@@ -1016,7 +1023,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     if (browseLevel === 0) {
       const cats = [
         { key: "Materials", label: "Materials", icon: "⛏", count: matListings.length,  hasSub: true  },
-        { key: "Equipment", label: "Equipment", icon: "⚔",  count: equipListings.length, hasSub: false },
+        { key: "Equipment", label: "Equipment", icon: "⚔",  count: equipListings.length, hasSub: true  },
         { key: "Chests",    label: "Chests",    icon: "📦", count: chestListings.length, hasSub: false },
         { key: "Potions",   label: "Potions",   icon: "⚗",  count: potionListings.length, hasSub: true  },
         { key: "Tools",     label: "Tools",     icon: "🔨", count: toolListings.length, hasSub: true  },
@@ -1070,6 +1077,14 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           key: t, label: TOOL_NAMES[t], icon: TOOL_ICONS[t],
           count: toolListings.filter((l) => (l.material as any).toolType === t).length,
         }));
+      } else if (browseCategory === "Equipment") {
+        subs = [
+          { key: "All", label: "All Slots", icon: "⚔", count: equipListings.length },
+          ...ITEM_SLOTS.map((s) => ({
+            key: s, label: s, icon: ITEM_SLOT_ICONS[s as ItemSlot] ?? "⚔",
+            count: equipListings.filter((l) => (l.item as GameItem | undefined)?.slot === s).length,
+          })),
+        ];
       }
 
       return (
@@ -1081,7 +1096,10 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
             <Pressable
               key={sub.key}
               style={styles.drillRow}
-              onPress={() => { setBrowseSub(sub.key); setBrowseLevel(2); }}
+              onPress={() => {
+                setEquipRarityFilter("All"); setEquipTierFilter("All"); setEquipQualityFilter("All");
+                setBrowseSub(sub.key); setBrowseLevel(2);
+              }}
             >
               <Text style={styles.drillRowIcon}>{sub.icon}</Text>
               <Text style={styles.drillRowLabel}>{sub.label}</Text>
@@ -1099,7 +1117,14 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       if (browseCategory === "Materials" && browseSub) {
         filtered = matListings.filter((l) => l.material.type === browseSub);
       } else if (browseCategory === "Equipment") {
-        filtered = equipListings;
+        filtered = equipListings.filter((l) => {
+          const item = l.item as GameItem | undefined;
+          if (browseSub && browseSub !== "All" && item?.slot !== browseSub) return false;
+          if (equipRarityFilter !== "All" && l.material.rarity !== equipRarityFilter) return false;
+          if (equipTierFilter !== "All" && l.material.version !== equipTierFilter) return false;
+          if (equipQualityFilter !== "All" && item?.quality !== equipQualityFilter) return false;
+          return true;
+        });
       } else if (browseCategory === "Chests") {
         filtered = chestListings;
       } else if (browseCategory === "Potions" && browseSub) {
@@ -1111,11 +1136,19 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
 
       const backLabel = browseSub ?? browseCategory;
       const onBack = () => {
-        if (browseCategory === "Equipment" || browseCategory === "Chests") {
+        if (browseCategory === "Chests") {
           setBrowseLevel(0); setBrowseCategory(null); setBrowseSub(null);
         } else {
           setBrowseLevel(1); setBrowseSub(null);
         }
+      };
+
+      const EQUIP_RARITY_ABBREV: Record<string, string> = {
+        All: "ALL", Common: "Com", Uncommon: "Unc", Rare: "Rare",
+        Epic: "Epic", Elite: "Elit", Legendary: "Lgnd", Superior: "Sup", Cosmic: "Csm",
+      };
+      const EQUIP_QUALITY_ABBREV: Record<string, string> = {
+        All: "ALL", Basic: "Basic", Good: "Good", Excellent: "Excel",
       };
 
       return (
@@ -1126,6 +1159,48 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
             <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
           </Pressable>
+          {browseCategory === "Equipment" && (
+            <View style={styles.equipFilterBlock}>
+              {/* Rarity row */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.equipFilterRow}>
+                {(["All", ...ITEM_RARITIES] as string[]).map((r) => {
+                  const active = equipRarityFilter === r;
+                  const rc = active ? ((ITEM_RARITY_COLORS as Record<string, string>)[r] ?? Colors.game.gold) : "#555";
+                  return (
+                    <Pressable key={r} style={[styles.eqFilterChip, { borderColor: rc, backgroundColor: active ? rc + "22" : "transparent" }]}
+                      onPress={() => setEquipRarityFilter(r)}>
+                      <Text style={[styles.eqFilterTxt, { color: active ? rc : "#888" }]}>{EQUIP_RARITY_ABBREV[r] ?? r}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              {/* Tier row */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.equipFilterRow}>
+                {(["All", 0, 1, 2, 3] as (string | number)[]).map((t) => {
+                  const active = equipTierFilter === t;
+                  return (
+                    <Pressable key={String(t)} style={[styles.eqFilterChip, { borderColor: active ? Colors.game.gold : "#555", backgroundColor: active ? Colors.game.gold + "22" : "transparent" }]}
+                      onPress={() => setEquipTierFilter(t as any)}>
+                      <Text style={[styles.eqFilterTxt, { color: active ? Colors.game.gold : "#888" }]}>{t === "All" ? "ALL" : `T${t}`}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              {/* Quality row */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.equipFilterRow}>
+                {(["All", "Basic", "Good", "Excellent"] as string[]).map((q) => {
+                  const active = equipQualityFilter === q;
+                  const qc = q === "Good" ? Colors.game.blueLight : q === "Excellent" ? Colors.game.purpleLight : Colors.game.gold;
+                  return (
+                    <Pressable key={q} style={[styles.eqFilterChip, { borderColor: active ? qc : "#555", backgroundColor: active ? qc + "22" : "transparent" }]}
+                      onPress={() => setEquipQualityFilter(q)}>
+                      <Text style={[styles.eqFilterTxt, { color: active ? qc : "#888" }]}>{EQUIP_QUALITY_ABBREV[q] ?? q}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
           {sorted.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>No listings in this category yet.</Text>
@@ -2637,6 +2712,13 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: "Inter_600SemiBold",
     color: Colors.game.blue, letterSpacing: 0.2,
   },
+  equipFilterBlock: { marginBottom: 8, gap: 4 },
+  equipFilterRow: { flexDirection: "row", gap: 5, paddingVertical: 2 },
+  eqFilterChip: {
+    borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  eqFilterTxt: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
   drillRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
     backgroundColor: Colors.game.surface,

@@ -320,10 +320,10 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
 
               <View style={styles.divider} />
 
-              {/* Active buffs */}
-              {char.activeBuffs.length > 0 && (
+              {/* Active buffs — only show non-expired */}
+              {char.activeBuffs.filter((b) => b.expiresAt > Date.now()).length > 0 && (
                 <View style={{ marginBottom: 10, gap: 6 }}>
-                  {char.activeBuffs.map((buff) => {
+                  {char.activeBuffs.filter((b) => b.expiresAt > Date.now()).map((buff) => {
                     const label = buff.type === "Gold" ? "🟡 Gold Boost" : buff.type === "XP" ? "✨ XP Boost" : "⚡ Speed Boost";
                     const color = buff.type === "Gold" ? Colors.game.gold : buff.type === "XP" ? Colors.game.purpleLight : Colors.game.blue;
                     return (

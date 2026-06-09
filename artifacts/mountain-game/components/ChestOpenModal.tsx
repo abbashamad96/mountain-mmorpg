@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { GameItem, ItemChest, Potion } from "@/context/GameContext";
+import { SALVAGE_NPC_PRICES } from "@/lib/salvaging";
 import {
   ChestDrop,
   formatChestName,
@@ -226,6 +227,9 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
                         <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{revealedDrop.tier}</Text>
                       </View>
                     </View>
+                    <Text style={styles.npcPriceHint}>
+                      🪙 NPC: {(SALVAGE_NPC_PRICES[revealedDrop.rarity as keyof typeof SALVAGE_NPC_PRICES] ?? 1000).toLocaleString()}g
+                    </Text>
                   </View>
                 </View>
                 <ScrollView style={styles.statsScroll} showsVerticalScrollIndicator={false}>
@@ -437,6 +441,7 @@ const styles = StyleSheet.create({
   },
   qualBadgeTxt: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
   itemTagRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  npcPriceHint: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.gold, opacity: 0.8, marginTop: 3 },
   statsScroll: { maxHeight: 120 },
   statRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
