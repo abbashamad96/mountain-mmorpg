@@ -52,5 +52,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+import path from "path";
+
+// 1. Tell Express where your compiled game frontend files live
+const clientDistPath = path.join(__dirname, "../../mountain-game/dist");
+app.use(express.static(clientDistPath));
+
+// 2. Fallback catch-all route to serve the game index.html for any layout screen 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(clientDistPath, "index.html"));
+});
 
 export default app;
