@@ -8,30 +8,39 @@ const router: IRouter = Router();
 
 router.get("/stripe/products", async (req, res) => {
   try {
-    const result = await db.execute(sql`
-      SELECT
-        p.id as product_id,
-        p.name as product_name,
-        p.description as product_description,
-        p.metadata as product_metadata,
-        pr.id as price_id,
-        pr.unit_amount,
-        pr.currency
-      FROM stripe.products p
-      JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
-      WHERE p.active = true
-      ORDER BY pr.unit_amount ASC
-    `);
+    const stripe = await getUncachableStripeClient();
+    const [productsResp, pricesResp] = await Promise.all([
+      stripe.products.list({ active: true, limit: 20 }),
+      stripe.prices.list({ active: true, limit: 20 }),
+    ]);
 
-    const products = result.rows.map((row: any) => ({
-      productId: row.product_id,
-      name: row.product_name,
-      description: row.product_description,
-      rubies: Number(row.product_metadata?.rubies ?? 0),
-      priceId: row.price_id,
-      unitAmount: Number(row.unit_amount),
-      currency: row.currency,
-    }));
+    const pricesByProduct = new Map<string, (typeof pricesResp.data)[0]>();
+    for (const price of pricesResp.data) {
+      const productId =
+        typeof price.product === "string" ? price.product : price.product.id;
+      if (!pricesByProduct.has(productId)) {
+        pricesByProduct.set(productId, price);
+      }
+    }
+
+    const products = productsResp.data
+      .filter((p) => {
+        const rubies = Number(p.metadata?.rubies ?? 0);
+        return rubies > 0 && pricesByProduct.has(p.id);
+      })
+      .map((p) => {
+        const price = pricesByProduct.get(p.id)!;
+        return {
+          productId: p.id,
+          name: p.name,
+          description: p.description ?? "",
+          rubies: Number(p.metadata?.rubies ?? 0),
+          priceId: price.id,
+          unitAmount: price.unit_amount ?? 0,
+          currency: price.currency,
+        };
+      })
+      .sort((a, b) => a.unitAmount - b.unitAmount);
 
     res.json({ products });
   } catch (err) {
@@ -52,11 +61,10 @@ router.post("/stripe/checkout", async (req, res) => {
     }
 
     const stripe = await getUncachableStripeClient();
-
     const usernameLower = username.toLowerCase();
 
     const existing = await db.execute(
-      sql`SELECT stripe_customer_id FROM users WHERE username_lower = ${usernameLower}`
+      sql`SELECT stripe_customer_id FROM users WHERE username_lower = ${usernameLower}`,
     );
 
     let customerId: string | undefined =
@@ -68,7 +76,7 @@ router.post("/stripe/checkout", async (req, res) => {
       });
       customerId = customer.id;
       await db.execute(
-        sql`UPDATE users SET stripe_customer_id = ${customerId} WHERE username_lower = ${usernameLower}`
+        sql`UPDATE users SET stripe_customer_id = ${customerId} WHERE username_lower = ${usernameLower}`,
       );
     }
 
@@ -108,40 +116,38 @@ router.get("/stripe/success", async (req, res) => {
     });
 
     if (session.payment_status === "paid") {
-      const priceId = session.line_items?.data?.[0]?.price?.id;
+      const lineItem = session.line_items?.data?.[0];
+      let rubies = 0;
 
-      if (priceId) {
-        const priceRow = await db.execute(
-          sql`SELECT metadata FROM stripe.prices WHERE id = ${priceId}`
-        );
-        const productId = (session.line_items?.data?.[0]?.price as any)?.product?.id;
-        let rubies = 0;
+      if (lineItem?.price) {
+        const productId =
+          typeof lineItem.price.product === "string"
+            ? lineItem.price.product
+            : (lineItem.price.product as any)?.id;
 
         if (productId) {
-          const productRow = await db.execute(
-            sql`SELECT metadata FROM stripe.products WHERE id = ${productId}`
-          );
-          rubies = Number((productRow.rows[0] as any)?.metadata?.rubies ?? 0);
+          const product = await stripe.products.retrieve(productId);
+          rubies = Number(product.metadata?.rubies ?? 0);
         }
+      }
 
-        if (rubies > 0) {
-          const usernameLower = username.toLowerCase();
-          const userRow = await db.execute(
-            sql`SELECT game_state FROM users WHERE username_lower = ${usernameLower}`
+      if (rubies > 0) {
+        const usernameLower = username.toLowerCase();
+        const userRow = await db.execute(
+          sql`SELECT game_state FROM users WHERE username_lower = ${usernameLower}`,
+        );
+        const gameState = (userRow.rows[0] as any)?.game_state as any;
+        if (gameState) {
+          const currentRubies = Number(gameState.character?.rubies ?? 0);
+          const newRubies = currentRubies + rubies;
+          gameState.character = { ...gameState.character, rubies: newRubies };
+          await db.execute(
+            sql`UPDATE users SET game_state = ${JSON.stringify(gameState)}::jsonb WHERE username_lower = ${usernameLower}`,
           );
-          const gameState = (userRow.rows[0] as any)?.game_state as any;
-          if (gameState) {
-            const currentRubies = Number(gameState.character?.rubies ?? 0);
-            const newRubies = currentRubies + rubies;
-            gameState.character = {
-              ...gameState.character,
-              rubies: newRubies,
-            };
-            await db.execute(
-              sql`UPDATE users SET game_state = ${JSON.stringify(gameState)}::jsonb WHERE username_lower = ${usernameLower}`
-            );
-            logger.info({ username: usernameLower, rubies, newRubies }, "Ruby purchase credited");
-          }
+          logger.info(
+            { username: usernameLower, rubies, newRubies },
+            "Ruby purchase credited",
+          );
         }
       }
     }
