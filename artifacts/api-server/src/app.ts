@@ -61,9 +61,11 @@ app.use(express.static(clientDistPath));
 
 // 2. Explicitly type req and res to pass strict tsc checks
 // Change this line at the bottom of app.ts:
-app.get("(.*)", (req: Request, res: Response) => {
+// This middleware catches any requests that didn't match the /api routes above
+app.use((req: Request, res: Response) => {
   res.sendFile(path.join(clientDistPath, "index.html"));
 });
+
 
 
 export default app;
