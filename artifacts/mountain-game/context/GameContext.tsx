@@ -156,6 +156,8 @@ export interface Character {
   craftingJobs: CraftingJob[];
   pendingCraftBatches: PendingCraftBatch[];
   rubies: number;
+  sweepCharges: number;
+  sweepChargesLastRegen: number;
 }
 
 export function getEffectiveStats(char: Character): CharacterStats {
@@ -180,7 +182,11 @@ export interface GameState {
   currentScene: SceneType;
   eventLog: LogEntry[];
   totalEvents: number;
+  enemiesDefeated: number;
 }
+
+export const SWEEP_MAX_CHARGES = 5;
+export const SWEEP_REGEN_MS = 30 * 60 * 1000;
 
 // ─── XP Formula ──────────────────────────────────────────────────────────────
 
@@ -513,6 +519,8 @@ const defaultCharacter: Character = {
   craftingJobs: [],
   pendingCraftBatches: [],
   rubies: 0,
+  sweepCharges: SWEEP_MAX_CHARGES,
+  sweepChargesLastRegen: 0,
 };
 
 const defaultGameState: GameState = {
@@ -520,6 +528,7 @@ const defaultGameState: GameState = {
   currentScene: "default",
   eventLog: [],
   totalEvents: 0,
+  enemiesDefeated: 0,
 };
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -559,6 +568,8 @@ interface GameContextType {
   collectCraftBatch: (batchId: string) => CraftResult[];
   regenCraftingEnergy: () => void;
   checkCraftingJobs: () => void;
+  useSweepCharge: () => boolean;
+  incrementEnemiesDefeated: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -597,9 +608,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           craftingJobs: saved.character?.craftingJobs ?? [],
           pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
           rubies: saved.character?.rubies ?? 0,
+          sweepCharges: saved.character?.sweepCharges ?? SWEEP_MAX_CHARGES,
+          sweepChargesLastRegen: saved.character?.sweepChargesLastRegen ?? 0,
         };
         // Apply offline energy regen
         const now = Date.now();
+        // Sweep charges offline regen
+        if (char.sweepCharges < SWEEP_MAX_CHARGES && char.sweepChargesLastRegen > 0) {
+          const steps = Math.floor((now - char.sweepChargesLastRegen) / SWEEP_REGEN_MS);
+          if (steps > 0) {
+            char.sweepCharges = Math.min(SWEEP_MAX_CHARGES, char.sweepCharges + steps);
+            char.sweepChargesLastRegen = char.sweepChargesLastRegen + steps * SWEEP_REGEN_MS;
+          }
+        }
+        if (char.sweepChargesLastRegen === 0) char.sweepChargesLastRegen = now;
         if (char.craftingEnergy < CRAFTING_MAX_ENERGY && char.energyLastRegen > 0) {
           const steps = Math.floor((now - char.energyLastRegen) / CRAFTING_ENERGY_REGEN_MS);
           if (steps > 0) {
@@ -1025,6 +1047,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState((prev) => ({ ...prev, totalEvents: prev.totalEvents + 1 }));
   }, []);
 
+  const incrementEnemiesDefeated = useCallback(() => {
+    setGameState((prev) => ({ ...prev, enemiesDefeated: (prev.enemiesDefeated ?? 0) + 1 }));
+  }, []);
+
+  const useSweepCharge = useCallback((): boolean => {
+    let success = false;
+    setGameState((prev) => {
+      const char = prev.character;
+      const now = Date.now();
+      // Lazy regen
+      let charges = char.sweepCharges;
+      let lastRegen = char.sweepChargesLastRegen > 0 ? char.sweepChargesLastRegen : now;
+      if (charges < SWEEP_MAX_CHARGES) {
+        const steps = Math.floor((now - lastRegen) / SWEEP_REGEN_MS);
+        if (steps > 0) {
+          charges = Math.min(SWEEP_MAX_CHARGES, charges + steps);
+          lastRegen = lastRegen + steps * SWEEP_REGEN_MS;
+        }
+      }
+      if (charges <= 0) return prev;
+      success = true;
+      const newCharges = charges - 1;
+      const newLastRegen = newCharges < SWEEP_MAX_CHARGES ? (lastRegen > 0 ? lastRegen : now) : now;
+      return { ...prev, character: { ...char, sweepCharges: newCharges, sweepChargesLastRegen: newLastRegen } };
+    });
+    return success;
+  }, []);
+
   const loadState = useCallback((state: Partial<GameState>) => {
     if (!state) return;
     const saved = state as GameState;
@@ -1044,6 +1094,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       energyLastRegen: saved.character?.energyLastRegen ?? Date.now(),
       craftingJobs: saved.character?.craftingJobs ?? [],
       pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
+      sweepCharges: saved.character?.sweepCharges ?? SWEEP_MAX_CHARGES,
+      sweepChargesLastRegen: saved.character?.sweepChargesLastRegen ?? 0,
     };
     didLoadRef.current = true;
     setGameState({ ...defaultGameState, ...saved, character: char });
@@ -1057,7 +1109,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge }}
     >
       {children}
     </GameContext.Provider>

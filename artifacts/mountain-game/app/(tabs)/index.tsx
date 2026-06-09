@@ -507,18 +507,16 @@ interface BottomTabBarProps {
   onPressAH: () => void;
   onPressInventory: () => void;
   onPressChat: () => void;
-  onPressAccount: () => void;
   onPressNotifications: () => void;
   onPressCraft: () => void;
   unreadCount: number;
   pendingStatPoints: number;
-  isAuthenticated: boolean;
   bottomPad: number;
 }
 
 function BottomTabBar({
-  onPressAH, onPressInventory, onPressChat, onPressAccount, onPressCraft,
-  unreadCount, pendingStatPoints, isAuthenticated, bottomPad,
+  onPressAH, onPressInventory, onPressChat, onPressCraft,
+  unreadCount, pendingStatPoints, bottomPad,
 }: BottomTabBarProps) {
   return (
     <View style={[tabBarStyles.bar, { paddingBottom: bottomPad + 6 }]}>
@@ -572,17 +570,6 @@ function BottomTabBar({
         <Text style={tabBarStyles.label}>Chat</Text>
       </Pressable>
 
-      {/* Account */}
-      <Pressable style={tabBarStyles.tab} onPress={onPressAccount} hitSlop={8}>
-        <Feather
-          name={isAuthenticated ? "check-circle" : "key"}
-          size={22}
-          color={isAuthenticated ? Colors.game.green : Colors.game.textDim}
-        />
-        <Text style={[tabBarStyles.label, isAuthenticated ? { color: Colors.game.green } : undefined]}>
-          {isAuthenticated ? "Online" : "Account"}
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -612,9 +599,10 @@ const tabBarStyles = StyleSheet.create({
 export default function GameScreen() {
   const {
     gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
-    incrementEvents, loadState, resetGameState,
+    incrementEvents, incrementEnemiesDefeated, loadState, resetGameState,
     addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
     addToolToBag, consumePotion, equipItem, removeItemFromBag, salvageItem, sellItemToNpc,
+    useSweepCharge,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -938,6 +926,7 @@ export default function GameScreen() {
   const handleBattleComplete = useCallback(
     (victory: boolean, goldReward: number, xpReward: number) => {
       setShowBattle(false);
+      if (victory) incrementEnemiesDefeated();
       let battleResult = null as null | ReturnType<typeof applyGoldXp>;
       if (victory && (goldReward > 0 || xpReward > 0)) {
         battleResult = applyGoldXp(goldReward, xpReward);
@@ -1287,12 +1276,10 @@ export default function GameScreen() {
         onPressAH={() => setShowAuction(true)}
         onPressInventory={() => setShowStats(true)}
         onPressChat={() => setShowChat(true)}
-        onPressAccount={() => setShowAuth(true)}
         onPressNotifications={() => setShowNotifications(true)}
         onPressCraft={() => setShowCrafting(true)}
         unreadCount={unreadCount}
         pendingStatPoints={char.pendingStatPoints}
-        isAuthenticated={isAuthenticated}
         bottomPad={bottomPad}
       />
 
@@ -1427,6 +1414,8 @@ export default function GameScreen() {
         onListChestOnAh={handleListChestOnAh}
         onListPotionOnAh={handleListPotionOnAh}
         onListToolOnAh={handleListToolOnAh}
+        onPressAccount={() => setShowAuth(true)}
+        onPressChat={() => setShowChat(true)}
       />
       <GatheringModal
         visible={showGather}
@@ -1434,8 +1423,10 @@ export default function GameScreen() {
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
         equippedTool={gatherMaterial ? (char.equippedTools[MATERIAL_TO_TOOL[gatherMaterial.type]] ?? null) : null}
+        sweepCharges={char.sweepCharges}
         onComplete={handleGatherComplete}
         onAttemptXp={(xp) => { const result = applyGoldXp(0, xp); gatherXpRef.current += xp; gatherXpBonusRef.current += result.xpBonus; }}
+        onSweep={() => useSweepCharge()}
       />
       <BattleModal
         visible={showBattle}

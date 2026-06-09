@@ -21,8 +21,10 @@ interface GatheringModalProps {
   totalAttempts: number;
   xpToNext: number;
   equippedTool?: GatheringTool | null;
+  sweepCharges?: number;
   onComplete: (gathered: Material[]) => void;
   onAttemptXp: (xp: number) => void;
+  onSweep?: () => void;
 }
 
 export function GatheringModal({
@@ -31,8 +33,10 @@ export function GatheringModal({
   totalAttempts,
   xpToNext,
   equippedTool,
+  sweepCharges = 0,
   onComplete,
   onAttemptXp,
+  onSweep,
 }: GatheringModalProps) {
   const [attemptsCompleted, setAttemptsCompleted] = useState(0);
   const [totalGathered, setTotalGathered] = useState(0);
@@ -120,6 +124,26 @@ export function GatheringModal({
     onComplete(snapshot);
   };
 
+  const handleSweep = () => {
+    if (!material || doneRef.current || attemptsRef.current <= 0 || sweepCharges <= 0) return;
+    onSweep?.();
+    const remaining = attemptsRef.current;
+    while (attemptsRef.current > 0) {
+      const xp = Math.max(1, Math.floor(xpToNext * (0.02 + Math.random() * 0.015)));
+      onAttemptXp(xp);
+      gatheredRef.current.push({ ...material });
+      attemptsRef.current--;
+      attemptsCompletedRef.current++;
+    }
+    setPassiveText(`⚡ ${remaining} swept!`);
+    setAttemptsCompleted(attemptsCompletedRef.current);
+    setTotalGathered(gatheredRef.current.length);
+    doneRef.current = true;
+    setDone(true);
+    const snapshot = [...gatheredRef.current];
+    setTimeout(() => onComplete(snapshot), 1200);
+  };
+
   if (!material) return null;
 
   const rarityColor = RARITY_COLORS[material.rarity];
@@ -197,29 +221,57 @@ export function GatheringModal({
           </Text>
 
           {!done && (
-            <View style={styles.btnRow}>
-              <Pressable style={[styles.leaveBtn]} onPress={handleLeave}>
-                <Text style={styles.leaveBtnText}>LEAVE</Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.gatherBtn,
-                  { borderColor: cooldown ? Colors.game.border : rarityColor },
-                  cooldown && styles.gatherBtnDisabled,
-                ]}
-                onPress={handleGather}
-                disabled={cooldown}
-              >
-                <Text
-                  style={[
-                    styles.gatherBtnText,
-                    { color: cooldown ? Colors.game.textMuted : rarityColor },
-                  ]}
-                >
-                  {cooldown ? "• • •" : "GATHER"}
+            <View style={{ width: "100%", gap: 10 }}>
+              {/* Sweep charge indicator */}
+              <View style={styles.sweepChargesRow}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.sweepChargeDot, i < sweepCharges && { backgroundColor: Colors.game.gold }]}
+                  />
+                ))}
+                <Text style={styles.sweepChargesLabel}>
+                  {sweepCharges}/5 sweeps
                 </Text>
-              </Pressable>
+              </View>
+
+              <View style={styles.btnRow}>
+                <Pressable style={[styles.leaveBtn]} onPress={handleLeave}>
+                  <Text style={styles.leaveBtnText}>LEAVE</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.sweepBtn,
+                    sweepCharges <= 0 && styles.sweepBtnDisabled,
+                  ]}
+                  onPress={handleSweep}
+                  disabled={sweepCharges <= 0}
+                >
+                  <Text style={[styles.sweepBtnText, sweepCharges <= 0 && { color: Colors.game.textMuted }]}>
+                    ⚡ SWEEP
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.gatherBtn,
+                    { borderColor: cooldown ? Colors.game.border : rarityColor },
+                    cooldown && styles.gatherBtnDisabled,
+                  ]}
+                  onPress={handleGather}
+                  disabled={cooldown}
+                >
+                  <Text
+                    style={[
+                      styles.gatherBtnText,
+                      { color: cooldown ? Colors.game.textMuted : rarityColor },
+                    ]}
+                  >
+                    {cooldown ? "• • •" : "GATHER"}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
@@ -300,6 +352,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: Colors.game.gold,
     letterSpacing: 1,
+  },
+  sweepChargesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "stretch",
+    paddingHorizontal: 4,
+  },
+  sweepChargeDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: Colors.game.border,
+  },
+  sweepChargesLabel: {
+    fontSize: 10, fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted, marginLeft: 4,
+  },
+  sweepBtn: {
+    flex: 1,
+    borderRadius: 12, borderWidth: 1.5,
+    borderColor: Colors.game.gold,
+    paddingVertical: 14,
+    alignItems: "center", justifyContent: "center",
+  },
+  sweepBtnDisabled: { borderColor: Colors.game.border, opacity: 0.4 },
+  sweepBtnText: {
+    fontSize: 13, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 1,
   },
   dotsRow: {
     flexDirection: "row",

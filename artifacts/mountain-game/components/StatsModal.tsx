@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
-import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
+import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest, SWEEP_MAX_CHARGES, SWEEP_REGEN_MS } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { Potion, GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
 import { GatheringTool } from "@/lib/tools";
@@ -33,6 +33,8 @@ interface StatsModalProps {
   onListChestOnAh?: (chest: ItemChest) => void;
   onListPotionOnAh?: (potion: Potion) => void;
   onListToolOnAh?: (tool: GatheringTool) => void;
+  onPressAccount?: () => void;
+  onPressChat?: () => void;
 }
 
 const STAT_CONFIG = [
@@ -173,8 +175,9 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh }: StatsModalProps) {
+export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh, onPressAccount, onPressChat }: StatsModalProps) {
   const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag, salvageItem, sellItemToNpc } = useGame();
+  const { isAuthenticated, authUsername, status } = useMultiplayer();
   const char = gameState.character;
   const hasPending = char.pendingStatPoints > 0;
   const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
@@ -304,8 +307,10 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
           {activeTab === "profile" && (
             <View style={styles.tabContent}>
               <View style={styles.header}>
-                <View>
-                  <Text style={styles.nameLabel}>WANDERER</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nameLabel}>
+                    {isAuthenticated && authUsername ? authUsername.toUpperCase() : "WANDERER"}
+                  </Text>
                   <View style={styles.levelRow}>
                     <Text style={styles.lvLabel}>Level </Text>
                     <Text style={styles.lvValue}>{char.level}</Text>
@@ -316,6 +321,40 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                     <Text style={styles.goldCoinText}>G</Text>
                   </View>
                   <Text style={styles.goldVal}>{char.gold.toLocaleString()}</Text>
+                </View>
+              </View>
+
+              {/* ── Online status + account/chat actions ── */}
+              <View style={styles.onlineRow}>
+                <View style={[styles.onlineDot, { backgroundColor: isAuthenticated && status === "connected" ? Colors.game.green : status === "connecting" ? Colors.game.gold : Colors.game.red }]} />
+                <Text style={styles.onlineStatus}>
+                  {isAuthenticated && status === "connected"
+                    ? `Online · @${authUsername ?? ""}`
+                    : status === "connecting" ? "Connecting…"
+                    : isAuthenticated ? "Disconnected"
+                    : "Not logged in"}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Pressable style={styles.onlineActionBtn} onPress={() => { onClose(); onPressChat?.(); }}>
+                  <Text style={styles.onlineActionTxt}>💬 Chat</Text>
+                </Pressable>
+                <Pressable style={[styles.onlineActionBtn, { borderColor: isAuthenticated ? Colors.game.green : Colors.game.gold }]} onPress={() => { onClose(); onPressAccount?.(); }}>
+                  <Text style={[styles.onlineActionTxt, { color: isAuthenticated ? Colors.game.green : Colors.game.gold }]}>
+                    {isAuthenticated ? "✓ Account" : "⚿ Login"}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* ── Lifetime stats counters ── */}
+              <View style={styles.lifetimeRow}>
+                <View style={styles.lifetimeStat}>
+                  <Text style={styles.lifetimeVal}>{gameState.totalEvents.toLocaleString()}</Text>
+                  <Text style={styles.lifetimeLabel}>Events</Text>
+                </View>
+                <View style={styles.lifetimeDivider} />
+                <View style={styles.lifetimeStat}>
+                  <Text style={[styles.lifetimeVal, { color: Colors.game.red }]}>{(gameState.enemiesDefeated ?? 0).toLocaleString()}</Text>
+                  <Text style={styles.lifetimeLabel}>Enemies Defeated</Text>
                 </View>
               </View>
 
@@ -838,8 +877,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 8,
   },
+  onlineRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    marginBottom: 12, paddingVertical: 8,
+    paddingHorizontal: 12, borderRadius: 10,
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1, borderColor: Colors.game.border,
+  },
+  onlineDot: { width: 8, height: 8, borderRadius: 4 },
+  onlineStatus: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
+  onlineActionBtn: {
+    borderRadius: 8, borderWidth: 1,
+    borderColor: Colors.game.border,
+    paddingHorizontal: 9, paddingVertical: 5,
+  },
+  onlineActionTxt: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textDim },
+  lifetimeRow: {
+    flexDirection: "row", alignItems: "center",
+    marginBottom: 12, borderRadius: 10,
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1, borderColor: Colors.game.border,
+    overflow: "hidden",
+  },
+  lifetimeStat: { flex: 1, alignItems: "center", paddingVertical: 12, gap: 3 },
+  lifetimeDivider: { width: 1, height: "100%", backgroundColor: Colors.game.border },
+  lifetimeVal: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  lifetimeLabel: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, letterSpacing: 0.5 },
   nameLabel: {
     fontSize: 10, fontFamily: "Inter_600SemiBold",
     color: Colors.game.textMuted, letterSpacing: 2,
