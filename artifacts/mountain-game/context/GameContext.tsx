@@ -1058,7 +1058,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       // Sweep costs 1 craftingEnergy (shared energy pool)
       if (char.craftingEnergy <= 0) return prev;
       success = true;
-      return { ...prev, character: { ...char, craftingEnergy: char.craftingEnergy - 1 } };
+      const next = { ...prev, character: { ...char, craftingEnergy: char.craftingEnergy - 1 } };
+      stateRef.current = next; // keep stateRef in sync so XP callbacks don't overwrite the deduction
+      return next;
     });
     return success;
   }, []);

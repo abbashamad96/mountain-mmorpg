@@ -67,26 +67,28 @@ function EnergyBar({ energy, lastRegen, now }: { energy: number; lastRegen: numb
   const secs = Math.max(0, Math.ceil(msUntil / 1000));
   const m = Math.floor(secs / 60);
   const ss = String(secs % 60).padStart(2, "0");
-  const label = energy >= CRAFTING_MAX_ENERGY ? "Full" : `+1 in ${m}:${ss}`;
+  const regenLabel = energy >= CRAFTING_MAX_ENERGY ? "Full" : `+1 in ${m}:${ss}`;
+  const pct = Math.min(100, (energy / CRAFTING_MAX_ENERGY) * 100);
   return (
     <View style={eS.row}>
-      <Text style={eS.label}>⚡ ENERGY</Text>
-      <View style={eS.dots}>
-        {Array.from({ length: CRAFTING_MAX_ENERGY }).map((_, i) => (
-          <View key={i} style={[eS.dot, i < energy ? eS.dotFull : eS.dotEmpty]} />
-        ))}
+      <Text style={eS.icon}>⚡</Text>
+      <View style={eS.track}>
+        <View style={[eS.fill, { width: `${pct}%` as any }]} />
       </View>
-      <Text style={eS.regen}>{label}</Text>
+      <Text style={eS.count}>{energy}/{CRAFTING_MAX_ENERGY}</Text>
+      <Text style={eS.regen}>{regenLabel}</Text>
     </View>
   );
 }
 const eS = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  label: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 1 },
-  dots: { flexDirection: "row", gap: 4 },
-  dot: { width: 13, height: 13, borderRadius: 7, borderWidth: 1.5 },
-  dotFull: { backgroundColor: Colors.game.gold, borderColor: Colors.game.gold },
-  dotEmpty: { backgroundColor: "transparent", borderColor: Colors.game.border },
+  row: { flexDirection: "row", alignItems: "center", gap: 6 },
+  icon: { fontSize: 11, color: "#3B9EFF" },
+  track: {
+    flex: 1, height: 5, backgroundColor: Colors.game.border,
+    borderRadius: 3, overflow: "hidden",
+  },
+  fill: { height: "100%" as any, backgroundColor: "#3B9EFF", borderRadius: 3 },
+  count: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, minWidth: 24, textAlign: "right" },
   regen: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
 });
 

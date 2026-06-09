@@ -224,15 +224,7 @@ export function GatheringModal({
             <View style={{ width: "100%", gap: 10 }}>
               {/* Energy indicator (shared pool — sweep costs 1 energy) */}
               <View style={styles.sweepChargesRow}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <View
-                    key={i}
-                    style={[styles.sweepChargeDot, i < sweepCharges && { backgroundColor: Colors.game.gold }]}
-                  />
-                ))}
-                <Text style={styles.sweepChargesLabel}>
-                  ⚡ {sweepCharges}/5 energy
-                </Text>
+                <Text style={styles.sweepChargesLabel}>⚡ Energy: {sweepCharges}/5</Text>
               </View>
 
               <View style={styles.btnRow}>
@@ -354,19 +346,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   sweepChargesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
     alignSelf: "stretch",
     paddingHorizontal: 4,
   },
-  sweepChargeDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.game.border,
-  },
   sweepChargesLabel: {
-    fontSize: 10, fontFamily: "Inter_500Medium",
-    color: Colors.game.textMuted, marginLeft: 4,
+    fontSize: 11, fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
   },
   sweepBtn: {
     flex: 1,
