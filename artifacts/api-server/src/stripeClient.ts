@@ -12,10 +12,17 @@ async function getStripeCredentials(): Promise<{
       ? "depl " + process.env.WEB_REPL_RENEWAL
       : null;
 
+  if (process.env.STRIPE_SECRET_KEY) {
+    return { 
+      secretKey: process.env.STRIPE_SECRET_KEY, 
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "" 
+    };
+  }
+
   if (!hostname || !xReplitToken) {
     throw new Error(
       "Missing Replit environment variables. " +
-        "Ensure the Stripe integration is connected via the Integrations tab.",
+      "Ensure the Stripe integration is connected via the Integrations tab."
     );
   }
 
