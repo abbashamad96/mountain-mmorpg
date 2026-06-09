@@ -70261,6 +70261,10 @@ async function initStripe() {
     logger.warn("DATABASE_URL not set \u2014 skipping Stripe init");
     return;
   }
+  if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === "mock_key") {
+    logger.warn("\u26A0\uFE0F Running outside of Replit with no valid STRIPE_SECRET_KEY. Skipping Stripe sync entirely.");
+    return;
+  }
   try {
     await runMigrations({ databaseUrl, schema: "stripe" });
     const stripeSync = await getStripeSync();

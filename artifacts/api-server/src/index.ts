@@ -11,19 +11,27 @@ async function initStripe() {
     logger.warn("DATABASE_URL not set — skipping Stripe init");
     return;
   }
+
+  // FORCE BYPASS ON RENDER: Skip if no real Stripe Secret Key is present
+  if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === "mock_key") {
+    logger.warn("⚠️ Running outside of Replit with no valid STRIPE_SECRET_KEY. Skipping Stripe sync entirely.");
+    return;
+  }
+
   try {
     await runMigrations({ databaseUrl, schema: "stripe" });
     const stripeSync = await getStripeSync();
     const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
     await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
-    stripeSync.syncBackfill().catch((err: unknown) =>
-      logger.error({ err }, "Stripe backfill error"),
+    stripeSync.syncBackfill().catch((err: unknown) => 
+      logger.error({ err }, "Stripe backfill error")
     );
     logger.info("Stripe initialized");
   } catch (err) {
     logger.error({ err }, "Stripe init failed — payments unavailable");
   }
 }
+
 
 const rawPort = process.env["PORT"];
 
