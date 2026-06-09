@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Modal,
   Pressable,
@@ -28,6 +28,7 @@ import { ToolsTab } from "./ToolsTab";
 interface StatsModalProps {
   visible: boolean;
   onClose: () => void;
+  defaultTab?: "profile" | "inventory" | "equipment" | "tools";
   onListOnAh?: (entry: MaterialEntry) => void;
   onListItemOnAh?: (item: GameItem) => void;
   onListChestOnAh?: (chest: ItemChest) => void;
@@ -175,7 +176,7 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh, onPressAccount, onPressChat }: StatsModalProps) {
+export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh, onPressAccount, onPressChat }: StatsModalProps) {
   const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag, salvageItem, sellItemToNpc } = useGame();
   const { isAuthenticated, authUsername, status } = useMultiplayer();
   const char = gameState.character;
@@ -185,7 +186,12 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment" | "tools">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment" | "tools">(defaultTab);
+
+  // Sync tab when modal opens with a new defaultTab
+  useEffect(() => {
+    if (visible) setActiveTab(defaultTab);
+  }, [visible, defaultTab]);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Wood", "Ore", "Herb", "Leather", "Chests", "Potions", "Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());

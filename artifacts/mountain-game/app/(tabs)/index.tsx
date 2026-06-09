@@ -629,6 +629,7 @@ export default function GameScreen() {
   const artThresholdRef = useRef(Math.floor(10 + Math.random() * 11));
 
   const [showStats, setShowStats] = useState(false);
+  const [statsDefaultTab, setStatsDefaultTab] = useState<"profile" | "inventory" | "equipment" | "tools">("profile");
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -1155,8 +1156,12 @@ export default function GameScreen() {
       {/* ── Character header card ─────────────────────────────────────────── */}
       <View style={[styles.characterCard, { paddingTop: topPad + 10 }]}>
         <View style={styles.charRow}>
-          {/* Avatar circle */}
-          <View style={styles.avatarWrap}>
+          {/* Avatar circle — tap to open profile */}
+          <Pressable
+            style={styles.avatarWrap}
+            onPress={() => { setStatsDefaultTab("profile"); setShowStats(true); }}
+            hitSlop={6}
+          >
             <View style={styles.avatar}>
               <Text style={styles.avatarInitial}>
                 {authUsername ? authUsername[0].toUpperCase() : "?"}
@@ -1165,7 +1170,7 @@ export default function GameScreen() {
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>LV{char.level}</Text>
             </View>
-          </View>
+          </Pressable>
 
           {/* Name + scene + XP bar */}
           <View style={styles.charMeta}>
@@ -1277,7 +1282,7 @@ export default function GameScreen() {
       {/* ── Bottom tab bar ───────────────────────────────────────────────── */}
       <BottomTabBar
         onPressAH={() => setShowAuction(true)}
-        onPressInventory={() => setShowStats(true)}
+        onPressInventory={() => { setStatsDefaultTab("inventory"); setShowStats(true); }}
         onPressChat={() => setShowChat(true)}
         onPressNotifications={() => setShowNotifications(true)}
         onPressCraft={() => setShowCrafting(true)}
@@ -1418,6 +1423,7 @@ export default function GameScreen() {
       <StatsModal
         visible={showStats}
         onClose={() => setShowStats(false)}
+        defaultTab={statsDefaultTab}
         onListOnAh={handleListOnAh}
         onListItemOnAh={handleListItemOnAh}
         onListChestOnAh={handleListChestOnAh}
@@ -1432,7 +1438,7 @@ export default function GameScreen() {
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
         equippedTool={gatherMaterial ? (char.equippedTools[MATERIAL_TO_TOOL[gatherMaterial.type]] ?? null) : null}
-        sweepCharges={char.sweepCharges}
+        sweepCharges={char.craftingEnergy}
         onComplete={handleGatherComplete}
         onAttemptXp={(xp) => { const result = applyGoldXp(0, xp); gatherXpRef.current += xp; gatherXpBonusRef.current += result.xpBonus; }}
         onSweep={() => useSweepCharge()}

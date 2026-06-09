@@ -222,7 +222,7 @@ export function GatheringModal({
 
           {!done && (
             <View style={{ width: "100%", gap: 10 }}>
-              {/* Sweep charge indicator */}
+              {/* Energy indicator (shared pool — sweep costs 1 energy) */}
               <View style={styles.sweepChargesRow}>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <View
@@ -231,7 +231,7 @@ export function GatheringModal({
                   />
                 ))}
                 <Text style={styles.sweepChargesLabel}>
-                  {sweepCharges}/5 sweeps
+                  ⚡ {sweepCharges}/5 energy
                 </Text>
               </View>
 

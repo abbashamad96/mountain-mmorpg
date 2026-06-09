@@ -1055,22 +1055,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     let success = false;
     setGameState((prev) => {
       const char = prev.character;
-      const now = Date.now();
-      // Lazy regen
-      let charges = char.sweepCharges;
-      let lastRegen = char.sweepChargesLastRegen > 0 ? char.sweepChargesLastRegen : now;
-      if (charges < SWEEP_MAX_CHARGES) {
-        const steps = Math.floor((now - lastRegen) / SWEEP_REGEN_MS);
-        if (steps > 0) {
-          charges = Math.min(SWEEP_MAX_CHARGES, charges + steps);
-          lastRegen = lastRegen + steps * SWEEP_REGEN_MS;
-        }
-      }
-      if (charges <= 0) return prev;
+      // Sweep costs 1 craftingEnergy (shared energy pool)
+      if (char.craftingEnergy <= 0) return prev;
       success = true;
-      const newCharges = charges - 1;
-      const newLastRegen = newCharges < SWEEP_MAX_CHARGES ? (lastRegen > 0 ? lastRegen : now) : now;
-      return { ...prev, character: { ...char, sweepCharges: newCharges, sweepChargesLastRegen: newLastRegen } };
+      return { ...prev, character: { ...char, craftingEnergy: char.craftingEnergy - 1 } };
     });
     return success;
   }, []);
