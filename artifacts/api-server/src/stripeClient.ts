@@ -81,7 +81,6 @@ import { StripeSync } from "stripe-replit-sync";
     secretKey: settings.secret,
     webhookSecret: settings.webhook_secret,
   };
-}
 
 export async function getUncachableStripeClient(): Promise<Stripe> {
   const { secretKey } = await getStripeCredentials();
