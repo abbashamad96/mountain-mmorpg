@@ -60,8 +60,10 @@ const clientDistPath = path.join(__dirname, "../../../mountain-game/dist");
 app.use(express.static(clientDistPath));
 
 // 2. Explicitly type req and res to pass strict tsc checks
-app.get("*", (req: Request, res: Response) => {
+// Change this line at the bottom of app.ts:
+app.get("(.*)", (req: Request, res: Response) => {
   res.sendFile(path.join(clientDistPath, "index.html"));
 });
+
 
 export default app;
