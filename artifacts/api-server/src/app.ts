@@ -56,7 +56,9 @@ import path from "path";
 import { Request, Response } from "express";
 
 // 1. Step out 3 levels to reach the root directory
-const clientDistPath = path.join(__dirname, "../../../mountain-game/web-build");
+// process.cwd() gets the exact repository root where your project builds are executing
+const clientDistPath = path.join(process.cwd(), "mountain-game/web-build");
+
 
 app.use(express.static(clientDistPath));
 
