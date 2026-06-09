@@ -56,7 +56,8 @@ import path from "path";
 import { Request, Response } from "express";
 
 // 1. Step out 3 levels to reach the root directory
-const clientDistPath = path.join(__dirname, "../../../mountain-game/dist");
+const clientDistPath = path.join(__dirname, "../../../mountain-game/web-build");
+
 app.use(express.static(clientDistPath));
 
 // 2. Explicitly type req and res to pass strict tsc checks
