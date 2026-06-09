@@ -22,6 +22,7 @@ import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
 import { ToolShopModal } from "@/components/ToolShopModal";
+import { RubyShopModal } from "@/components/RubyShopModal";
 import { QuickPotionPicker } from "@/components/QuickPotionPicker";
 import { CraftingModal } from "@/components/CraftingModal";
 import { TimerBar } from "@/components/TimerBar";
@@ -652,6 +653,7 @@ export default function GameScreen() {
   const [ahToasts, setAhToasts] = useState<AhToastData[]>([]);
   const [_showToolShop] = useState(false);
   const [showCrafting, setShowCrafting] = useState(false);
+  const [showRubyShop, setShowRubyShop] = useState(false);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -1206,10 +1208,11 @@ export default function GameScreen() {
               <Text style={styles.goldIcon}>🪙</Text>
               <Text style={styles.goldValue}>{char.gold.toLocaleString()}</Text>
             </View>
-            <View style={styles.rubyRow}>
+            <Pressable style={styles.rubyRow} onPress={() => setShowRubyShop(true)} hitSlop={6}>
               <Text style={[styles.rubyIcon, { color: "#8B0000" }]}>◆</Text>
               <Text style={styles.rubyValue}>{char.rubies.toLocaleString()}</Text>
-            </View>
+              <Text style={styles.rubyPlus}>+</Text>
+            </Pressable>
             {(() => {
               const act = SCENE_ACTIVITY_MAP[gameState.currentScene] ?? SCENE_ACTIVITY_MAP.default;
               return (
@@ -1405,6 +1408,12 @@ export default function GameScreen() {
       )}
       <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
       <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
+      <RubyShopModal
+        visible={showRubyShop}
+        onClose={() => setShowRubyShop(false)}
+        username={authUsername}
+        onRequireLogin={() => { setShowRubyShop(false); setShowAuth(true); }}
+      />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal
         visible={showStats}
@@ -1508,6 +1517,7 @@ const styles = StyleSheet.create({
   rubyRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   rubyIcon: { fontSize: 13 },
   rubyValue: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#E91E8C" },
+  rubyPlus: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#E91E8C88" },
   energyBarRow: {
     flexDirection: "row", alignItems: "center", gap: 6,
     marginTop: 6, paddingHorizontal: 2,

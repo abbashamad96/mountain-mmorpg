@@ -2,6 +2,28 @@ import http from "http";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { attachWebSocketServer } from "./lib/websocket";
+import { runMigrations } from "stripe-replit-sync";
+import { getStripeSync } from "./stripeClient";
+
+async function initStripe() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    logger.warn("DATABASE_URL not set — skipping Stripe init");
+    return;
+  }
+  try {
+    await runMigrations({ databaseUrl, schema: "stripe" });
+    const stripeSync = await getStripeSync();
+    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
+    await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+    stripeSync.syncBackfill().catch((err: unknown) =>
+      logger.error({ err }, "Stripe backfill error"),
+    );
+    logger.info("Stripe initialized");
+  } catch (err) {
+    logger.error({ err }, "Stripe init failed — payments unavailable");
+  }
+}
 
 const rawPort = process.env["PORT"];
 
@@ -16,6 +38,8 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+await initStripe();
 
 const server = http.createServer(app);
 

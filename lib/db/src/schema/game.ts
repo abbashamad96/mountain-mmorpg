@@ -20,6 +20,7 @@ export const usersTable = pgTable("users", {
   resetToken: text("reset_token"),
   resetTokenExpires: bigint("reset_token_expires", { mode: "number" }),
   gameState: jsonb("game_state"),
+  stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
