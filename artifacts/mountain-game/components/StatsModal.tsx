@@ -184,6 +184,8 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
   const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment" | "tools">("profile");
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Wood", "Ore", "Herb", "Leather", "Chests", "Potions", "Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
 
   const toggleSlot = (slot: string) => {
     setExpandedSlots((prev) => {
@@ -192,6 +194,23 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
       else next.add(slot);
       return next;
     });
+  };
+
+  const exitMultiSelect = () => { setMultiSelectMode(false); setSelectedItemIds(new Set()); };
+
+  const toggleItemSelect = (id: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchSalvage = () => { selectedItemIds.forEach(id => salvageItem(id)); exitMultiSelect(); };
+  const handleBatchSellNpc = () => { selectedItemIds.forEach(id => sellItemToNpc(id)); exitMultiSelect(); };
+
+  const selectAll = () => {
+    setSelectedItemIds(new Set((char.itemBag ?? []).map(i => i.id)));
   };
 
   // Group inventory by material type, sort each group by rarity (highest first)
@@ -387,6 +406,37 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
 
           {/* ── Inventory tab ───────────────────────────────────────────── */}
           {activeTab === "inventory" && (
+            <View style={{ flex: 1 }}>
+
+            {/* ── Batch action bar (multi-select mode) ── */}
+            {multiSelectMode && (
+              <View style={styles.batchBar}>
+                <Pressable onPress={selectedItemIds.size === (char.itemBag?.length ?? 0) ? exitMultiSelect : selectAll}>
+                  <Text style={styles.batchCount}>
+                    {selectedItemIds.size > 0 ? `${selectedItemIds.size} selected` : "Tap items to select"}
+                  </Text>
+                </Pressable>
+                <View style={{ flex: 1 }} />
+                <Pressable
+                  style={[styles.batchBtn, { borderColor: Colors.game.blue }, selectedItemIds.size === 0 && styles.batchBtnDisabled]}
+                  onPress={handleBatchSalvage}
+                  disabled={selectedItemIds.size === 0}
+                >
+                  <Text style={[styles.batchBtnTxt, { color: Colors.game.blue }]}>SALVAGE</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.batchBtn, { borderColor: "#F59E0B" }, selectedItemIds.size === 0 && styles.batchBtnDisabled]}
+                  onPress={handleBatchSellNpc}
+                  disabled={selectedItemIds.size === 0}
+                >
+                  <Text style={[styles.batchBtnTxt, { color: "#F59E0B" }]}>SELL NPC</Text>
+                </Pressable>
+                <Pressable style={[styles.batchBtn, { borderColor: Colors.game.border }]} onPress={exitMultiSelect}>
+                  <Text style={[styles.batchBtnTxt, { color: Colors.game.textDim }]}>✕</Text>
+                </Pressable>
+              </View>
+            )}
+
             <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
               {totalItems === 0 ? (
                 <View style={styles.emptyInv}>
@@ -547,12 +597,27 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                                     const rc = ITEM_RARITY_COLORS[item.rarity];
                                     const qc = ITEM_QUALITY_COLORS[item.quality];
                                     return (
-                                      <Pressable key={item.id} style={styles.invSlotWrap} onPress={() => setSelectedBagItem(item)}>
-                                        <View style={[styles.invSlot, { borderColor: rc }]}>
+                                      <Pressable
+                                        key={item.id}
+                                        style={[styles.invSlotWrap, multiSelectMode && selectedItemIds.has(item.id) && styles.invSlotWrapSelected]}
+                                        onPress={() => multiSelectMode ? toggleItemSelect(item.id) : setSelectedBagItem(item)}
+                                      >
+                                        <View style={[
+                                          styles.invSlot,
+                                          { borderColor: rc },
+                                          multiSelectMode && selectedItemIds.has(item.id) && { borderColor: Colors.game.green, borderWidth: 3 },
+                                        ]}>
                                           <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={68} compact />
+                                          {multiSelectMode && (
+                                            <View style={[styles.checkOverlay, selectedItemIds.has(item.id) && styles.checkOverlayActive]}>
+                                              {selectedItemIds.has(item.id) && <Text style={styles.checkMark}>✓</Text>}
+                                            </View>
+                                          )}
                                         </View>
                                         <View style={[styles.countBadge, { backgroundColor: rc }]}>
-                                          <Text style={styles.countText} numberOfLines={1}>{item.rarity} · {item.quality}</Text>
+                                          <Text style={styles.countText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                                            T{item.tier} · {item.quality}
+                                          </Text>
                                         </View>
                                         <View style={styles.typeLabel}>
                                           <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -578,6 +643,22 @@ export function StatsModal({ visible, onClose, onListOnAh, onListItemOnAh, onLis
                 </View>
               )}
             </ScrollView>
+
+            {/* ── Select toggle button ── */}
+            {(char.itemBag?.length ?? 0) > 0 && (
+              <Pressable
+                style={[styles.selectToggleBtn, multiSelectMode && styles.selectToggleBtnActive]}
+                onPress={() => multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true)}
+              >
+                <Text style={[styles.selectToggleTxt, multiSelectMode && { color: Colors.game.green }]}>
+                  {multiSelectMode
+                    ? `✓ ${selectedItemIds.size} of ${char.itemBag?.length ?? 0} selected — tap to deselect all`
+                    : "☑ SELECT ITEMS FOR BATCH ACTION"}
+                </Text>
+              </Pressable>
+            )}
+
+            </View>
           )}
 
           {/* ── Tools tab ─────────────────────────────────────────────── */}
@@ -854,6 +935,37 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     gap: 10,
   },
+  // Multi-select batch action UI
+  batchBar: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: Colors.game.surfaceAlt,
+    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
+  },
+  batchCount: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.textDim },
+  batchBtn: {
+    borderRadius: 8, borderWidth: 1.5,
+    paddingHorizontal: 10, paddingVertical: 6,
+    alignItems: "center",
+  },
+  batchBtnDisabled: { opacity: 0.35 },
+  batchBtnTxt: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  selectToggleBtn: {
+    paddingVertical: 11, paddingHorizontal: 14,
+    borderTopWidth: 1, borderTopColor: Colors.game.border,
+    alignItems: "center",
+  },
+  selectToggleBtnActive: { backgroundColor: Colors.game.green + "11" },
+  selectToggleTxt: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 0.8 },
+  invSlotWrapSelected: { opacity: 0.9 },
+  checkOverlay: {
+    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: 10,
+    alignItems: "center", justifyContent: "center",
+  },
+  checkOverlayActive: { backgroundColor: "rgba(0,0,0,0.45)" },
+  checkMark: { fontSize: 24, color: Colors.game.green, fontFamily: "Inter_700Bold" },
+
   typeHeader: {
     flexDirection: "row",
     alignItems: "center",
