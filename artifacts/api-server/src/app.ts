@@ -57,7 +57,9 @@ import { Request, Response } from "express";
 
 // 1. Step out 3 levels to reach the root directory
 // process.cwd() gets the exact repository root where your project builds are executing
-const clientDistPath = path.join(process.cwd(), "mountain-game/web-build");
+// Hard escape: __dirname is inside src/ -> api-server/ -> artifacts/. 3 steps back gets to the absolute root.
+const clientDistPath = path.join(__dirname, "../../../mountain-game/web-build");
+
 
 
 app.use(express.static(clientDistPath));
