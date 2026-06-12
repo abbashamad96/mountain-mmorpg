@@ -1,11 +1,11 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useRef } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
+import { BannerLabel, FantasyButton } from "@/components/ui";
 import { ChatMessage, useMultiplayer } from "@/context/MultiplayerContext";
 
 function MessageBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
@@ -30,11 +31,23 @@ function MessageBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
           </Text>
         </View>
       )}
-      <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
-        {!isOwn && <Text style={styles.senderName}>{msg.senderName}</Text>}
-        <Text style={[styles.bubbleText, isOwn && styles.bubbleTextOwn]}>{msg.text}</Text>
-        <Text style={[styles.timeText, isOwn && styles.timeTextOwn]}>{time}</Text>
-      </View>
+      {isOwn ? (
+        <LinearGradient
+          colors={Colors.grad.gold}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={[styles.bubble, styles.bubbleOwn]}
+        >
+          <Text style={[styles.bubbleText, styles.bubbleTextOwn]}>{msg.text}</Text>
+          <Text style={[styles.timeText, styles.timeTextOwn]}>{time}</Text>
+        </LinearGradient>
+      ) : (
+        <View style={[styles.bubble, styles.bubbleOther]}>
+          <Text style={styles.senderName}>{msg.senderName}</Text>
+          <Text style={styles.bubbleText}>{msg.text}</Text>
+          <Text style={styles.timeText}>{time}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -71,24 +84,38 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
   const statusLabel =
     status === "connected" ? "Online" : status === "connecting" ? "Connecting..." : "Offline";
 
+  const canSend = !!draft.trim() && status === "connected";
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={[styles.root, { paddingTop: Platform.OS === "web" ? 0 : insets.top }]}>
+      <LinearGradient
+        colors={Colors.grad.panel}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.root, { paddingTop: Platform.OS === "web" ? 0 : insets.top }]}
+      >
         {/* Header */}
-        <View style={styles.header}>
+        <LinearGradient
+          colors={Colors.grad.panelHi}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.header}
+        >
           <View style={styles.headerLeft}>
-            <Text style={styles.playerNameText}>{playerName}</Text>
+            <BannerLabel title={playerName} icon="chatbubbles" size="sm" align="left" />
             <View style={styles.statusRow}>
               <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
               <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
             </View>
           </View>
-          <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8}>
-            <Feather name="x" size={20} color={Colors.game.text} />
-          </Pressable>
-        </View>
-
-        <View style={styles.divider} />
+          <FantasyButton
+            icon="close"
+            variant="dark"
+            size="sm"
+            onPress={onClose}
+            style={styles.closeBtn}
+          />
+        </LinearGradient>
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -132,27 +159,17 @@ export function ChatModal({ visible, onClose }: ChatModalProps) {
               multiline={false}
               editable={status === "connected"}
             />
-            <Pressable
-              style={[
-                styles.sendBtn,
-                (!draft.trim() || status !== "connected") && styles.sendBtnDisabled,
-              ]}
+            <FantasyButton
+              icon="send"
+              variant="gold"
+              size="md"
               onPress={handleSend}
-              disabled={!draft.trim() || status !== "connected"}
-            >
-              <Feather
-                name="send"
-                size={18}
-                color={
-                  draft.trim() && status === "connected"
-                    ? Colors.game.background
-                    : Colors.game.textMuted
-                }
-              />
-            </Pressable>
+              disabled={!canSend}
+              style={styles.sendBtn}
+            />
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </LinearGradient>
     </Modal>
   );
 }
@@ -168,10 +185,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.game.gold + "55",
   },
   headerLeft: {
     flex: 1,
-    gap: 4,
+    gap: 6,
+    alignItems: "flex-start",
   },
   playerNameText: {
     fontSize: 16,
@@ -182,6 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    paddingLeft: 2,
   },
   statusDot: {
     width: 6,
@@ -193,15 +215,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   closeBtn: {
-    padding: 8,
-    backgroundColor: Colors.game.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.game.border,
+    flexShrink: 0,
   },
   listContent: {
     paddingHorizontal: 12,
@@ -225,7 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: Colors.game.surfaceAlt,
     borderWidth: 1,
-    borderColor: Colors.game.border,
+    borderColor: Colors.game.gold + "55",
     justifyContent: "center",
     alignItems: "center",
     flexShrink: 0,
@@ -244,12 +258,13 @@ const styles = StyleSheet.create({
   bubbleOther: {
     backgroundColor: Colors.game.surface,
     borderWidth: 1,
-    borderColor: Colors.game.border,
+    borderColor: Colors.game.gold + "22",
     borderBottomLeftRadius: 4,
   },
   bubbleOwn: {
-    backgroundColor: Colors.game.gold,
     borderBottomRightRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.game.goldBright,
   },
   senderName: {
     fontSize: 11,
@@ -264,7 +279,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bubbleTextOwn: {
-    color: Colors.game.background,
+    color: "#3A2A0A",
   },
   timeText: {
     fontSize: 10,
@@ -274,7 +289,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   timeTextOwn: {
-    color: "rgba(13,10,20,0.5)",
+    color: "rgba(58,42,10,0.6)",
   },
   emptyWrap: {
     flex: 1,
@@ -297,8 +312,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: Colors.game.border,
-    backgroundColor: Colors.game.background,
+    borderTopColor: Colors.game.gold + "33",
+    backgroundColor: Colors.game.backgroundDeep,
   },
   chatInput: {
     flex: 1,
@@ -310,21 +325,10 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: Colors.game.text,
     borderWidth: 1,
-    borderColor: Colors.game.border,
+    borderColor: Colors.game.gold + "44",
     maxHeight: 100,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.game.gold,
-    justifyContent: "center",
-    alignItems: "center",
     flexShrink: 0,
-  },
-  sendBtnDisabled: {
-    backgroundColor: Colors.game.surface,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
   },
 });

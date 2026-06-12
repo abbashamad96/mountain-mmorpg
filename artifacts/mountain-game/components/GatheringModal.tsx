@@ -3,7 +3,6 @@ import {
   Animated,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -14,6 +13,7 @@ import { GatheringTool, TOOL_RARITY_COLORS, TOOL_NAMES } from "@/lib/tools";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { ToolImage } from "./ToolImage";
+import { FantasyButton, OrnatePanel, GemBar, BannerLabel } from "@/components/ui";
 
 interface GatheringModalProps {
   visible: boolean;
@@ -152,8 +152,8 @@ export function GatheringModal({
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.title}>GATHERING</Text>
+        <OrnatePanel style={styles.cardWrap} contentStyle={styles.card} padding={22} glow>
+          <BannerLabel title="Gathering" icon="leaf" size="md" />
 
           <RarityText
             rarity={material.rarity}
@@ -162,7 +162,7 @@ export function GatheringModal({
             style={styles.rarityLabel}
           />
 
-          <View style={styles.imageWrap}>
+          <View style={[styles.imageWrap, { borderColor: rarityColor + "55" }]}>
             <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
               <MaterialImage
                 type={material.type}
@@ -207,8 +207,8 @@ export function GatheringModal({
                 style={[
                   styles.dot,
                   i < attemptsCompleted
-                    ? { backgroundColor: rarityColor }
-                    : { backgroundColor: Colors.game.border },
+                    ? { backgroundColor: rarityColor, borderColor: rarityColor }
+                    : { backgroundColor: Colors.game.surfaceHi, borderColor: Colors.game.border },
                 ]}
               />
             ))}
@@ -221,52 +221,47 @@ export function GatheringModal({
           </Text>
 
           {!done && (
-            <View style={{ width: "100%", gap: 10 }}>
+            <View style={{ width: "100%", gap: 12 }}>
               {/* Energy indicator (shared pool — sweep costs 1 energy) */}
               <View style={styles.sweepChargesRow}>
                 <Text style={styles.sweepChargesLabel}>⚡ Energy: {sweepCharges}/5</Text>
+                <GemBar progress={Math.min(1, sweepCharges / 5)} gem="sapphire" height={7} style={styles.energyBar} />
               </View>
 
               <View style={styles.btnRow}>
-                <Pressable style={[styles.leaveBtn]} onPress={handleLeave}>
-                  <Text style={styles.leaveBtnText}>LEAVE</Text>
-                </Pressable>
+                <FantasyButton
+                  label="LEAVE"
+                  icon="exit-outline"
+                  variant="dark"
+                  size="md"
+                  onPress={handleLeave}
+                  style={styles.leaveBtn}
+                />
 
-                <Pressable
-                  style={[
-                    styles.sweepBtn,
-                    sweepCharges <= 0 && styles.sweepBtnDisabled,
-                  ]}
+                <FantasyButton
+                  label="⚡ SWEEP"
+                  icon="flash"
+                  variant="amethyst"
+                  size="md"
                   onPress={handleSweep}
                   disabled={sweepCharges <= 0}
-                >
-                  <Text style={[styles.sweepBtnText, sweepCharges <= 0 && { color: Colors.game.textMuted }]}>
-                    ⚡ SWEEP
-                  </Text>
-                </Pressable>
+                  style={styles.sweepBtn}
+                />
 
-                <Pressable
-                  style={[
-                    styles.gatherBtn,
-                    { borderColor: cooldown ? Colors.game.border : rarityColor },
-                    cooldown && styles.gatherBtnDisabled,
-                  ]}
+                <FantasyButton
+                  label={cooldown ? "• • •" : "GATHER"}
+                  icon="hand-left"
+                  variant="gold"
+                  size="md"
                   onPress={handleGather}
                   disabled={cooldown}
-                >
-                  <Text
-                    style={[
-                      styles.gatherBtnText,
-                      { color: cooldown ? Colors.game.textMuted : rarityColor },
-                    ]}
-                  >
-                    {cooldown ? "• • •" : "GATHER"}
-                  </Text>
-                </Pressable>
+                  glow={!cooldown}
+                  style={styles.gatherBtn}
+                />
               </View>
             </View>
           )}
-        </View>
+        </OrnatePanel>
       </View>
     </Modal>
   );
@@ -275,26 +270,17 @@ export function GatheringModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.92)",
+    backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
-  card: {
+  cardWrap: {
     width: "100%",
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 22,
-    padding: 24,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.game.border,
-    gap: 14,
   },
-  title: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 4,
+  card: {
+    alignItems: "center",
+    gap: 14,
   },
   rarityLabel: {
     fontSize: 20,
@@ -304,12 +290,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 4,
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: Colors.game.backgroundDeep,
+    padding: 8,
   },
   toolBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: Colors.game.surface,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 10,
@@ -348,22 +338,17 @@ const styles = StyleSheet.create({
   sweepChargesRow: {
     alignSelf: "stretch",
     paddingHorizontal: 4,
+    gap: 5,
   },
   sweepChargesLabel: {
     fontSize: 11, fontFamily: "Inter_500Medium",
-    color: Colors.game.textMuted,
+    color: Colors.game.textDim,
+  },
+  energyBar: {
+    alignSelf: "stretch",
   },
   sweepBtn: {
     flex: 1,
-    borderRadius: 12, borderWidth: 1.5,
-    borderColor: Colors.game.gold,
-    paddingVertical: 14,
-    alignItems: "center", justifyContent: "center",
-  },
-  sweepBtnDisabled: { borderColor: Colors.game.border, opacity: 0.4 },
-  sweepBtnText: {
-    fontSize: 13, fontFamily: "Inter_700Bold",
-    color: Colors.game.gold, letterSpacing: 1,
   },
   dotsRow: {
     flexDirection: "row",
@@ -373,6 +358,7 @@ const styles = StyleSheet.create({
     width: 13,
     height: 13,
     borderRadius: 6.5,
+    borderWidth: 1,
   },
   attemptsLabel: {
     fontSize: 12,
@@ -381,38 +367,13 @@ const styles = StyleSheet.create({
   },
   btnRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     width: "100%",
   },
   leaveBtn: {
     flex: 1,
-    borderWidth: 2,
-    borderRadius: 16,
-    paddingVertical: 14,
-    borderColor: Colors.game.border,
-    backgroundColor: "transparent",
-    alignItems: "center",
-  },
-  leaveBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 2,
   },
   gatherBtn: {
     flex: 2,
-    borderWidth: 2,
-    borderRadius: 16,
-    paddingVertical: 14,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    alignItems: "center",
-  },
-  gatherBtnDisabled: {
-    backgroundColor: "transparent",
-  },
-  gatherBtnText: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 3,
   },
 });

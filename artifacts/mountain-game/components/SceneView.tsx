@@ -1,16 +1,27 @@
 import React, { useEffect, useRef } from "react";
 import {
-  Animated,
+  Animated as RNAnimated,
   Image,
   ImageSourcePropType,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+  cancelAnimation,
+} from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { SceneType } from "@/context/GameContext";
+import { FantasyButton } from "./ui";
 
 // ── Full background image pool ────────────────────────────────────────────────
 const BG_IMAGES: ImageSourcePropType[] = [
@@ -95,32 +106,58 @@ interface SceneViewProps {
 }
 
 export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps) {
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const dimAnim  = useRef(new Animated.Value(0)).current;
-  const dimRef   = useRef<Animated.CompositeAnimation | null>(null);
+  const fadeAnim = useRef(new RNAnimated.Value(1)).current;
   const prevArtIndex = useRef(artIndex);
+
+  // Reanimated values for the live "explore" pulse + flash
+  const pulse = useSharedValue(0);
+  const flash = useSharedValue(0);
 
   // Crossfade when the background image cycles
   useEffect(() => {
     if (prevArtIndex.current !== artIndex) {
       prevArtIndex.current = artIndex;
-      Animated.sequence([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-        Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+      RNAnimated.sequence([
+        RNAnimated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        RNAnimated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
       ]).start();
     }
   }, [artIndex]);
 
+  // Idle pulse on the explore button glow — only when ready
+  useEffect(() => {
+    if (!disabled) {
+      pulse.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
+        ),
+        -1,
+        false,
+      );
+    } else {
+      cancelAnimation(pulse);
+      pulse.value = withTiming(0, { duration: 200 });
+    }
+    return () => cancelAnimation(pulse);
+  }, [disabled]);
+
+  // Cancel the press flash on unmount
+  useEffect(() => () => cancelAnimation(flash), []);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 + pulse.value * 0.55,
+    transform: [{ scale: 1 + pulse.value * 0.06 }],
+  }));
+
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+
   const handlePress = () => {
     if (disabled) return;
-    dimRef.current?.stop();
-    dimAnim.setValue(0.28);
-    dimRef.current = Animated.timing(dimAnim, {
-      toValue: 0,
-      duration: 1400,
-      useNativeDriver: true,
-    });
-    dimRef.current.start();
+    flash.value = withSequence(
+      withTiming(0.4, { duration: 60 }),
+      withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) }),
+    );
     onPress();
   };
 
@@ -128,60 +165,95 @@ export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps
 
   return (
     <View style={styles.wrapper}>
-      <Animated.View style={[styles.sceneContainer, { opacity: fadeAnim }]}>
-        <Pressable
-          onPress={handlePress}
-          disabled={disabled}
-          style={styles.pressable}
-          testID="scene-press-button"
-        >
-          <Image source={bgImage} style={styles.img} resizeMode="cover" />
+      {/* Gold frame */}
+      <LinearGradient
+        colors={[Colors.game.gold, Colors.game.goldDeep]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.frame}
+      >
+        <RNAnimated.View style={[styles.sceneContainer, { opacity: fadeAnim }]}>
+          <View style={styles.pressable}>
+            <Image source={bgImage} style={styles.img} resizeMode="cover" />
 
-          {/* Mood tint */}
-          {SCENE_TINT[scene] !== "transparent" && (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: SCENE_TINT[scene] }]} />
-          )}
+            {/* Mood tint */}
+            {SCENE_TINT[scene] !== "transparent" && (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: SCENE_TINT[scene] }]} />
+            )}
 
-          {/* Press dim — fades out slowly */}
-          <Animated.View
-            style={[StyleSheet.absoluteFill, styles.dimOverlay, { opacity: dimAnim }]}
-          />
+            {/* Cinematic vignette */}
+            <LinearGradient
+              colors={["rgba(8,4,12,0.55)", "rgba(8,4,12,0)", "rgba(8,4,12,0.85)"]}
+              locations={[0, 0.4, 1]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
 
-          {/* Bottom scene label */}
-          <View style={styles.labelArea}>
-            <View style={styles.labelBadge}>
-              <Text style={styles.labelText}>{SCENE_LABELS[scene]}</Text>
+            {/* Explore flash */}
+            <Reanimated.View
+              style={[StyleSheet.absoluteFill, styles.flashOverlay, flashStyle]}
+              pointerEvents="none"
+            />
+
+            {/* Scene label — top-left banner */}
+            <View style={styles.labelArea} pointerEvents="none">
+              <View style={styles.labelBadge}>
+                <Ionicons name="location" size={11} color={Colors.game.goldLight} />
+                <Text style={styles.labelText}>{SCENE_LABELS[scene]}</Text>
+              </View>
+              <Text style={styles.subtitleText}>{SCENE_SUBTITLES[scene]}</Text>
             </View>
-            <Text style={styles.subtitleText}>{SCENE_SUBTITLES[scene]}</Text>
+
+            {/* Explore button — centered at bottom */}
+            <View style={styles.exploreArea} pointerEvents="box-none">
+              <View style={styles.exploreBtnWrap}>
+                <Reanimated.View style={[styles.exploreGlow, glowStyle]} pointerEvents="none" />
+                {!disabled ? (
+                  <FantasyButton
+                    label="EXPLORE"
+                    icon="footsteps"
+                    size="lg"
+                    variant="gold"
+                    onPress={handlePress}
+                    glow
+                    testID="scene-press-button"
+                    style={styles.exploreBtn}
+                  />
+                ) : (
+                  <FantasyButton
+                    label="EXPLORING..."
+                    icon="compass"
+                    size="lg"
+                    variant="dark"
+                    disabled
+                    style={styles.exploreBtn}
+                  />
+                )}
+              </View>
+            </View>
           </View>
-
-          {/* Fixed tap / cooldown badge */}
-          {!disabled ? (
-            <View style={styles.tapBtn}>
-              <Text style={styles.tapText}>TAP TO EXPLORE</Text>
-            </View>
-          ) : (
-            <View style={styles.cooldownBadge}>
-              <Text style={styles.cooldownText}>EXPLORING...</Text>
-            </View>
-          )}
-        </Pressable>
-      </Animated.View>
+        </RNAnimated.View>
+      </LinearGradient>
     </View>
   );
 }
 
-const IMG_HEIGHT = Platform.OS === "web" ? 200 : undefined;
+const IMG_HEIGHT = Platform.OS === "web" ? 240 : undefined;
 const IMG_ASPECT = Platform.OS === "web" ? undefined : (16 / 9 as any);
 
 const styles = StyleSheet.create({
   wrapper: {
     borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: Colors.game.border,
+    shadowColor: Colors.game.gold,
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
   },
-  sceneContainer: { width: "100%" },
+  frame: {
+    borderRadius: 20,
+    padding: 2,
+  },
+  sceneContainer: { width: "100%", borderRadius: 18, overflow: "hidden" },
   pressable: {
     width: "100%",
     height: IMG_HEIGHT,
@@ -195,49 +267,56 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  dimOverlay: { backgroundColor: "#000" },
+  flashOverlay: { backgroundColor: "#FFE9A0" },
   labelArea: {
     position: "absolute",
-    bottom: 0, left: 0, right: 0,
-    padding: 14, paddingBottom: 12,
-    backgroundColor: "rgba(13,10,20,0.65)",
+    top: 12, left: 12, right: 12,
   },
   labelBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(201,168,76,0.18)",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(13,10,20,0.78)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderWidth: 1,
     borderColor: Colors.game.gold,
-    marginBottom: 4,
+    marginBottom: 5,
   },
   labelText: {
     fontSize: 11, fontFamily: "Inter_700Bold",
-    color: Colors.game.gold, letterSpacing: 1.5, textTransform: "uppercase",
+    color: Colors.game.goldLight, letterSpacing: 1.2, textTransform: "uppercase",
   },
   subtitleText: {
     fontSize: 12, fontFamily: "Inter_400Regular",
-    color: Colors.game.text, opacity: 0.85,
+    color: Colors.game.text, opacity: 0.9,
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  tapBtn: {
-    position: "absolute", top: 12, right: 12,
-    backgroundColor: "rgba(201,168,76,0.15)",
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: Colors.game.gold,
+  exploreArea: {
+    position: "absolute",
+    bottom: 14, left: 0, right: 0,
+    alignItems: "center",
   },
-  tapText: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.gold, letterSpacing: 1.5,
+  exploreBtnWrap: {
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cooldownBadge: {
-    position: "absolute", top: 12, right: 12,
-    backgroundColor: "rgba(20,15,40,0.85)",
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: Colors.game.textMuted,
+  exploreGlow: {
+    position: "absolute",
+    width: "120%",
+    height: "180%",
+    borderRadius: 40,
+    backgroundColor: Colors.game.gold,
+    shadowColor: Colors.game.goldBright,
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
   },
-  cooldownText: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 1.5,
+  exploreBtn: {
+    minWidth: 200,
   },
 });

@@ -2,13 +2,13 @@ import React, { useRef, useState } from "react";
 import {
   Animated,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
+import { BannerLabel, FantasyButton, OrnatePanel } from "@/components/ui";
 import { GameItem, ItemChest, Potion } from "@/context/GameContext";
 import { SALVAGE_NPC_PRICES } from "@/lib/salvaging";
 import {
@@ -146,12 +146,12 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
   return (
     <Modal transparent visible animationType="fade">
       <View style={styles.overlay}>
-        <View style={[styles.card, { borderColor: rc }]}>
+        <OrnatePanel accent={rc} glow padding={20} style={styles.cardWrap} contentStyle={styles.card}>
 
           {/* ── Chest phase ── */}
           {phase !== "revealed" && (
             <View style={styles.chestPhase}>
-              <Text style={[styles.chestTitle, { color: rc }]}>{RARITY_LABELS[chest.rarity]}</Text>
+              <BannerLabel title={RARITY_LABELS[chest.rarity]} icon="cube" size="sm" />
               <View style={styles.chestTagRow}>
                 <View style={[styles.tag, { borderColor: "#555" }]}>
                   <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{chest.tier}</Text>
@@ -172,13 +172,9 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
 
               {phase === "idle" && (
                 <View style={styles.idleActions}>
-                  <Pressable style={[styles.openBtn, { borderColor: rc }]} onPress={handleOpen}>
-                    <Text style={[styles.openBtnTxt, { color: rc }]}>OPEN CHEST</Text>
-                  </Pressable>
+                  <FantasyButton label="OPEN CHEST" icon="cube" variant="gold" size="lg" glow fullWidth onPress={handleOpen} />
                   {onSellOnAh && (
-                    <Pressable style={styles.sellBtn} onPress={onSellOnAh}>
-                      <Text style={styles.sellBtnTxt}>SELL ON AH</Text>
-                    </Pressable>
+                    <FantasyButton label="SELL ON AH" icon="pricetag" variant="ember" fullWidth onPress={onSellOnAh} />
                   )}
                 </View>
               )}
@@ -190,9 +186,7 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
               )}
 
               {phase === "idle" && onClose && (
-                <Pressable style={styles.closeBtn} onPress={onClose}>
-                  <Text style={styles.closeBtnTxt}>CLOSE</Text>
-                </Pressable>
+                <FantasyButton label="CLOSE" icon="close" variant="dark" fullWidth style={styles.closeBtn} onPress={onClose} />
               )}
             </View>
           )}
@@ -256,36 +250,26 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
                   {(onEquipItem || (onSellOnAh && (revealedDrop as GameItem).tradable)) && (
                     <View style={styles.actionRow}>
                       {onEquipItem && (
-                        <Pressable style={[styles.claimBtn, styles.actionHalf, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onEquipItem(revealedDrop as GameItem)}>
-                          <Text style={[styles.claimBtnTxt, { color: dropRc }]}>EQUIP</Text>
-                        </Pressable>
+                        <FantasyButton label="EQUIP" icon="shield-checkmark" variant="emerald" style={styles.actionHalf} onPress={() => onEquipItem(revealedDrop as GameItem)} />
                       )}
                       {onSellOnAh && (revealedDrop as GameItem).tradable && (
-                        <Pressable style={[styles.claimBtn, styles.actionHalf, styles.ahBtn]} onPress={onSellOnAh}>
-                          <Text style={[styles.claimBtnTxt, styles.ahTxt]}>LIST ON AH</Text>
-                        </Pressable>
+                        <FantasyButton label="LIST ON AH" icon="pricetag" variant="ember" style={styles.actionHalf} onPress={onSellOnAh} />
                       )}
                     </View>
                   )}
                   {(onSalvageItem || onSellItemToNpc) && (
                     <View style={styles.actionRow}>
                       {onSalvageItem && (
-                        <Pressable style={[styles.claimBtn, styles.actionHalf, styles.salvageBtn]} onPress={() => onSalvageItem(revealedDrop as GameItem)}>
-                          <Text style={[styles.claimBtnTxt, styles.salvageTxt]}>SALVAGE</Text>
-                        </Pressable>
+                        <FantasyButton label="SALVAGE" icon="hammer" variant="dark" style={styles.actionHalf} onPress={() => onSalvageItem(revealedDrop as GameItem)} />
                       )}
                       {onSellItemToNpc && (
-                        <Pressable style={[styles.claimBtn, styles.actionHalf, styles.npcBtn]} onPress={() => onSellItemToNpc(revealedDrop as GameItem)}>
-                          <Text style={[styles.claimBtnTxt, styles.npcTxt]}>SELL TO NPC</Text>
-                        </Pressable>
+                        <FantasyButton label="SELL TO NPC" icon="cash" variant="emerald" style={styles.actionHalf} onPress={() => onSellItemToNpc(revealedDrop as GameItem)} />
                       )}
                     </View>
                   )}
                 </View>
               )}
-              <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
-                <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
-              </Pressable>
+              <FantasyButton label="ADD TO BAG" icon="bag-add" variant="gold" fullWidth onPress={() => onClaim(revealedDrop)} />
             </Animated.View>
           )}
 
@@ -324,20 +308,14 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
               {(onConsumePotion || (onSellOnAh && (revealedDrop as Potion).tradable)) && (
                 <View style={styles.actionRow}>
                   {onConsumePotion && (
-                    <Pressable style={[styles.claimBtn, styles.actionHalf, styles.consumeBtn]} onPress={() => onConsumePotion(revealedDrop as Potion)}>
-                      <Text style={[styles.claimBtnTxt, styles.consumeTxt]}>CONSUME</Text>
-                    </Pressable>
+                    <FantasyButton label="CONSUME" icon="flask" variant="emerald" style={styles.actionHalf} onPress={() => onConsumePotion(revealedDrop as Potion)} />
                   )}
                   {onSellOnAh && (revealedDrop as Potion).tradable && (
-                    <Pressable style={[styles.claimBtn, styles.actionHalf, styles.ahBtn]} onPress={onSellOnAh}>
-                      <Text style={[styles.claimBtnTxt, styles.ahTxt]}>LIST ON AH</Text>
-                    </Pressable>
+                    <FantasyButton label="LIST ON AH" icon="pricetag" variant="ember" style={styles.actionHalf} onPress={onSellOnAh} />
                   )}
                 </View>
               )}
-              <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
-                <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
-              </Pressable>
+              <FantasyButton label="ADD TO BAG" icon="bag-add" variant="gold" fullWidth onPress={() => onClaim(revealedDrop)} />
             </Animated.View>
           )}
 
@@ -376,13 +354,11 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
                   </Text>
                 </View>
               </View>
-              <Pressable style={[styles.claimBtn, { borderColor: dropRc, backgroundColor: dropRc + "22" }]} onPress={() => onClaim(revealedDrop)}>
-                <Text style={[styles.claimBtnTxt, { color: dropRc }]}>ADD TO BAG</Text>
-              </Pressable>
+              <FantasyButton label="ADD TO BAG" icon="bag-add" variant="gold" fullWidth onPress={() => onClaim(revealedDrop)} />
             </Animated.View>
           )}
 
-        </View>
+        </OrnatePanel>
       </View>
     </Modal>
   );
@@ -390,19 +366,17 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.75)",
+    flex: 1, backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "center", alignItems: "center", padding: 20,
   },
-  card: {
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 24, padding: 22,
-    width: "100%", maxWidth: 340,
-    borderWidth: 2, gap: 14, alignItems: "center",
-  },
+  cardWrap: { width: "100%", maxWidth: 340 },
+  card: { gap: 14, alignItems: "center" },
   chestPhase: { alignItems: "center", gap: 12, width: "100%" },
-  chestTitle: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2, textAlign: "center" },
   chestTagRow: { flexDirection: "row", gap: 8 },
-  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  tag: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1,
+    backgroundColor: "rgba(7,4,9,0.4)",
+  },
   tagTxt: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1 },
   chestWrap: { alignItems: "center", justifyContent: "center", marginVertical: 4 },
   glowRing: { position: "absolute", width: 130, height: 130, borderRadius: 65 },
@@ -414,24 +388,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.7, shadowRadius: 12, elevation: 8,
   },
   idleActions: { width: "100%", gap: 8 },
-  openBtn: {
-    borderWidth: 2, borderRadius: 14,
-    paddingVertical: 12, alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  openBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },
-  sellBtn: {
-    borderWidth: 1.5, borderRadius: 14,
-    paddingVertical: 11, alignItems: "center",
-    borderColor: "#F59E0B",
-    backgroundColor: "rgba(245,158,11,0.08)",
-  },
-  sellBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 1.5, color: "#F59E0B" },
   openingMsg: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", letterSpacing: 0.5 },
   revealPhase: { alignItems: "center", gap: 12, width: "100%" },
   itemCard: {
     width: "100%", backgroundColor: Colors.game.surface,
-    borderRadius: 16, borderWidth: 2, padding: 14, gap: 10,
+    borderRadius: 16, borderWidth: 1.5, padding: 14, gap: 10,
   },
   artRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   itemName: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 4, lineHeight: 20 },
@@ -446,7 +407,7 @@ const styles = StyleSheet.create({
   statRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
     paddingVertical: 3, paddingHorizontal: 8,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: "rgba(201,168,76,0.06)",
     borderRadius: 6, marginBottom: 3,
   },
   statIcon: { fontSize: 13, width: 18 },
@@ -455,23 +416,8 @@ const styles = StyleSheet.create({
   pctVal:  { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.gold },
   noStat:  { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim, fontStyle: "italic" },
   potionDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 18 },
-  claimBtn: { borderWidth: 2, borderRadius: 14, paddingVertical: 13, alignItems: "center" },
-  claimBtnTxt: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 2 },
   actionBlock: { width: "100%", gap: 8 },
   actionRow: { flexDirection: "row", gap: 8, width: "100%" },
   actionHalf: { flex: 1 },
-  ahBtn: { borderColor: "#F59E0B", backgroundColor: "rgba(245,158,11,0.08)" },
-  ahTxt: { color: "#F59E0B" },
-  salvageBtn: { borderColor: "#7C6544", backgroundColor: "rgba(124,101,68,0.15)" },
-  salvageTxt: { color: "#C4A06A" },
-  npcBtn: { borderColor: "#4ade8088", backgroundColor: "rgba(74,222,128,0.08)" },
-  npcTxt: { color: "#4ade80" },
-  consumeBtn: { borderColor: "#4ade8088", backgroundColor: "rgba(74,222,128,0.08)" },
-  consumeTxt: { color: "#4ade80" },
-  closeBtn: {
-    width: "100%", backgroundColor: Colors.game.surface,
-    borderRadius: 14, paddingVertical: 12,
-    alignItems: "center", borderWidth: 1, borderColor: Colors.game.border,
-  },
-  closeBtnTxt: { fontSize: 12, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
+  closeBtn: { width: "100%" },
 });

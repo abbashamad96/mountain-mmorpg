@@ -1,2 +1,3 @@
 - [Equipment AH listing](equipment-ah-listing.md) — equipment stored in DB via `material._item` JSONB; no schema change; `material.type = "Equipment"` distinguishes from materials in AH logic.
 - [AH event item handling](ah-event-item-handling.md) — for Equipment listings, MultiplayerContext calls `game.addItemToBag` directly on `ah_bought`/`ah_cancelled`; index.tsx skips `addMaterials` for those.
+- [Mountain-game ornate UI quirks](mountain-game-ui-quirks.md) — Expo-web Image sizing (avoid aspectRatio+100% width; use onLayout/explicit height), screenshot races large PNGs, verifying screens behind mandatory auth, RivetFrame slot rationale.

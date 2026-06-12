@@ -4,7 +4,6 @@ import {
   Image,
   ImageSourcePropType,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
 import Colors from "@/constants/colors";
 import { CharacterStats, NpcBattleStats, RARITY_COLORS, RarityName } from "@/context/GameContext";
 import { RarityText } from "./RarityText";
+import { BannerLabel, FantasyButton, GemBar, OrnatePanel } from "@/components/ui";
 
 // ─── NPC images ───────────────────────────────────────────────────────────────
 const NPC_SPLASH: Record<RarityName, ImageSourcePropType> = {
@@ -291,116 +291,116 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   return (
     <Modal transparent visible={visible} animationType="none">
       <View style={styles.overlay}>
-        <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+        <Animated.View style={[styles.cardWrap, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+          <OrnatePanel padding={18} glow contentStyle={styles.cardContent}>
 
-          {/* Title */}
-          <View style={styles.titleRow}>
-            <Text style={styles.battleLabel}>⚔ BATTLE</Text>
-            <RarityText rarity={npc.rarity} version={npc.version} label={npc.name} style={styles.npcName} />
-          </View>
+            {/* Title */}
+            <View style={styles.titleRow}>
+              <BannerLabel title="⚔ BATTLE" size="sm" />
+              <RarityText rarity={npc.rarity} version={npc.version} label={npc.name} style={styles.npcName} />
+            </View>
 
-          {/* NPC splash */}
-          <Animated.View style={[styles.npcWrap, { transform: [{ translateX: npcShake }] }]}>
-            <Image source={NPC_SPLASH[npc.rarity]} style={styles.npcImg} resizeMode="cover" />
-            <View style={[styles.npcBorder, { borderColor: rarityColor }]} />
-            <View style={styles.npcHpBar}>
-              <View style={styles.npcHpTrack}>
-                <View style={[styles.npcHpFill, { width: `${nHpPct}%` as any, backgroundColor: rarityColor }]} />
+            {/* NPC splash */}
+            <Animated.View style={[styles.npcWrap, { transform: [{ translateX: npcShake }] }]}>
+              <Image source={NPC_SPLASH[npc.rarity]} style={styles.npcImg} resizeMode="cover" />
+              <View style={[styles.npcBorder, { borderColor: rarityColor }]} />
+              <View style={styles.npcHpBar}>
+                <GemBar progress={nHpPct / 100} gem="ruby" height={7} style={{ flex: 1 }} />
+                <Text style={[styles.npcHpNum, { color: rarityColor }]}>{npcHp}/{npc.maxHp}</Text>
               </View>
-              <Text style={[styles.npcHpNum, { color: rarityColor }]}>{npcHp}/{npc.maxHp}</Text>
-            </View>
-          </Animated.View>
+            </Animated.View>
 
-          {/* Player HP */}
-          <Animated.View style={[styles.pHpRow, { transform: [{ translateX: playerShake }] }]}>
-            <Text style={styles.pHpLabel}>YOU</Text>
-            <View style={styles.hpTrack}>
-              <View style={[styles.hpFill, {
-                width: `${pHpPct}%` as any,
-                backgroundColor: pHpPct > 50 ? Colors.game.green : pHpPct > 25 ? Colors.game.gold : Colors.game.red,
-              }]} />
-            </View>
-            <Text style={styles.hpNum}>{playerHp}/{maxHp}</Text>
-          </Animated.View>
+            {/* Player HP */}
+            <Animated.View style={[styles.pHpRow, { transform: [{ translateX: playerShake }] }]}>
+              <Text style={styles.pHpLabel}>YOU</Text>
+              <GemBar
+                progress={pHpPct / 100}
+                gem={pHpPct > 50 ? "emerald" : pHpPct > 25 ? "gold" : "ruby"}
+                height={9}
+                style={{ flex: 1 }}
+              />
+              <Text style={styles.hpNum}>{playerHp}/{maxHp}</Text>
+            </Animated.View>
 
-          {/* Turn readiness bar */}
-          <View style={styles.barRow}>
-            <Text style={[styles.barLabel, isPlayerTurn && styles.barLabelReady]}>
-              {isPlayerTurn ? "YOUR TURN" : "NEXT TURN"}
-            </Text>
-            <View style={styles.barTrack}>
-              <View style={[styles.barFill, {
-                width: `${barPct}%` as any,
-                backgroundColor: isPlayerTurn ? Colors.game.gold : "#5a4a08",
-              }]} />
+            {/* Turn readiness bar */}
+            <View style={styles.barRow}>
+              <Text style={[styles.barLabel, isPlayerTurn && styles.barLabelReady]}>
+                {isPlayerTurn ? "YOUR TURN" : "NEXT TURN"}
+              </Text>
+              <GemBar progress={barPct / 100} gem="gold" height={9} style={{ flex: 1 }} />
             </View>
-          </View>
 
-          {/* Combat info card */}
-          <View style={styles.calcCard}>
-            <View style={styles.calcHeader}>
-              <Text style={styles.calcHeaderTxt}>YOU</Text>
-              <Text style={styles.calcSpacer} />
-              <Text style={[styles.calcHeaderTxt, { color: rarityColor, textAlign: "right" }]}>ENEMY</Text>
-            </View>
-            <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>⚡ {Math.round(pSpd)} spd</Text>
-              <Text style={styles.calcKey}>SPEED</Text>
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {Math.round(nSpd)} spd</Text>
-            </View>
-            <View style={styles.calcRow}>
-              <Text style={[styles.calcVal, { flex: 3, textAlign: "center", color: Colors.game.textMuted }]}>{ratioTxt}</Text>
-            </View>
-            <View style={styles.calcRow}>
-              <Text style={styles.calcVal}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)}</Text>
-              <Text style={styles.calcKey} />
-              <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>🛡 {blockPct.toFixed(1)}% blk</Text>
-            </View>
-          </View>
-
-          {/* Battle log */}
-          <ScrollView ref={logRef} style={styles.log} showsVerticalScrollIndicator={false}>
-            {log.length === 0 && <Text style={styles.logEmpty}>The battle begins...</Text>}
-            {log.map(l => (
-              <Text key={l.id} style={[styles.logLine, { color: l.color }]}>› {l.text}</Text>
-            ))}
-          </ScrollView>
-
-          {/* Buttons */}
-          {isFighting && (
-            <View style={styles.btnRow}>
-              <Pressable style={styles.fleeBtn} onPress={handleFlee}>
-                <Text style={styles.fleeTxt}>FLEE</Text>
-              </Pressable>
-              <Animated.View style={[{ flex: 2 }, isPlayerTurn && { transform: [{ scale: pulseAnim }] }]}>
-                <Pressable
-                  style={[styles.atkBtn, !isPlayerTurn && styles.atkBtnOff]}
-                  onPress={handleAttack}
-                  disabled={!isPlayerTurn}
-                >
-                  <Text style={[styles.atkTxt, !isPlayerTurn && styles.atkTxtOff]}>
-                    {isPlayerTurn ? "⚔  ATTACK" : "• • •"}
-                  </Text>
-                </Pressable>
-              </Animated.View>
-            </View>
-          )}
-
-          {phase === "victory" && (
-            <View style={styles.resultRow}>
-              <Text style={styles.victoryTxt}>VICTORY!</Text>
-              <View style={styles.rewardRow}>
-                <Text style={styles.goldTxt}>+{npc.goldReward} G</Text>
-                <Text style={styles.xpTxt}>+{npc.xpReward} XP</Text>
+            {/* Combat info card */}
+            <View style={styles.calcCard}>
+              <View style={styles.calcHeader}>
+                <Text style={styles.calcHeaderTxt}>YOU</Text>
+                <Text style={styles.calcSpacer} />
+                <Text style={[styles.calcHeaderTxt, { color: rarityColor, textAlign: "right" }]}>ENEMY</Text>
+              </View>
+              <View style={styles.calcRow}>
+                <Text style={styles.calcVal}>⚡ {Math.round(pSpd)} spd</Text>
+                <Text style={styles.calcKey}>SPEED</Text>
+                <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>⚡ {Math.round(nSpd)} spd</Text>
+              </View>
+              <View style={styles.calcRow}>
+                <Text style={[styles.calcVal, { flex: 3, textAlign: "center", color: Colors.game.textMuted }]}>{ratioTxt}</Text>
+              </View>
+              <View style={styles.calcRow}>
+                <Text style={styles.calcVal}>⚔ {Math.round(playerStats.strength * 0.9)}–{Math.round(playerStats.strength * 1.1)}</Text>
+                <Text style={styles.calcKey} />
+                <Text style={[styles.calcVal, { color: rarityColor, textAlign: "right" }]}>🛡 {blockPct.toFixed(1)}% blk</Text>
               </View>
             </View>
-          )}
-          {(phase === "defeat" || phase === "fled") && (
-            <View style={styles.resultRow}>
-              <Text style={styles.defeatTxt}>{phase === "fled" ? "FLED" : "DEFEATED"}</Text>
-            </View>
-          )}
 
+            {/* Battle log */}
+            <ScrollView ref={logRef} style={styles.log} showsVerticalScrollIndicator={false}>
+              {log.length === 0 && <Text style={styles.logEmpty}>The battle begins...</Text>}
+              {log.map(l => (
+                <Text key={l.id} style={[styles.logLine, { color: l.color }]}>› {l.text}</Text>
+              ))}
+            </ScrollView>
+
+            {/* Buttons */}
+            {isFighting && (
+              <View style={styles.btnRow}>
+                <FantasyButton
+                  label="FLEE"
+                  icon="exit-outline"
+                  variant="dark"
+                  onPress={handleFlee}
+                  style={styles.fleeBtn}
+                />
+                <Animated.View style={[styles.atkWrap, isPlayerTurn && { transform: [{ scale: pulseAnim }] }]}>
+                  <FantasyButton
+                    label={isPlayerTurn ? "⚔  ATTACK" : "• • •"}
+                    icon={isPlayerTurn ? "flash" : undefined}
+                    variant="ruby"
+                    size="lg"
+                    onPress={handleAttack}
+                    disabled={!isPlayerTurn}
+                    glow={isPlayerTurn}
+                    fullWidth
+                  />
+                </Animated.View>
+              </View>
+            )}
+
+            {phase === "victory" && (
+              <View style={styles.resultRow}>
+                <Text style={styles.victoryTxt}>VICTORY!</Text>
+                <View style={styles.rewardRow}>
+                  <Text style={styles.goldTxt}>+{npc.goldReward} G</Text>
+                  <Text style={styles.xpTxt}>+{npc.xpReward} XP</Text>
+                </View>
+              </View>
+            )}
+            {(phase === "defeat" || phase === "fled") && (
+              <View style={styles.resultRow}>
+                <Text style={styles.defeatTxt}>{phase === "fled" ? "FLED" : "DEFEATED"}</Text>
+              </View>
+            )}
+
+          </OrnatePanel>
         </Animated.View>
       </View>
     </Modal>
@@ -409,52 +409,40 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.93)",
+    flex: 1, backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "center", alignItems: "center", padding: 20,
   },
-  card: {
-    width: "100%", backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 22, padding: 20,
-    borderWidth: 1, borderColor: Colors.game.border, gap: 10,
-  },
-  titleRow: { alignItems: "center", gap: 4 },
-  battleLabel: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 4 },
+  cardWrap: { width: "100%" },
+  cardContent: { gap: 10 },
+  titleRow: { alignItems: "center", gap: 8 },
   npcName: { fontSize: 22, fontFamily: "Inter_700Bold" },
 
-  npcWrap: { width: "100%", height: 150, borderRadius: 14, overflow: "hidden" },
+  npcWrap: {
+    width: "100%", height: 150, borderRadius: 14, overflow: "hidden",
+    borderWidth: 1, borderColor: Colors.game.gold + "33",
+  },
   npcImg: { width: "100%", height: "100%" },
   npcBorder: { ...StyleSheet.absoluteFillObject, borderRadius: 14, borderWidth: 2 },
   npcHpBar: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(7,4,9,0.7)",
     paddingHorizontal: 10, paddingVertical: 6,
     flexDirection: "row", alignItems: "center", gap: 8,
   },
-  npcHpTrack: { flex: 1, height: 6, backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 3, overflow: "hidden" },
-  npcHpFill: { height: "100%", borderRadius: 3 },
   npcHpNum: { fontSize: 11, fontFamily: "Inter_500Medium", minWidth: 50, textAlign: "right" },
 
   pHpRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   pHpLabel: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.green, letterSpacing: 1, width: 28 },
-  hpTrack: { flex: 1, height: 8, backgroundColor: Colors.game.border, borderRadius: 4, overflow: "hidden" },
-  hpFill: { height: "100%", borderRadius: 4 },
   hpNum: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim, width: 55, textAlign: "right" },
 
   barRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   barLabel: { fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 1, width: 58 },
   barLabelReady: { color: Colors.game.gold },
-  barTrack: {
-    flex: 1, height: 8,
-    backgroundColor: "rgba(80,60,0,0.2)",
-    borderRadius: 4, overflow: "hidden",
-    borderWidth: 1, borderColor: "rgba(80,60,0,0.3)",
-  },
-  barFill: { height: "100%", borderRadius: 4 },
 
   calcCard: {
     backgroundColor: Colors.game.surface,
-    borderRadius: 10, padding: 10, gap: 5,
-    borderWidth: 1, borderColor: Colors.game.border,
+    borderRadius: 12, padding: 10, gap: 5,
+    borderWidth: 1, borderColor: Colors.game.gold + "22",
   },
   calcHeader: { flexDirection: "row", alignItems: "center" },
   calcHeaderTxt: { flex: 1, fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
@@ -463,20 +451,16 @@ const styles = StyleSheet.create({
   calcKey: { width: 50, fontSize: 9, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, textAlign: "center", letterSpacing: 1 },
   calcVal: { flex: 1, fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
 
-  log: { maxHeight: 72, backgroundColor: Colors.game.surface, borderRadius: 10, padding: 10 },
+  log: {
+    maxHeight: 72, backgroundColor: Colors.game.surface, borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: Colors.game.gold + "22",
+  },
   logEmpty: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textMuted, fontStyle: "italic", textAlign: "center" },
   logLine: { fontSize: 12, fontFamily: "Inter_500Medium", marginBottom: 2, lineHeight: 18 },
 
-  btnRow: { flexDirection: "row", gap: 10 },
-  fleeBtn: {
-    flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center",
-    borderWidth: 1, borderColor: Colors.game.border, backgroundColor: Colors.game.surface,
-  },
-  fleeTxt: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
-  atkBtn: { flex: 1, backgroundColor: Colors.game.red, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-  atkBtnOff: { backgroundColor: Colors.game.surface, borderWidth: 1, borderColor: Colors.game.border },
-  atkTxt: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: 2 },
-  atkTxtOff: { color: Colors.game.textMuted, fontSize: 17, letterSpacing: 4 },
+  btnRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+  fleeBtn: { flex: 1 },
+  atkWrap: { flex: 2 },
 
   resultRow: { alignItems: "center", gap: 6 },
   victoryTxt: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.game.gold, letterSpacing: 4 },

@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -8,7 +8,16 @@ import {
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
+import ReanimatedNS, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GemBar } from "@/components/ui";
 import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
@@ -508,11 +517,63 @@ interface BottomTabBarProps {
   onPressAH: () => void;
   onPressInventory: () => void;
   onPressChat: () => void;
-  onPressNotifications: () => void;
   onPressCraft: () => void;
   unreadCount: number;
   pendingStatPoints: number;
   bottomPad: number;
+}
+
+function TabButton({
+  icon, label, color, active, badge, badgeColor, onPress,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  color: string;
+  active?: boolean;
+  badge?: number;
+  badgeColor?: string;
+  onPress?: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const lift = useSharedValue(0);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateY: lift.value }],
+  }));
+
+  const handleIn = () => {
+    scale.value = withTiming(0.88, { duration: 90 });
+    lift.value = withTiming(-3, { duration: 90 });
+  };
+  const handleOut = () => {
+    scale.value = withSequence(withTiming(1.08, { duration: 110 }), withTiming(1, { duration: 90 }));
+    lift.value = withTiming(0, { duration: 140 });
+  };
+  const handlePress = () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onPress?.();
+  };
+
+  return (
+    <ReanimatedNS.View style={[tabBarStyles.tabWrap, animStyle]}>
+      <Pressable
+        style={tabBarStyles.tab}
+        onPress={onPress ? handlePress : undefined}
+        onPressIn={onPress ? handleIn : undefined}
+        onPressOut={onPress ? handleOut : undefined}
+        hitSlop={8}
+      >
+        <View style={[tabBarStyles.iconBubble, active && { borderColor: color, backgroundColor: color + "22" }]}>
+          <Feather name={icon} size={20} color={color} />
+          {badge != null && badge > 0 && (
+            <View style={[tabBarStyles.badge, { backgroundColor: badgeColor ?? Colors.game.purple }]}>
+              <Text style={tabBarStyles.badgeText}>{badge > 9 ? "9+" : String(badge)}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[tabBarStyles.label, { color: active ? color : Colors.game.textDim }]}>{label}</Text>
+      </Pressable>
+    </ReanimatedNS.View>
+  );
 }
 
 function BottomTabBar({
@@ -520,79 +581,55 @@ function BottomTabBar({
   unreadCount, pendingStatPoints, bottomPad,
 }: BottomTabBarProps) {
   return (
-    <View style={[tabBarStyles.bar, { paddingBottom: bottomPad + 6 }]}>
-      {/* Mountain — always active */}
-      <View style={tabBarStyles.tab}>
-        <Feather name="map-pin" size={22} color={Colors.game.gold} />
-        <Text style={[tabBarStyles.label, { color: Colors.game.gold }]}>Mountain</Text>
-      </View>
-
-      {/* Market / AH */}
-      <Pressable style={tabBarStyles.tab} onPress={onPressAH} hitSlop={8}>
-        <View style={tabBarStyles.highlightWrap}>
-          <Feather name="shopping-bag" size={22} color={Colors.game.gold} />
-          <View style={[tabBarStyles.highlightDot, { backgroundColor: Colors.game.gold }]} />
-        </View>
-        <Text style={[tabBarStyles.label, { color: Colors.game.gold }]}>Market</Text>
-      </Pressable>
-
-      {/* Crafting */}
-      <Pressable style={tabBarStyles.tab} onPress={onPressCraft} hitSlop={8}>
-        <View style={tabBarStyles.highlightWrap}>
-          <Text style={[tabBarStyles.tabEmoji, { color: Colors.game.blue }]}>⚗</Text>
-          <View style={[tabBarStyles.highlightDot, { backgroundColor: Colors.game.blue }]} />
-        </View>
-        <Text style={[tabBarStyles.label, { color: Colors.game.blue }]}>Craft</Text>
-      </Pressable>
-
-      {/* Inventory */}
-      <Pressable style={tabBarStyles.tab} onPress={onPressInventory} hitSlop={8}>
-        <View style={tabBarStyles.iconWrap}>
-          <Feather name="package" size={22} color={Colors.game.textDim} />
-          {pendingStatPoints > 0 && (
-            <View style={tabBarStyles.badge}>
-              <Text style={tabBarStyles.badgeText}>{pendingStatPoints}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={tabBarStyles.label}>Inventory</Text>
-      </Pressable>
-
-      {/* Chat */}
-      <Pressable style={tabBarStyles.tab} onPress={onPressChat} hitSlop={8}>
-        <View style={tabBarStyles.iconWrap}>
-          <Feather name="message-circle" size={22} color={Colors.game.textDim} />
-          {unreadCount > 0 && (
-            <View style={[tabBarStyles.badge, { backgroundColor: Colors.game.red }]}>
-              <Text style={tabBarStyles.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={tabBarStyles.label}>Chat</Text>
-      </Pressable>
-
-    </View>
+    <LinearGradient
+      colors={[Colors.game.surfaceHi, Colors.game.background]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[tabBarStyles.bar, { paddingBottom: bottomPad + 6 }]}
+    >
+      <LinearGradient
+        colors={["transparent", Colors.game.gold, "transparent"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={tabBarStyles.topTrim}
+      />
+      <TabButton icon="map-pin" label="Mountain" color={Colors.game.gold} active />
+      <TabButton icon="shopping-bag" label="Market" color={Colors.game.goldLight} onPress={onPressAH} />
+      <TabButton icon="filter" label="Craft" color={Colors.game.blueLight} onPress={onPressCraft} />
+      <TabButton
+        icon="package" label="Inventory" color={Colors.game.purpleLight}
+        onPress={onPressInventory} badge={pendingStatPoints} badgeColor={Colors.game.purple}
+      />
+      <TabButton
+        icon="message-circle" label="Chat" color={Colors.game.greenLight}
+        onPress={onPressChat} badge={unreadCount} badgeColor={Colors.game.red}
+      />
+    </LinearGradient>
   );
 }
 
 const tabBarStyles = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    backgroundColor: Colors.game.surface,
-    borderTopWidth: 1, borderTopColor: Colors.game.border,
-    paddingTop: 10, paddingHorizontal: 10,
+    borderTopWidth: 1, borderTopColor: Colors.game.gold + "55",
+    paddingTop: 10, paddingHorizontal: 8,
+    position: "relative",
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3 },
-  iconWrap: { position: "relative" },
-  highlightWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
-  highlightDot: { position: "absolute", bottom: -4, width: 4, height: 4, borderRadius: 2 },
-  label: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textDim, letterSpacing: 0.3 },
-  tabEmoji: { fontSize: 20, lineHeight: 26 },
-  badge: {
-    position: "absolute", top: -5, right: -8,
-    backgroundColor: Colors.game.purple,
-    borderRadius: 8, minWidth: 15, height: 15, paddingHorizontal: 3,
+  topTrim: { position: "absolute", top: 0, left: 0, right: 0, height: 1.5, opacity: 0.6 },
+  tabWrap: { flex: 1 },
+  tab: { alignItems: "center", justifyContent: "center", gap: 4 },
+  iconBubble: {
+    width: 42, height: 42, borderRadius: 12,
     alignItems: "center", justifyContent: "center",
+    borderWidth: 1, borderColor: "transparent",
+    position: "relative",
+  },
+  label: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.textDim, letterSpacing: 0.3 },
+  badge: {
+    position: "absolute", top: -4, right: -4,
+    borderRadius: 9, minWidth: 16, height: 16, paddingHorizontal: 3,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: Colors.game.background,
   },
   badgeText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
 });
@@ -1154,7 +1191,12 @@ export default function GameScreen() {
       }}
     >
       {/* ── Character header card ─────────────────────────────────────────── */}
-      <View style={[styles.characterCard, { paddingTop: topPad + 10 }]}>
+      <LinearGradient
+        colors={[Colors.game.surfaceHi, Colors.game.backgroundDeep ?? Colors.game.background]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.characterCard, { paddingTop: topPad + 10 }]}
+      >
         <View style={styles.charRow}>
           {/* Avatar circle — tap to open profile */}
           <Pressable
@@ -1181,14 +1223,13 @@ export default function GameScreen() {
               {SCENE_NAME_MAP[gameState.currentScene] ?? "Mountain Road"}
             </Text>
             <View style={styles.xpRow}>
-              <View style={styles.xpTrack}>
-                <View
-                  style={[
-                    styles.xpFill,
-                    { width: `${Math.min(100, (char.xp / char.xpToNext) * 100)}%` as any },
-                  ]}
-                />
-              </View>
+              <GemBar
+                progress={Math.min(1, char.xp / char.xpToNext)}
+                gem="amethyst"
+                height={7}
+                framed={false}
+                style={styles.xpBar}
+              />
               <Text style={styles.xpText}>{char.xp}/{char.xpToNext} XP</Text>
             </View>
           </View>
@@ -1230,18 +1271,17 @@ export default function GameScreen() {
         </View>
         {/* Energy bar */}
         <View style={styles.energyBarRow}>
-          <Text style={styles.energyBarIcon}>⚡</Text>
-          <View style={styles.energyTrack}>
-            <View
-              style={[
-                styles.energyFill,
-                { width: `${Math.min(100, (char.craftingEnergy / CRAFTING_MAX_ENERGY) * 100)}%` as any },
-              ]}
-            />
-          </View>
+          <Ionicons name="flash" size={13} color={Colors.game.blueLight} />
+          <GemBar
+            progress={Math.min(1, char.craftingEnergy / CRAFTING_MAX_ENERGY)}
+            gem="sapphire"
+            height={6}
+            framed={false}
+            style={styles.energyBar}
+          />
           <Text style={styles.energyText}>{char.craftingEnergy}/{CRAFTING_MAX_ENERGY}</Text>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* ── Active potion buff pills ──────────────────────────────────────── */}
       <ActiveBuffPills buffs={char.activeBuffs} />
@@ -1284,7 +1324,6 @@ export default function GameScreen() {
         onPressAH={() => setShowAuction(true)}
         onPressInventory={() => { setStatsDefaultTab("inventory"); setShowStats(true); }}
         onPressChat={() => setShowChat(true)}
-        onPressNotifications={() => setShowNotifications(true)}
         onPressCraft={() => setShowCrafting(true)}
         unreadCount={unreadCount}
         pendingStatPoints={char.pendingStatPoints}
@@ -1479,8 +1518,7 @@ const styles = StyleSheet.create({
   // ── Character header ──────────────────────────────────────────────────────
   characterCard: {
     paddingHorizontal: 16, paddingBottom: 12,
-    backgroundColor: Colors.game.surface,
-    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
+    borderBottomWidth: 1, borderBottomColor: Colors.game.gold + "55",
   },
   charRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 
@@ -1503,8 +1541,7 @@ const styles = StyleSheet.create({
   charName: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.text, letterSpacing: 0.2 },
   charScene: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
   xpRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
-  xpTrack: { flex: 1, height: 5, backgroundColor: Colors.game.border, borderRadius: 3, overflow: "hidden" },
-  xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 3 },
+  xpBar: { flex: 1 },
   xpText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
 
   charRight: { alignItems: "flex-end", gap: 5 },
@@ -1526,14 +1563,9 @@ const styles = StyleSheet.create({
   rubyPlus: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#E91E8C88" },
   energyBarRow: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    marginTop: 6, paddingHorizontal: 2,
+    marginTop: 8, paddingHorizontal: 2,
   },
-  energyBarIcon: { fontSize: 11, color: "#3B9EFF" },
-  energyTrack: {
-    flex: 1, height: 4, backgroundColor: Colors.game.border,
-    borderRadius: 2, overflow: "hidden",
-  },
-  energyFill: { height: "100%" as any, backgroundColor: "#3B9EFF", borderRadius: 2 },
+  energyBar: { flex: 1 },
   energyText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, minWidth: 28, textAlign: "right" },
   activityBadge: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   activityText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },

@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
+import { OrnatePanel, FantasyButton } from "@/components/ui";
 import { Potion, PotionType, POTION_ICONS, POTION_NAMES } from "@/lib/items";
 import { PotionImage } from "./PotionImage";
 
@@ -19,6 +20,13 @@ const TYPE_COLORS: Record<PotionType, string> = {
   Gold:        "#C9A84C",
   XP:          "#A855F7",
   Exploration: "#22C55E",
+};
+
+type FantasyVariant = "gold" | "amethyst" | "emerald";
+const TYPE_VARIANTS: Record<PotionType, FantasyVariant> = {
+  Gold:        "gold",
+  XP:          "amethyst",
+  Exploration: "emerald",
 };
 
 // ─── Stacking ─────────────────────────────────────────────────────────────────
@@ -89,7 +97,7 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
 
       {/* ── Picker panel (rendered above button) ── */}
       {open && (
-        <View style={ss.panel}>
+        <OrnatePanel style={ss.panel} padding={8} corners={false}>
           <ScrollView
             style={ss.scroll}
             contentContainerStyle={ss.scrollContent}
@@ -111,7 +119,10 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
                   {group.map((stack) => {
                     const p = stack.rep;
                     return (
-                      <View key={`${p.type}|${p.rarity}|${p.tier}`} style={ss.row}>
+                      <View
+                        key={`${p.type}|${p.rarity}|${p.tier}`}
+                        style={[ss.row, { borderColor: tc + "33" }]}
+                      >
                         {/* Potion image with count badge */}
                         <View style={ss.imgWrap}>
                           <PotionImage type={p.type as any} rarity={p.rarity as any} tier={p.tier as any} size={36} compact />
@@ -131,12 +142,12 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
                         </View>
 
                         {/* USE */}
-                        <Pressable
-                          style={[ss.useBtn, { borderColor: tc + "99", backgroundColor: tc + "18" }]}
+                        <FantasyButton
+                          label="USE"
+                          variant={TYPE_VARIANTS[type]}
+                          size="sm"
                           onPress={() => handleUse(stack)}
-                        >
-                          <Text style={[ss.useTxt, { color: tc }]}>USE</Text>
-                        </Pressable>
+                        />
                       </View>
                     );
                   })}
@@ -144,7 +155,7 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
               );
             })}
           </ScrollView>
-        </View>
+        </OrnatePanel>
       )}
 
       {/* ── Trigger button ── */}
@@ -178,12 +189,12 @@ const ss = StyleSheet.create({
     width: 40, height: 40,
     borderRadius: 20,
     backgroundColor: Colors.game.surface,
-    borderWidth: 1, borderColor: Colors.game.border,
+    borderWidth: 1, borderColor: Colors.game.gold + "55",
     alignItems: "center", justifyContent: "center",
   },
   triggerActive: {
-    borderColor: Colors.game.blue,
-    backgroundColor: Colors.game.blue + "22",
+    borderColor: Colors.game.gold,
+    backgroundColor: Colors.game.gold + "22",
   },
   triggerDisabled: {
     opacity: 0.35,
@@ -201,14 +212,10 @@ const ss = StyleSheet.create({
   panel: {
     width: PANEL_WIDTH,
     maxHeight: 320,
-    backgroundColor: Colors.game.surface,
-    borderRadius: 12,
-    borderWidth: 1, borderColor: Colors.game.border,
     marginBottom: 8,
-    overflow: "hidden",
   },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 10, gap: 8 },
+  scroll: { flexGrow: 0 },
+  scrollContent: { gap: 8 },
 
   // Section
   section: { gap: 4 },
@@ -222,24 +229,20 @@ const ss = StyleSheet.create({
   // Stack row
   row: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 6, paddingHorizontal: 6,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   imgWrap: { position: "relative" },
   countBadge: {
     position: "absolute", bottom: -3, right: -4,
-    backgroundColor: Colors.game.surface,
+    backgroundColor: Colors.game.surfaceAlt,
     borderRadius: 6, paddingHorizontal: 3, paddingVertical: 1,
-    borderWidth: 1, borderColor: Colors.game.border,
+    borderWidth: 1, borderColor: Colors.game.gold + "55",
   },
   countText: { fontSize: 8, fontFamily: "Inter_700Bold", color: Colors.game.text },
   rowInfo: { flex: 1, gap: 1 },
   rowRarity: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.text },
   rowDetail: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
-
-  // USE button
-  useBtn: {
-    borderRadius: 7, borderWidth: 1,
-    paddingVertical: 5, paddingHorizontal: 10,
-  },
-  useTxt: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
 });

@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
+import { FantasyButton, GemBar, BannerLabel } from "@/components/ui";
 import {
   AuctionListing,
   BuyOrder,
@@ -106,16 +108,9 @@ function ListingCard({
           <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
         </View>
         {isOwn ? (
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="ruby" size="sm" icon="close" onPress={onCancel} />
         ) : (
-          <Pressable
-            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
-            onPress={onBuy} disabled={!canAfford}
-          >
-            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
-          </Pressable>
+          <FantasyButton label="BUY" variant="emerald" size="sm" icon="cart" onPress={onBuy} disabled={!canAfford} />
         )}
       </View>
     </View>
@@ -207,6 +202,12 @@ function BuyOrderCard({
         />
         <Text style={styles.listingMeta}>{meta}</Text>
         <Text style={styles.boRemaining}>×{remaining} still needed</Text>
+        <GemBar
+          progress={order.count > 0 ? order.filled / order.count : 0}
+          gem="amethyst"
+          height={5}
+          style={styles.boProgressBar}
+        />
       </View>
       <View style={styles.listingRight}>
         <View style={styles.priceRow}>
@@ -215,9 +216,7 @@ function BuyOrderCard({
           <Text style={styles.perEach}>/ea</Text>
         </View>
         {isOwn ? (
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="ruby" size="sm" icon="close" onPress={onCancel} />
         ) : maxFill > 0 ? (
           <View style={styles.fillCol}>
             {maxFill > 1 && (
@@ -231,9 +230,7 @@ function BuyOrderCard({
                 </Pressable>
               </View>
             )}
-            <Pressable style={styles.fillBtn} onPress={() => onFill(qty)}>
-              <Text style={styles.fillBtnTxt}>SELL</Text>
-            </Pressable>
+            <FantasyButton label="SELL" variant="emerald" size="sm" icon="cash" onPress={() => onFill(qty)} />
           </View>
         ) : (
           <View style={styles.noItemTag}>
@@ -274,16 +271,9 @@ function ChestListingCard({
           <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
         </View>
         {isOwn ? (
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="ruby" size="sm" icon="close" onPress={onCancel} />
         ) : (
-          <Pressable
-            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
-            onPress={onBuy} disabled={!canAfford}
-          >
-            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
-          </Pressable>
+          <FantasyButton label="BUY" variant="emerald" size="sm" icon="cart" onPress={onBuy} disabled={!canAfford} />
         )}
       </View>
     </View>
@@ -321,16 +311,9 @@ function PotionListingCard({
           <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
         </View>
         {isOwn ? (
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="ruby" size="sm" icon="close" onPress={onCancel} />
         ) : (
-          <Pressable
-            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
-            onPress={onBuy} disabled={!canAfford}
-          >
-            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
-          </Pressable>
+          <FantasyButton label="BUY" variant="emerald" size="sm" icon="cart" onPress={onBuy} disabled={!canAfford} />
         )}
       </View>
     </View>
@@ -372,16 +355,9 @@ function ItemListingCard({
           <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
         </View>
         {isOwn ? (
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="ruby" size="sm" icon="close" onPress={onCancel} />
         ) : (
-          <Pressable
-            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
-            onPress={onBuy} disabled={!canAfford}
-          >
-            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
-          </Pressable>
+          <FantasyButton label="BUY" variant="emerald" size="sm" icon="cart" onPress={onBuy} disabled={!canAfford} />
         )}
       </View>
     </View>
@@ -417,16 +393,9 @@ function ToolListingCard({
           <Text style={styles.priceText}>{listing.price.toLocaleString()}</Text>
         </View>
         {isOwn ? (
-          <Pressable style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnTxt}>CANCEL</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="ruby" size="sm" icon="close" onPress={onCancel} />
         ) : (
-          <Pressable
-            style={[styles.buyBtn, !canAfford && styles.buyBtnDisabled]}
-            onPress={onBuy} disabled={!canAfford}
-          >
-            <Text style={[styles.buyBtnTxt, !canAfford && styles.buyBtnTxtDim]}>BUY</Text>
-          </Pressable>
+          <FantasyButton label="BUY" variant="emerald" size="sm" icon="cart" onPress={onBuy} disabled={!canAfford} />
         )}
       </View>
     </View>
@@ -1030,9 +999,15 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       ];
       return (
         <View>
-          <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
-            <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
-          </Pressable>
+          <FantasyButton
+            label="+ LIST AN ITEM"
+            variant="gold"
+            size="sm"
+            icon="add-circle"
+            onPress={() => setStep("pick")}
+            fullWidth
+            style={{ marginBottom: 8 }}
+          />
           {cats.map((cat) => (
             <Pressable
               key={cat.key}
@@ -1156,9 +1131,15 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           <Pressable style={styles.drillBack} onPress={onBack}>
             <Text style={styles.drillBackTxt}>‹ {backLabel}</Text>
           </Pressable>
-          <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
-            <Text style={styles.listItemBtnTxt}>+ LIST AN ITEM</Text>
-          </Pressable>
+          <FantasyButton
+            label="+ LIST AN ITEM"
+            variant="gold"
+            size="sm"
+            icon="add-circle"
+            onPress={() => setStep("pick")}
+            fullWidth
+            style={{ marginBottom: 8 }}
+          />
           {browseCategory === "Equipment" && (
             <View style={styles.equipFilterBlock}>
               {/* Rarity row */}
@@ -1281,9 +1262,15 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
 
     return (
       <View>
-        <Pressable style={[styles.listItemBtn, { marginBottom: 8 }]} onPress={() => setStep("pick")}>
-          <Text style={styles.listItemBtnTxt}>+ LIST MATERIAL</Text>
-        </Pressable>
+        <FantasyButton
+          label="+ LIST MATERIAL"
+          variant="gold"
+          size="sm"
+          icon="add-circle"
+          onPress={() => setStep("pick")}
+          fullWidth
+          style={{ marginBottom: 8 }}
+        />
 
         {/* Equipment listings */}
         {equipListings.length > 0 && (typeFilter === "All" || typeFilter === "Equipment") && (
@@ -1523,9 +1510,14 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
       <View>
         {/* Action row: post button + my items toggle */}
         <View style={styles.orderBtnRow}>
-          <Pressable style={[styles.listItemBtn, { flex: 1 }]} onPress={() => setStep("bo-create")}>
-            <Text style={styles.listItemBtnTxt}>+ POST BUY ORDER</Text>
-          </Pressable>
+          <FantasyButton
+            label="+ POST BUY ORDER"
+            variant="gold"
+            size="sm"
+            icon="add-circle"
+            onPress={() => setStep("bo-create")}
+            style={{ flex: 1 }}
+          />
           {invMatches.length > 0 && (
             <Pressable
               style={[styles.invToggleBtn, showInventoryTop && styles.invToggleBtnActive]}
@@ -1707,7 +1699,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
 
   const renderPickStep = () => (
     <View style={styles.wizardArea}>
-      <Text style={styles.wizardTitle}>SELECT ITEM TO LIST</Text>
+      <BannerLabel title="SELECT ITEM TO LIST" icon="cube" size="sm" style={styles.wizardBanner} />
       {char.materials.length === 0 ? (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>No items in inventory.</Text>
@@ -1735,10 +1727,14 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           </View>
         </ScrollView>
       )}
-      <Pressable style={styles.backBtn} onPress={() => setStep("tabs")}>
-        <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-        <Text style={styles.backBtnTxt}>BACK</Text>
-      </Pressable>
+      <FantasyButton
+        label="BACK"
+        variant="dark"
+        size="md"
+        icon="arrow-back"
+        onPress={() => setStep("tabs")}
+        style={{ alignSelf: "flex-start" }}
+      />
     </View>
   );
 
@@ -1748,7 +1744,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     if (!pickedEntry) return null;
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
-        <Text style={styles.wizardTitle}>SET LISTING DETAILS</Text>
+        <BannerLabel title="SET LISTING DETAILS" icon="pricetags" size="sm" style={styles.wizardBanner} />
         <View style={styles.pricePreview}>
           <MaterialImage
             type={pickedEntry.material.type} rarity={pickedEntry.material.rarity}
@@ -1789,13 +1785,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           />
         </View>
         <View style={styles.wizardBtnRow}>
-          <Pressable style={styles.backBtn} onPress={() => setStep("pick")}>
-            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-            <Text style={styles.backBtnTxt}>BACK</Text>
-          </Pressable>
-          <Pressable style={styles.confirmBtn} onPress={handleConfirmList}>
-            <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
-          </Pressable>
+          <FantasyButton label="BACK" variant="dark" size="md" icon="arrow-back" onPress={() => setStep("pick")} />
+          <FantasyButton label="LIST FOR SALE" variant="gold" size="md" icon="pricetag" onPress={handleConfirmList} />
         </View>
       </ScrollView>
     );
@@ -1808,7 +1799,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedItem.rarity] ?? "#9CA3AF";
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
-        <Text style={styles.wizardTitle}>LIST EQUIPMENT FOR SALE</Text>
+        <BannerLabel title="LIST EQUIPMENT FOR SALE" icon="shield" size="sm" style={styles.wizardBanner} />
         <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
           <ItemImage slot={pickedItem.slot} rarity={pickedItem.rarity} quality={pickedItem.quality} size={64} compact />
           <View style={{ flex: 1 }}>
@@ -1835,21 +1826,20 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
               />
             </View>
             <View style={styles.wizardBtnRow}>
-              <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedItem(null); }}>
-                <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-                <Text style={styles.backBtnTxt}>CANCEL</Text>
-              </Pressable>
-              <Pressable style={styles.confirmBtn} onPress={handleConfirmListItem}>
-                <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
-              </Pressable>
+              <FantasyButton label="CANCEL" variant="dark" size="md" icon="arrow-back" onPress={() => { setStep("tabs"); setPickedItem(null); }} />
+              <FantasyButton label="LIST FOR SALE" variant="gold" size="md" icon="pricetag" onPress={handleConfirmListItem} />
             </View>
           </>
         )}
         {!pickedItem.tradable && (
-          <Pressable style={[styles.backBtn, { alignSelf: "center", marginTop: 12 }]} onPress={() => { setStep("tabs"); setPickedItem(null); }}>
-            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-            <Text style={styles.backBtnTxt}>BACK</Text>
-          </Pressable>
+          <FantasyButton
+            label="BACK"
+            variant="dark"
+            size="md"
+            icon="arrow-back"
+            onPress={() => { setStep("tabs"); setPickedItem(null); }}
+            style={{ alignSelf: "center", marginTop: 12 }}
+          />
         )}
       </ScrollView>
     );
@@ -1862,7 +1852,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedChest.rarity] ?? "#F59E0B";
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
-        <Text style={styles.wizardTitle}>LIST CHEST FOR SALE</Text>
+        <BannerLabel title="LIST CHEST FOR SALE" icon="cube" size="sm" style={styles.wizardBanner} />
         <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
           <ChestImage rarity={pickedChest.rarity as ItemRarity} size={64} compact />
           <View style={{ flex: 1 }}>
@@ -1891,21 +1881,20 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
               />
             </View>
             <View style={styles.wizardBtnRow}>
-              <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedChest(null); }}>
-                <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-                <Text style={styles.backBtnTxt}>CANCEL</Text>
-              </Pressable>
-              <Pressable style={styles.confirmBtn} onPress={handleConfirmListChest}>
-                <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
-              </Pressable>
+              <FantasyButton label="CANCEL" variant="dark" size="md" icon="arrow-back" onPress={() => { setStep("tabs"); setPickedChest(null); }} />
+              <FantasyButton label="LIST FOR SALE" variant="gold" size="md" icon="pricetag" onPress={handleConfirmListChest} />
             </View>
           </>
         )}
         {!pickedChest.tradable && (
-          <Pressable style={[styles.backBtn, { alignSelf: "center", marginTop: 12 }]} onPress={() => { setStep("tabs"); setPickedChest(null); }}>
-            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-            <Text style={styles.backBtnTxt}>BACK</Text>
-          </Pressable>
+          <FantasyButton
+            label="BACK"
+            variant="dark"
+            size="md"
+            icon="arrow-back"
+            onPress={() => { setStep("tabs"); setPickedChest(null); }}
+            style={{ alignSelf: "center", marginTop: 12 }}
+          />
         )}
       </ScrollView>
     );
@@ -1918,7 +1907,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedPotion.rarity] ?? "#A855F7";
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
-        <Text style={styles.wizardTitle}>LIST POTION FOR SALE</Text>
+        <BannerLabel title="LIST POTION FOR SALE" icon="flask" size="sm" style={styles.wizardBanner} />
         <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
           <PotionImage type={pickedPotion.type} rarity={pickedPotion.rarity} tier={pickedPotion.tier} size={64} compact />
           <View style={{ flex: 1 }}>
@@ -1942,13 +1931,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           />
         </View>
         <View style={styles.wizardBtnRow}>
-          <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedPotion(null); }}>
-            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-            <Text style={styles.backBtnTxt}>CANCEL</Text>
-          </Pressable>
-          <Pressable style={styles.confirmBtn} onPress={handleConfirmListPotion}>
-            <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="dark" size="md" icon="arrow-back" onPress={() => { setStep("tabs"); setPickedPotion(null); }} />
+          <FantasyButton label="LIST FOR SALE" variant="gold" size="md" icon="pricetag" onPress={handleConfirmListPotion} />
         </View>
       </ScrollView>
     );
@@ -1959,7 +1943,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const rc = (ITEM_RARITY_COLORS as Record<string, string>)[pickedTool.rarity] ?? "#6B7280";
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
-        <Text style={styles.wizardTitle}>LIST TOOL FOR SALE</Text>
+        <BannerLabel title="LIST TOOL FOR SALE" icon="hammer" size="sm" style={styles.wizardBanner} />
         <View style={[styles.pricePreview, { borderColor: rc + "55" }]}>
           <ToolImage type={pickedTool.type} rarity={pickedTool.rarity} size={64} compact />
           <View style={{ flex: 1 }}>
@@ -1983,13 +1967,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           />
         </View>
         <View style={styles.wizardBtnRow}>
-          <Pressable style={styles.backBtn} onPress={() => { setStep("tabs"); setPickedTool(null); }}>
-            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-            <Text style={styles.backBtnTxt}>CANCEL</Text>
-          </Pressable>
-          <Pressable style={styles.confirmBtn} onPress={handleConfirmListTool}>
-            <Text style={styles.confirmBtnTxt}>LIST FOR SALE</Text>
-          </Pressable>
+          <FantasyButton label="CANCEL" variant="dark" size="md" icon="arrow-back" onPress={() => { setStep("tabs"); setPickedTool(null); }} />
+          <FantasyButton label="LIST FOR SALE" variant="gold" size="md" icon="pricetag" onPress={handleConfirmListTool} />
         </View>
       </ScrollView>
     );
@@ -2006,7 +1985,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
     const total = (parseInt(boCountStr.replace(/[^0-9]/g, ""), 10) || 0) * (parseInt(boPriceStr.replace(/[^0-9]/g, ""), 10) || 0);
     return (
       <ScrollView style={styles.wizardArea} showsVerticalScrollIndicator={false}>
-        <Text style={styles.wizardTitle}>POST BUY ORDER</Text>
+        <BannerLabel title="POST BUY ORDER" icon="megaphone" size="sm" style={styles.wizardBanner} />
         <Text style={styles.boHint}>
           Lock gold to buy specific items. Sellers fill your order and receive payment instantly.
         </Text>
@@ -2202,14 +2181,9 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           </>
         )}
         <View style={styles.wizardBtnRow}>
-          <Pressable style={styles.backBtn} onPress={() => setStep("tabs")}>
-            <Feather name="arrow-left" size={14} color={Colors.game.textMuted} />
-            <Text style={styles.backBtnTxt}>BACK</Text>
-          </Pressable>
+          <FantasyButton label="BACK" variant="dark" size="md" icon="arrow-back" onPress={() => setStep("tabs")} />
           {boRarity && (isMaterial || isChest || isPotion || (isEquip && boSlot)) && (
-            <Pressable style={styles.confirmBtn} onPress={handleConfirmBoCreate}>
-              <Text style={styles.confirmBtnTxt}>POST ORDER</Text>
-            </Pressable>
+            <FantasyButton label="POST ORDER" variant="gold" size="md" icon="megaphone" onPress={handleConfirmBoCreate} />
           )}
         </View>
       </ScrollView>
@@ -2227,12 +2201,17 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <LinearGradient
+          colors={Colors.grad.panel}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.sheet}
+        >
           <View style={styles.handle} />
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>MARKET</Text>
+            <BannerLabel title="MARKET" icon="storefront" size="md" align="left" />
             <View style={styles.headerRight}>
               <View style={styles.goldPill}>
                 <View style={styles.goldCoin}><Text style={styles.goldCoinTxt}>G</Text></View>
@@ -2320,10 +2299,8 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           {/* ── NPC Shop content ── */}
           {marketView === "shop" && renderShopDrillDown()}
 
-          <Pressable style={styles.closeBtn} onPress={handleClose}>
-            <Text style={styles.closeBtnTxt}>CLOSE</Text>
-          </Pressable>
-        </View>
+          <FantasyButton label="CLOSE" variant="dark" size="md" icon="close" onPress={handleClose} fullWidth />
+        </LinearGradient>
       </View>
     </Modal>
   );
@@ -2334,11 +2311,10 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: Colors.game.surfaceAlt,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 14,
@@ -2347,7 +2323,7 @@ const styles = StyleSheet.create({
     maxHeight: "92%",
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: Colors.game.border,
+    borderColor: Colors.game.gold + "55",
   },
   handle: {
     width: 40, height: 4,
@@ -2551,6 +2527,7 @@ const styles = StyleSheet.create({
   listingName: { fontSize: 12, fontFamily: "Inter_700Bold", marginBottom: 2 },
   listingMeta: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
   boRemaining: { fontSize: 9, fontFamily: "Inter_400Regular", color: Colors.game.textMuted, marginTop: 2 },
+  boProgressBar: { marginTop: 5, width: "82%" },
   listingRight: { alignItems: "flex-end", gap: 5 },
   priceRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   priceText: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.gold },
@@ -2596,6 +2573,7 @@ const styles = StyleSheet.create({
     color: Colors.game.textMuted, letterSpacing: 3,
     marginBottom: 10, textAlign: "center",
   },
+  wizardBanner: { marginBottom: 12, alignSelf: "center" },
   pickGrid: {
     flexDirection: "row", flexWrap: "wrap",
     gap: 10, justifyContent: "center", paddingBottom: 10,

@@ -3,7 +3,9 @@ import {
   Modal, Pressable, ScrollView, StyleSheet, Text, View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
+import { FantasyButton, OrnatePanel, GemBar, BannerLabel } from "@/components/ui";
 import { ITEM_RARITIES } from "@/lib/items";
 import {
   CraftResult, CRAFTING_MATERIALS_NEEDED, CRAFTING_UNLOCK_LEVELS,
@@ -44,9 +46,7 @@ function XpBar({ current, total, level }: { current: number; total: number; leve
   const pct = total > 0 ? Math.min(1, current / total) : 1;
   return (
     <View style={xpS.wrap}>
-      <View style={xpS.track}>
-        <View style={[xpS.fill, { width: `${pct * 100}%` as any }]} />
-      </View>
+      <GemBar progress={pct} gem="sapphire" height={8} />
       <Text style={xpS.label}>
         {level >= CRAFTING_MAX_LEVEL
           ? "MAX LEVEL"
@@ -56,9 +56,7 @@ function XpBar({ current, total, level }: { current: number; total: number; leve
   );
 }
 const xpS = StyleSheet.create({
-  wrap: { gap: 3 },
-  track: { height: 6, backgroundColor: Colors.game.border, borderRadius: 3, overflow: "hidden" },
-  fill: { height: "100%", backgroundColor: Colors.game.blue, borderRadius: 3 },
+  wrap: { gap: 4 },
   label: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim, textAlign: "right" },
 });
 
@@ -68,13 +66,11 @@ function EnergyBar({ energy, lastRegen, now }: { energy: number; lastRegen: numb
   const m = Math.floor(secs / 60);
   const ss = String(secs % 60).padStart(2, "0");
   const regenLabel = energy >= CRAFTING_MAX_ENERGY ? "Full" : `+1 in ${m}:${ss}`;
-  const pct = Math.min(100, (energy / CRAFTING_MAX_ENERGY) * 100);
+  const pct = Math.min(1, energy / CRAFTING_MAX_ENERGY);
   return (
     <View style={eS.row}>
       <Text style={eS.icon}>⚡</Text>
-      <View style={eS.track}>
-        <View style={[eS.fill, { width: `${pct}%` as any }]} />
-      </View>
+      <GemBar progress={pct} gem="ember" height={6} style={eS.track} />
       <Text style={eS.count}>{energy}/{CRAFTING_MAX_ENERGY}</Text>
       <Text style={eS.regen}>{regenLabel}</Text>
     </View>
@@ -82,12 +78,8 @@ function EnergyBar({ energy, lastRegen, now }: { energy: number; lastRegen: numb
 }
 const eS = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 6 },
-  icon: { fontSize: 11, color: "#3B9EFF" },
-  track: {
-    flex: 1, height: 5, backgroundColor: Colors.game.border,
-    borderRadius: 3, overflow: "hidden",
-  },
-  fill: { height: "100%" as any, backgroundColor: "#3B9EFF", borderRadius: 3 },
+  icon: { fontSize: 11, color: Colors.game.ember },
+  track: { flex: 1 },
   count: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, minWidth: 24, textAlign: "right" },
   regen: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textMuted },
 });
@@ -218,17 +210,15 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
     <>
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={s.overlay}>
-        <View style={s.sheet}>
+        <LinearGradient colors={Colors.grad.panel} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.sheet}>
 
           {/* ── Header ── */}
           <View style={s.header}>
-            <Text style={s.title}>⚗ Crafting</Text>
+            <BannerLabel title="Crafting" icon="flask" size="md" align="left" style={s.titleBanner} />
             <View style={s.levelBadge}>
               <Text style={s.levelText}>Lv {skill.level}</Text>
             </View>
-            <Pressable onPress={onClose} style={s.closeBtn} hitSlop={10}>
-              <Feather name="x" size={20} color={Colors.game.textDim} />
-            </Pressable>
+            <FantasyButton icon="close" variant="dark" size="sm" onPress={onClose} style={s.closeBtn} />
           </View>
 
           {/* ── XP + Energy ── */}
@@ -242,13 +232,13 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {/* ── Active Jobs ── */}
             {activeJobs.length > 0 && (
               <>
-                <Text style={s.sectionLabel}>CRAFTING</Text>
+                <BannerLabel title="Crafting" icon="hammer" size="sm" align="left" style={s.sectionHeading} />
                 {activeJobs.map((job) => {
                   const msLeft = job.completesAt - now;
                   const prog = Math.min(1, Math.max(0, 1 - msLeft / (job.completesAt - job.startedAt)));
                   const jrc = RARITY_COLORS[job.rarity as RarityName];
                   return (
-                    <View key={job.id} style={[s.jobCard, { borderColor: jrc + "44" }]}>
+                    <View key={job.id} style={[s.jobCard, { borderColor: jrc + "55" }]}>
                       <View style={s.jobInfo}>
                         <Text style={[s.jobRarity, { color: jrc }]}>
                           {job.rarity} T{job.tier}{job.count > 1 ? ` ×${job.count}` : ""}
@@ -270,22 +260,30 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {/* ── Ready to Collect ── */}
             {pendingBatches.length > 0 && (
               <>
-                <Text style={[s.sectionLabel, { marginTop: activeJobs.length > 0 ? 14 : 0, color: Colors.game.green }]}>
-                  READY TO COLLECT
-                </Text>
+                <BannerLabel
+                  title="Ready to Collect"
+                  icon="checkmark-done"
+                  size="sm"
+                  align="left"
+                  style={StyleSheet.flatten([s.sectionHeading, { marginTop: activeJobs.length > 0 ? 14 : 0 }])}
+                />
                 {pendingBatches.map((batch) => {
                   const brc = RARITY_COLORS[batch.rarity as RarityName];
                   return (
-                    <View key={batch.id} style={[s.batchCard, { borderColor: brc + "55" }]}>
+                    <View key={batch.id} style={[s.batchCard, { borderColor: brc + "66" }]}>
                       <View style={s.batchInfo}>
                         <Text style={[s.batchRarity, { color: brc }]}>
                           {batch.rarity} T{batch.tier}{batch.count > 1 ? ` ×${batch.count}` : ""}
                         </Text>
                         <Text style={s.batchSub}>✨ Crafting complete!</Text>
                       </View>
-                      <Pressable style={[s.collectBtn, { borderColor: brc, backgroundColor: brc + "22" }]} onPress={() => handleCollect(batch.id)}>
-                        <Text style={[s.collectBtnTxt, { color: brc }]}>COLLECT</Text>
-                      </Pressable>
+                      <FantasyButton
+                        label="COLLECT"
+                        icon="gift"
+                        variant="emerald"
+                        size="sm"
+                        onPress={() => handleCollect(batch.id)}
+                      />
                     </View>
                   );
                 })}
@@ -297,7 +295,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             )}
 
             {/* ── Rarity selector ── */}
-            <Text style={s.sectionLabel}>RARITY</Text>
+            <BannerLabel title="Rarity" icon="diamond" size="sm" align="left" style={s.sectionHeading} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rarityRow}>
               {(ITEM_RARITIES as RarityName[]).map((r) => {
                 const unlocked = skill.level >= CRAFTING_UNLOCK_LEVELS[r];
@@ -324,7 +322,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             </ScrollView>
 
             {/* ── Tier selector ── */}
-            <Text style={[s.sectionLabel, { marginTop: 10 }]}>TIER</Text>
+            <BannerLabel title="Tier" icon="layers" size="sm" align="left" style={StyleSheet.flatten([s.sectionHeading, { marginTop: 10 }])} />
             <View style={s.tierRow}>
               {TIERS.map((t) => (
                 <Pressable
@@ -344,7 +342,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {/* ── Quantity selector ── */}
             {isRarityUnlocked && !hasActiveJob && (
               <>
-                <Text style={[s.sectionLabel, { marginTop: 10 }]}>QUANTITY</Text>
+                <BannerLabel title="Quantity" icon="apps" size="sm" align="left" style={StyleSheet.flatten([s.sectionHeading, { marginTop: 10 }])} />
                 <View style={s.tierRow}>
                   {[1, 2, 3, 4, 5].map((q) => {
                     const maxForEnergy = Math.floor(char.craftingEnergy / baseEnergyCost);
@@ -381,7 +379,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {isRarityUnlocked && !hasActiveJob && (
               <>
                 <View style={s.allocHeader}>
-                  <Text style={[s.sectionLabel, { marginBottom: 0 }]}>MATERIALS</Text>
+                  <BannerLabel title="Materials" icon="cube" size="sm" align="left" />
                   <View style={[s.allocProgress, totalAllocated === needed && s.allocProgressFull]}>
                     <Text style={[s.allocProgressTxt, { color: totalAllocated === needed ? Colors.game.green : rc }]}>
                       {totalAllocated} / {needed}
@@ -420,23 +418,25 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                           </Text>
                         </View>
                         <View style={s.allocStepper}>
-                          <Pressable
-                            style={[s.stepBtn, !canSub && s.stepBtnDisabled]}
-                            onPress={canSub ? () => adjustAllocation(type, -1) : undefined}
+                          <FantasyButton
+                            icon="remove"
+                            variant="dark"
+                            size="sm"
+                            onPress={() => adjustAllocation(type, -1)}
                             disabled={!canSub}
-                          >
-                            <Text style={[s.stepBtnTxt, !canSub && { color: Colors.game.textMuted }]}>−</Text>
-                          </Pressable>
+                            style={s.stepBtn}
+                          />
                           <Text style={[s.stepQty, { color: qty > 0 ? rc : Colors.game.textMuted }]}>
                             {qty}
                           </Text>
-                          <Pressable
-                            style={[s.stepBtn, !canAdd && s.stepBtnDisabled]}
-                            onPress={canAdd ? () => adjustAllocation(type, 1) : undefined}
+                          <FantasyButton
+                            icon="add"
+                            variant="dark"
+                            size="sm"
+                            onPress={() => adjustAllocation(type, 1)}
                             disabled={!canAdd}
-                          >
-                            <Text style={[s.stepBtnTxt, !canAdd && { color: Colors.game.textMuted }]}>+</Text>
-                          </Pressable>
+                            style={s.stepBtn}
+                          />
                         </View>
                       </View>
                     );
@@ -447,10 +447,10 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
 
             {/* ── Cost summary + Craft button ── */}
             {isRarityUnlocked && !hasActiveJob && totalAllocated > 0 && (
-              <View style={[s.costPanel, { borderColor: rc + "33" }]}>
+              <OrnatePanel accent={rc} padding={12} style={s.costPanelWrap} contentStyle={s.costPanel}>
                 <View style={s.costRow}>
                   <Text style={s.costLabel}>Energy</Text>
-                  <Text style={[s.costVal, char.craftingEnergy < energyCost && { color: "#F87171" }]}>
+                  <Text style={[s.costVal, char.craftingEnergy < energyCost && { color: Colors.game.redLight }]}>
                     ⚡ {energyCost}{quantity > 1 ? ` (${baseEnergyCost}×${quantity})` : ""} — have {char.craftingEnergy}
                   </Text>
                 </View>
@@ -462,12 +462,12 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                 </View>
                 <View style={s.costRow}>
                   <Text style={s.costLabel}>XP reward</Text>
-                  <Text style={[s.costVal, { color: Colors.game.blue }]}>
+                  <Text style={[s.costVal, { color: Colors.game.blueLight }]}>
                     +{CRAFTING_XP_REWARDS[selectedRarity] * quantity} crafting XP
                     {quantity > 1 ? ` (×${quantity})` : ""}
                   </Text>
                 </View>
-              </View>
+              </OrnatePanel>
             )}
 
             {!isRarityUnlocked ? (
@@ -476,30 +476,29 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                 <Text style={s.lockedText}>Reach crafting level {unlockLevel} to unlock {selectedRarity} crafting</Text>
               </View>
             ) : !hasActiveJob && (
-              <Pressable
-                style={[
-                  s.craftBtn,
-                  canCraft
-                    ? { borderColor: rc, backgroundColor: rc + "22" }
-                    : { borderColor: Colors.game.border, opacity: 0.5 },
-                ]}
-                onPress={handleCraft}
+              <FantasyButton
+                fullWidth
+                size="lg"
+                variant="gold"
+                icon="hammer"
+                glow={canCraft}
                 disabled={!canCraft}
-              >
-                <Text style={[s.craftBtnText, { color: canCraft ? rc : Colors.game.textMuted }]}>
-                  {canCraft
-                    ? `⚗  CRAFT ×${quantity}`
+                onPress={handleCraft}
+                style={s.craftBtn}
+                label={
+                  canCraft
+                    ? `CRAFT ×${quantity}`
                     : char.craftingEnergy < energyCost
                       ? `Need ⚡${energyCost} energy (have ${char.craftingEnergy})`
                       : totalAllocated < needed
                         ? `Allocate ${needed} materials (${totalAllocated}/${needed})`
-                        : "Insufficient materials for ×" + quantity}
-                </Text>
-              </Pressable>
+                        : "Insufficient materials for ×" + quantity
+                }
+              />
             )}
 
           </ScrollView>
-        </View>
+        </LinearGradient>
       </View>
     </Modal>
 
@@ -530,47 +529,44 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" },
+  overlay: { flex: 1, backgroundColor: "rgba(7,4,9,0.8)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: Colors.game.surface,
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    borderTopWidth: 1, borderColor: Colors.game.border,
+    borderTopWidth: 1.5, borderLeftWidth: 1, borderRightWidth: 1,
+    borderColor: Colors.game.gold + "55",
     maxHeight: "92%",
+    overflow: "hidden",
   },
 
   header: {
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: 18, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
+    borderBottomWidth: 1, borderBottomColor: Colors.game.gold + "22",
   },
-  title: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.text, flex: 1 },
+  titleBanner: { flex: 1 },
   levelBadge: {
     backgroundColor: Colors.game.blue + "22",
     borderRadius: 8, borderWidth: 1, borderColor: Colors.game.blue + "55",
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  levelText: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.blue },
-  closeBtn: { padding: 2 },
+  levelText: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.blueLight },
+  closeBtn: {},
 
   topSection: {
-    paddingHorizontal: 18, paddingVertical: 10, gap: 8,
-    borderBottomWidth: 1, borderBottomColor: Colors.game.border,
+    paddingHorizontal: 18, paddingVertical: 12, gap: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.game.gold + "22",
   },
 
   scroll: { flex: 1 },
   scrollContent: { padding: 18, paddingBottom: 40 },
 
-  sectionLabel: {
-    fontSize: 10, fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted, letterSpacing: 1,
-    marginBottom: 6,
-  },
-  divider: { height: 1, backgroundColor: Colors.game.border, marginVertical: 16 },
+  sectionHeading: { marginBottom: 8, alignSelf: "flex-start" },
+  divider: { height: 1, backgroundColor: Colors.game.gold + "22", marginVertical: 16 },
 
   // Active job cards
   jobCard: {
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, borderWidth: 1,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1,
     padding: 10, marginBottom: 8, gap: 6, overflow: "hidden",
   },
   jobInfo: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -578,31 +574,27 @@ const s = StyleSheet.create({
   jobMat: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
   jobTimer: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.game.text, textAlign: "right" },
   jobProgress: {
-    height: 4, backgroundColor: Colors.game.border, borderRadius: 2, overflow: "hidden",
+    height: 5, backgroundColor: Colors.game.backgroundDeep, borderRadius: 3, overflow: "hidden",
   },
-  jobProgressFill: { height: "100%", borderRadius: 2 },
+  jobProgressFill: { height: "100%", borderRadius: 3 },
 
   // Batch cards
   batchCard: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, borderWidth: 1,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1,
     padding: 10, marginBottom: 8,
   },
   batchInfo: { flex: 1, gap: 2 },
   batchRarity: { fontSize: 13, fontFamily: "Inter_700Bold" },
   batchSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.green },
-  collectBtn: {
-    borderRadius: 8, borderWidth: 1.5,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  collectBtnTxt: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
 
   // Rarity + Tier selectors
   rarityRow: { gap: 6, paddingBottom: 2 },
   rarityBtn: {
     alignItems: "center", justifyContent: "center",
-    minWidth: 36, height: 36, borderRadius: 8, borderWidth: 1.5,
+    minWidth: 36, height: 36, borderRadius: 10, borderWidth: 1.5,
+    backgroundColor: Colors.game.surface,
   },
   rarityBtnLocked: { opacity: 0.45 },
   rarityBtnLabel: { fontSize: 10, fontFamily: "Inter_700Bold" },
@@ -610,15 +602,16 @@ const s = StyleSheet.create({
   tierRow: { flexDirection: "row", gap: 8, marginBottom: 2 },
   tierBtn: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    height: 34, borderRadius: 8, borderWidth: 1.5,
+    height: 34, borderRadius: 10, borderWidth: 1.5,
+    backgroundColor: Colors.game.surface,
   },
   tierBtnText: { fontSize: 12, fontFamily: "Inter_700Bold" },
 
   // 1-craft-at-a-time busy notice
   busyNotice: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, borderWidth: 1, borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1, borderColor: Colors.game.gold + "33",
     paddingVertical: 10, paddingHorizontal: 12,
     marginTop: 14, marginBottom: 4,
   },
@@ -630,8 +623,8 @@ const s = StyleSheet.create({
     marginTop: 14, marginBottom: 8,
   },
   allocProgress: {
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 8, borderWidth: 1, borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 8, borderWidth: 1, borderColor: Colors.game.gold + "33",
     paddingHorizontal: 10, paddingVertical: 4,
   },
   allocProgressFull: { borderColor: Colors.game.green },
@@ -639,8 +632,8 @@ const s = StyleSheet.create({
   allocGrid: { gap: 6 },
   allocRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, borderWidth: 1, borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1, borderColor: Colors.game.gold + "22",
     paddingVertical: 8, paddingHorizontal: 10,
   },
   allocRowDisabled: { opacity: 0.4 },
@@ -648,22 +641,12 @@ const s = StyleSheet.create({
   allocType: { fontSize: 13, fontFamily: "Inter_700Bold" },
   allocAvail: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
   allocStepper: { flexDirection: "row", alignItems: "center", gap: 8 },
-  stepBtn: {
-    width: 30, height: 30, borderRadius: 8,
-    borderWidth: 1.5, borderColor: Colors.game.border,
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: Colors.game.surface,
-  },
-  stepBtnDisabled: { opacity: 0.35 },
-  stepBtnTxt: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.game.text, lineHeight: 22 },
+  stepBtn: { width: 38 },
   stepQty: { minWidth: 28, textAlign: "center", fontSize: 15, fontFamily: "Inter_700Bold" },
 
   // Cost panel
-  costPanel: {
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, borderWidth: 1,
-    padding: 12, gap: 6, marginTop: 12,
-  },
+  costPanelWrap: { marginTop: 12 },
+  costPanel: { gap: 6 },
   costRow: { flexDirection: "row", justifyContent: "space-between" },
   costLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
   costVal: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.text },
@@ -672,15 +655,11 @@ const s = StyleSheet.create({
   lockedNotice: {
     flexDirection: "row", alignItems: "center", gap: 8,
     marginTop: 14, padding: 12,
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 10, borderWidth: 1, borderColor: Colors.game.border,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1, borderColor: Colors.game.gold + "33",
   },
   lockedText: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.game.textDim, flex: 1 },
 
   // Craft button
-  craftBtn: {
-    marginTop: 14, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1.5, alignItems: "center",
-  },
-  craftBtnText: { fontSize: 14, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  craftBtn: { marginTop: 14 },
 });

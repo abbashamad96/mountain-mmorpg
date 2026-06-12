@@ -678,3 +678,33 @@ id = "OSyjAqsh1_H5l3ixFhXYb"
 uri = "file://artifacts/mountain-game/assets/tools/Sickle_Cosmic.png"
 type = "image"
 title = "sickle Cosmic"
+
+[[generated]]
+id = "UpSmLgF74vUM8WCQhO-iG"
+uri = "file://artifacts/mountain-game/assets/ui/banner.png"
+type = "image"
+title = "ornate gold empty banner"
+
+[[generated]]
+id = "S1lPH8QabYJHI9zTmB-pj"
+uri = "file://artifacts/mountain-game/assets/ui/corner.png"
+type = "image"
+title = "gold corner ornament"
+
+[[generated]]
+id = "erq1SR4-BrAlNfy-FUXMn"
+uri = "file://artifacts/mountain-game/assets/ui/dragons.png"
+type = "image"
+title = "twin gold dragon crest"
+
+[[generated]]
+id = "z3BcL1qZUIagXH6_Eg3SN"
+uri = "file://artifacts/mountain-game/assets/ui/slot.png"
+type = "image"
+title = "ornate gold item slot dark center"
+
+[[generated]]
+id = "X5AT9JZmLihz5xMUBluHT"
+uri = "file://artifacts/mountain-game/assets/ui/divider.png"
+type = "image"
+title = "gold divider flourish"

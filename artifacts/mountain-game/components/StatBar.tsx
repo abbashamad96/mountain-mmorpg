@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 
 interface StatBarProps {
@@ -20,7 +21,18 @@ export function StatBar({ label, value, color, icon }: StatBarProps) {
         <Text style={[styles.value, { color }]}>{value}</Text>
       </View>
       <View style={styles.barBg}>
-        <View style={[styles.barFill, { width: `${displayWidth}%` as any, backgroundColor: color }]} />
+        <View style={[styles.barFill, { width: `${displayWidth}%` as any }]}>
+          <LinearGradient
+            colors={[color, color]}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={["rgba(255,255,255,0.55)", "rgba(255,255,255,0)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.gloss}
+          />
+        </View>
       </View>
     </View>
   );
@@ -52,13 +64,21 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
   barBg: {
-    height: 4,
-    backgroundColor: Colors.game.border,
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: "#0A0610",
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.5)",
     overflow: "hidden",
   },
   barFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  gloss: {
+    position: "absolute",
+    top: 0, left: 0, right: 0,
+    height: "50%",
   },
 });

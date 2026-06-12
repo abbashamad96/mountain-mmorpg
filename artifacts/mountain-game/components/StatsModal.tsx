@@ -7,7 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
+import { FantasyButton, OrnatePanel, GemBar, BannerLabel, RivetFrame } from "@/components/ui";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest, SWEEP_MAX_CHARGES, SWEEP_REGEN_MS } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { Potion, GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
@@ -115,7 +118,8 @@ function ItemDetailModal({
   return (
     <Modal transparent visible animationType="fade">
       <Pressable style={styles.detailOverlay} onPress={onClose}>
-        <Pressable style={[styles.detailCard, { borderColor: rc }]} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={styles.detailCardWrap} onPress={(e) => e.stopPropagation()}>
+          <OrnatePanel accent={rc} glow padding={18} contentStyle={styles.detailPanel}>
           <View style={styles.detailImgWrap}>
             <MaterialImage
               type={entry.material.type}
@@ -150,24 +154,30 @@ function ItemDetailModal({
 
           {/* Quick Sell if buy orders exist */}
           {bestOrder && (
-            <Pressable style={styles.quickSellBtn} onPress={handleQuickSell}>
-              <Text style={styles.quickSellTxt}>
-                ⚡ QUICK SELL ×{fillCount}  ·  {quickSellGold.toLocaleString()}G
-              </Text>
-              <Text style={styles.quickSellSub}>Best buy order — {bestOrder.pricePerUnit}G each · by {bestOrder.buyerName}</Text>
-            </Pressable>
+            <FantasyButton variant="emerald" fullWidth onPress={handleQuickSell}>
+              <View style={styles.detailBtnStack}>
+                <Text style={styles.quickSellTxt}>
+                  ⚡ QUICK SELL ×{fillCount}  ·  {quickSellGold.toLocaleString()}G
+                </Text>
+                <Text style={styles.quickSellSub}>Best buy order — {bestOrder.pricePerUnit}G each · by {bestOrder.buyerName}</Text>
+              </View>
+            </FantasyButton>
           )}
 
           {/* List on AH */}
           {onListOnAh && (
-            <Pressable style={styles.listAhBtn} onPress={() => onListOnAh(entry)}>
-              <Text style={styles.listAhTxt}>LIST ON AUCTION HOUSE</Text>
-            </Pressable>
+            <FantasyButton
+              variant="gold"
+              size="sm"
+              fullWidth
+              icon="pricetag"
+              label="LIST ON AUCTION HOUSE"
+              onPress={() => onListOnAh(entry)}
+            />
           )}
 
-          <Pressable style={styles.detailClose} onPress={onClose}>
-            <Text style={styles.detailCloseTxt}>CLOSE</Text>
-          </Pressable>
+          <FantasyButton variant="dark" size="sm" fullWidth icon="close" label="CLOSE" onPress={onClose} />
+          </OrnatePanel>
         </Pressable>
       </Pressable>
     </Modal>
@@ -270,43 +280,48 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
   return (
     <Modal transparent visible={visible} animationType="slide">
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <LinearGradient
+          colors={Colors.grad.panel}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.sheet}
+        >
           <View style={styles.handle} />
 
           {/* ── Tabs ────────────────────────────────────────────────────── */}
           <View style={styles.tabBar}>
-            <Pressable
-              style={[styles.tabBtn, activeTab === "profile" && styles.tabBtnActive]}
+            <FantasyButton
+              style={styles.tabFlex}
+              textStyle={styles.tabTxt}
+              size="sm"
+              variant={activeTab === "profile" ? "gold" : "dark"}
+              label="PROFILE"
               onPress={() => setActiveTab("profile")}
-            >
-              <Text style={[styles.tabText, activeTab === "profile" && styles.tabTextActive]}>
-                PROFILE
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tabBtn, activeTab === "inventory" && styles.tabBtnActive]}
+            />
+            <FantasyButton
+              style={styles.tabFlex}
+              textStyle={styles.tabTxt}
+              size="sm"
+              variant={activeTab === "inventory" ? "gold" : "dark"}
+              label={`ITEMS ${totalItems > 0 ? `(${totalItems})` : ""}`}
               onPress={() => setActiveTab("inventory")}
-            >
-              <Text style={[styles.tabText, activeTab === "inventory" && styles.tabTextActive]}>
-                ITEMS {totalItems > 0 ? `(${totalItems})` : ""}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tabBtn, activeTab === "equipment" && styles.tabBtnActive]}
+            />
+            <FantasyButton
+              style={styles.tabFlex}
+              textStyle={styles.tabTxt}
+              size="sm"
+              variant={activeTab === "equipment" ? "gold" : "dark"}
+              label={`GEAR ${Object.keys(char.equippedItems).length > 0 ? `(${Object.keys(char.equippedItems).length})` : ""}`}
               onPress={() => setActiveTab("equipment")}
-            >
-              <Text style={[styles.tabText, activeTab === "equipment" && styles.tabTextActive]}>
-                GEAR {Object.keys(char.equippedItems).length > 0 ? `(${Object.keys(char.equippedItems).length})` : ""}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tabBtn, activeTab === "tools" && styles.tabBtnActive]}
+            />
+            <FantasyButton
+              style={styles.tabFlex}
+              textStyle={styles.tabTxt}
+              size="sm"
+              variant={activeTab === "tools" ? "gold" : "dark"}
+              label={`TOOLS ${((char.toolBag?.length ?? 0) + Object.keys(char.equippedTools ?? {}).length) > 0 ? `(${(char.toolBag?.length ?? 0) + Object.keys(char.equippedTools ?? {}).length})` : ""}`}
               onPress={() => setActiveTab("tools")}
-            >
-              <Text style={[styles.tabText, activeTab === "tools" && styles.tabTextActive]}>
-                TOOLS {((char.toolBag?.length ?? 0) + Object.keys(char.equippedTools ?? {}).length) > 0 ? `(${(char.toolBag?.length ?? 0) + Object.keys(char.equippedTools ?? {}).length})` : ""}
-              </Text>
-            </Pressable>
+            />
           </View>
 
           {/* ── Profile tab ───────────────────────────────────────────── */}
@@ -314,9 +329,13 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
             <View style={styles.tabContent}>
               <View style={styles.header}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nameLabel}>
-                    {isAuthenticated && authUsername ? authUsername.toUpperCase() : "WANDERER"}
-                  </Text>
+                  <BannerLabel
+                    title={isAuthenticated && authUsername ? authUsername : "WANDERER"}
+                    icon="person"
+                    size="sm"
+                    align="left"
+                    style={styles.nameBanner}
+                  />
                   <View style={styles.levelRow}>
                     <Text style={styles.lvLabel}>Level </Text>
                     <Text style={styles.lvValue}>{char.level}</Text>
@@ -341,14 +360,20 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                     : "Not logged in"}
                 </Text>
                 <View style={{ flex: 1 }} />
-                <Pressable style={styles.onlineActionBtn} onPress={() => { onClose(); onPressChat?.(); }}>
-                  <Text style={styles.onlineActionTxt}>💬 Chat</Text>
-                </Pressable>
-                <Pressable style={[styles.onlineActionBtn, { borderColor: isAuthenticated ? Colors.game.green : Colors.game.gold }]} onPress={() => { onClose(); onPressAccount?.(); }}>
-                  <Text style={[styles.onlineActionTxt, { color: isAuthenticated ? Colors.game.green : Colors.game.gold }]}>
-                    {isAuthenticated ? "✓ Account" : "⚿ Login"}
-                  </Text>
-                </Pressable>
+                <FantasyButton
+                  size="sm"
+                  variant="dark"
+                  icon="chatbubble-ellipses"
+                  label="Chat"
+                  onPress={() => { onClose(); onPressChat?.(); }}
+                />
+                <FantasyButton
+                  size="sm"
+                  variant={isAuthenticated ? "emerald" : "gold"}
+                  icon={isAuthenticated ? "person-circle" : "log-in"}
+                  label={isAuthenticated ? "Account" : "Login"}
+                  onPress={() => { onClose(); onPressAccount?.(); }}
+                />
               </View>
 
               {/* ── Lifetime stats counters ── */}
@@ -369,7 +394,7 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                   <Text style={styles.xpGemText}>✦</Text>
                 </View>
                 <View style={styles.xpTrack}>
-                  <View style={[styles.xpFill, { width: `${xpPct}%` as any }]} />
+                  <GemBar progress={xpPct / 100} gem="amethyst" height={9} />
                 </View>
                 <Text style={styles.xpNums}>{char.xp}/{char.xpToNext}</Text>
               </View>
@@ -424,14 +449,14 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                           </Text>
                         </View>
                         {hasPending && (
-                          <Pressable
-                            style={[styles.allocBtn, { borderColor: s.color }]}
+                          <FantasyButton
+                            variant="gold"
+                            size="sm"
+                            fullWidth
+                            icon="add-circle"
+                            label={`Allocate (${s.bonus})`}
                             onPress={() => allocateStat(s.key)}
-                          >
-                            <Text style={[styles.allocBtnText, { color: s.color }]}>
-                              + Allocate ({s.bonus})
-                            </Text>
-                          </Pressable>
+                          />
                         )}
                       </View>
                     );
@@ -462,23 +487,28 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                   </Text>
                 </Pressable>
                 <View style={{ flex: 1 }} />
-                <Pressable
-                  style={[styles.batchBtn, { borderColor: Colors.game.blue }, selectedItemIds.size === 0 && styles.batchBtnDisabled]}
+                <FantasyButton
+                  size="sm"
+                  variant="sapphire"
+                  icon="construct"
+                  label="SALVAGE"
                   onPress={handleBatchSalvage}
                   disabled={selectedItemIds.size === 0}
-                >
-                  <Text style={[styles.batchBtnTxt, { color: Colors.game.blue }]}>SALVAGE</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.batchBtn, { borderColor: "#F59E0B" }, selectedItemIds.size === 0 && styles.batchBtnDisabled]}
+                />
+                <FantasyButton
+                  size="sm"
+                  variant="ember"
+                  icon="cash"
+                  label="SELL NPC"
                   onPress={handleBatchSellNpc}
                   disabled={selectedItemIds.size === 0}
-                >
-                  <Text style={[styles.batchBtnTxt, { color: "#F59E0B" }]}>SELL NPC</Text>
-                </Pressable>
-                <Pressable style={[styles.batchBtn, { borderColor: Colors.game.border }]} onPress={exitMultiSelect}>
-                  <Text style={[styles.batchBtnTxt, { color: Colors.game.textDim }]}>✕</Text>
-                </Pressable>
+                />
+                <FantasyButton
+                  size="sm"
+                  variant="dark"
+                  icon="close"
+                  onPress={exitMultiSelect}
+                />
               </View>
             )}
 
@@ -503,7 +533,7 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                           <View style={[styles.typeHeaderBadge, { backgroundColor: typeColor }]}>
                             <Text style={styles.typeHeaderBadgeText}>×{entries.reduce((s, e) => s + e.count, 0)}</Text>
                           </View>
-                          <Text style={styles.equipSlotChevron}>{expandedSlots.has(type) ? "▼" : "▶"}</Text>
+                          <Ionicons name={expandedSlots.has(type) ? "chevron-down" : "chevron-forward"} size={13} color={Colors.game.textDim} style={styles.chevronIcon} />
                         </Pressable>
                         {expandedSlots.has(type) && (
                         <View style={styles.inventoryGrid}>
@@ -511,9 +541,9 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                             const rc = RARITY_COLORS[entry.material.rarity];
                             return (
                               <Pressable key={entry.key} style={styles.invSlotWrap} onPress={() => setSelectedEntry(entry)}>
-                                <View style={[styles.invSlot, { borderColor: rc }]}>
+                                <RivetFrame color={rc}>
                                   <MaterialImage type={entry.material.type} rarity={entry.material.rarity} version={entry.material.version} size={68} compact animateParticles={false} />
-                                </View>
+                                </RivetFrame>
                                 <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                   <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>
                                 </View>
@@ -539,7 +569,7 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                         <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.gold }]}>
                           <Text style={styles.typeHeaderBadgeText}>×{chestStacks.reduce((s, { count }) => s + count, 0)}</Text>
                         </View>
-                        <Text style={styles.equipSlotChevron}>{expandedSlots.has("Chests") ? "▼" : "▶"}</Text>
+                        <Ionicons name={expandedSlots.has("Chests") ? "chevron-down" : "chevron-forward"} size={13} color={Colors.game.textDim} style={styles.chevronIcon} />
                       </Pressable>
                       {expandedSlots.has("Chests") && (
                       <View style={styles.inventoryGrid}>
@@ -547,9 +577,9 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                           const rc = ITEM_RARITY_COLORS[rep.rarity];
                           return (
                             <Pressable key={`${rep.rarity}-${rep.tier}`} style={styles.invSlotWrap} onPress={() => setSelectedChest(rep)}>
-                              <View style={[styles.invSlot, { borderColor: rc }]}>
+                              <RivetFrame color={rc}>
                                 <ChestImage rarity={rep.rarity} size={68} compact />
-                              </View>
+                              </RivetFrame>
                               <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                 <Text style={styles.countText} numberOfLines={1}>×{count}</Text>
                               </View>
@@ -574,7 +604,7 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                         <View style={[styles.typeHeaderBadge, { backgroundColor: Colors.game.purpleLight }]}>
                           <Text style={styles.typeHeaderBadgeText}>×{char.potionBag.length}</Text>
                         </View>
-                        <Text style={styles.equipSlotChevron}>{expandedSlots.has("Potions") ? "▼" : "▶"}</Text>
+                        <Ionicons name={expandedSlots.has("Potions") ? "chevron-down" : "chevron-forward"} size={13} color={Colors.game.textDim} style={styles.chevronIcon} />
                       </Pressable>
                       {expandedSlots.has("Potions") && (
                       <View style={styles.inventoryGrid}>
@@ -582,9 +612,9 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                           const rc = ITEM_RARITY_COLORS[rep.rarity];
                           return (
                             <Pressable key={`${rep.type}|${rep.rarity}|${rep.tier}`} style={styles.invSlotWrap} onPress={() => setSelectedPotion(rep)}>
-                              <View style={[styles.invSlot, { borderColor: rc }]}>
+                              <RivetFrame color={rc}>
                                 <PotionImage type={rep.type} rarity={rep.rarity} tier={rep.tier} size={68} compact />
-                              </View>
+                              </RivetFrame>
                               <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                 <Text style={styles.countText} numberOfLines={1}>×{count}</Text>
                               </View>
@@ -634,7 +664,7 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                                 <View style={[styles.typeHeaderBadge, { backgroundColor: slotColor }]}>
                                   <Text style={styles.typeHeaderBadgeText}>×{items.length}</Text>
                                 </View>
-                                <Text style={styles.equipSlotChevron}>{isOpen ? "▼" : "▶"}</Text>
+                                <Ionicons name={isOpen ? "chevron-down" : "chevron-forward"} size={13} color={Colors.game.textDim} style={styles.chevronIcon} />
                               </Pressable>
                               {isOpen && (
                                 <View style={styles.inventoryGrid}>
@@ -647,18 +677,17 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
                                         style={[styles.invSlotWrap, multiSelectMode && selectedItemIds.has(item.id) && styles.invSlotWrapSelected]}
                                         onPress={() => multiSelectMode ? toggleItemSelect(item.id) : setSelectedBagItem(item)}
                                       >
-                                        <View style={[
-                                          styles.invSlot,
-                                          { borderColor: rc },
-                                          multiSelectMode && selectedItemIds.has(item.id) && { borderColor: Colors.game.green, borderWidth: 3 },
-                                        ]}>
+                                        <RivetFrame
+                                          color={multiSelectMode && selectedItemIds.has(item.id) ? Colors.game.green : rc}
+                                          style={multiSelectMode && selectedItemIds.has(item.id) ? { borderWidth: 3 } : undefined}
+                                        >
                                           <ItemImage slot={item.slot} rarity={item.rarity} quality={item.quality} tier={item.tier} size={68} compact />
                                           {multiSelectMode && (
                                             <View style={[styles.checkOverlay, selectedItemIds.has(item.id) && styles.checkOverlayActive]}>
                                               {selectedItemIds.has(item.id) && <Text style={styles.checkMark}>✓</Text>}
                                             </View>
                                           )}
-                                        </View>
+                                        </RivetFrame>
                                         <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                           <Text style={styles.countText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                                             T{item.tier} · {item.quality}
@@ -691,16 +720,18 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
 
             {/* ── Select toggle button ── */}
             {(char.itemBag?.length ?? 0) > 0 && (
-              <Pressable
-                style={[styles.selectToggleBtn, multiSelectMode && styles.selectToggleBtnActive]}
+              <FantasyButton
+                style={styles.selectToggleBtn}
+                textStyle={styles.selectToggleTxt}
+                size="sm"
+                fullWidth
+                variant={multiSelectMode ? "emerald" : "dark"}
+                icon={multiSelectMode ? "checkmark-done" : "checkbox-outline"}
+                label={multiSelectMode
+                  ? `${selectedItemIds.size} of ${char.itemBag?.length ?? 0} selected — tap to deselect all`
+                  : "SELECT ITEMS FOR BATCH ACTION"}
                 onPress={() => multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true)}
-              >
-                <Text style={[styles.selectToggleTxt, multiSelectMode && { color: Colors.game.green }]}>
-                  {multiSelectMode
-                    ? `✓ ${selectedItemIds.size} of ${char.itemBag?.length ?? 0} selected — tap to deselect all`
-                    : "☑ SELECT ITEMS FOR BATCH ACTION"}
-                </Text>
-              </Pressable>
+              />
             )}
 
             </View>
@@ -713,10 +744,16 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
             </View>
           )}
 
-          <Pressable style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeBtnText}>CLOSE</Text>
-          </Pressable>
-        </View>
+          <FantasyButton
+            style={styles.closeBtn}
+            size="md"
+            fullWidth
+            variant="dark"
+            icon="close"
+            label="CLOSE"
+            onPress={onClose}
+          />
+        </LinearGradient>
       </View>
 
       {selectedEntry && (
@@ -823,22 +860,21 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: Colors.game.surfaceAlt,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     maxHeight: "90%",
     borderWidth: 1,
     borderBottomWidth: 0,
-    borderColor: Colors.game.border,
+    borderColor: Colors.game.gold + "55",
   },
   handle: {
-    width: 40, height: 4,
-    backgroundColor: Colors.game.border,
+    width: 44, height: 4,
+    backgroundColor: Colors.game.gold + "66",
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: 12,
@@ -847,31 +883,15 @@ const styles = StyleSheet.create({
   // Tabs
   tabBar: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     marginBottom: 14,
-    backgroundColor: Colors.game.surface,
-    borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: Colors.game.border,
   },
-  tabBtn: {
+  tabFlex: {
     flex: 1,
-    borderRadius: 10,
-    paddingVertical: 8,
-    alignItems: "center",
   },
-  tabBtnActive: {
-    backgroundColor: Colors.game.gold,
-  },
-  tabText: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    color: Colors.game.textMuted,
-    letterSpacing: 1,
-  },
-  tabTextActive: {
-    color: "#3d2e00",
+  tabTxt: {
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
   tabContent: {
     flex: 1,
@@ -888,9 +908,9 @@ const styles = StyleSheet.create({
   onlineRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
     marginBottom: 12, paddingVertical: 8,
-    paddingHorizontal: 12, borderRadius: 10,
+    paddingHorizontal: 12, borderRadius: 12,
     backgroundColor: Colors.game.surface,
-    borderWidth: 1, borderColor: Colors.game.border,
+    borderWidth: 1, borderColor: Colors.game.gold + "22",
   },
   onlineDot: { width: 8, height: 8, borderRadius: 4 },
   onlineStatus: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
@@ -902,9 +922,9 @@ const styles = StyleSheet.create({
   onlineActionTxt: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textDim },
   lifetimeRow: {
     flexDirection: "row", alignItems: "center",
-    marginBottom: 12, borderRadius: 10,
+    marginBottom: 12, borderRadius: 12,
     backgroundColor: Colors.game.surface,
-    borderWidth: 1, borderColor: Colors.game.border,
+    borderWidth: 1, borderColor: Colors.game.gold + "22",
     overflow: "hidden",
   },
   lifetimeStat: { flex: 1, alignItems: "center", paddingVertical: 12, gap: 3 },
@@ -936,14 +956,14 @@ const styles = StyleSheet.create({
   },
   xpGemText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#e9d5ff" },
   xpTrack: {
-    flex: 1, height: 5,
-    backgroundColor: Colors.game.border, borderRadius: 3, overflow: "hidden",
+    flex: 1,
   },
-  xpFill: { height: "100%", backgroundColor: Colors.game.purple, borderRadius: 3 },
+  nameBanner: { marginBottom: 6, alignSelf: "flex-start" },
+  chevronIcon: { marginLeft: 4 },
   xpNums: { fontSize: 10, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
   pendingBanner: {
     backgroundColor: "rgba(128,96,192,0.15)",
-    borderRadius: 10, padding: 10,
+    borderRadius: 12, padding: 10,
     borderWidth: 1, borderColor: Colors.game.purple,
     alignItems: "center", marginBottom: 6,
   },
@@ -966,7 +986,7 @@ const styles = StyleSheet.create({
   statCard: {
     backgroundColor: Colors.game.surface,
     borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: Colors.game.border, gap: 8,
+    borderWidth: 1, borderColor: Colors.game.gold + "22", gap: 8,
   },
   statCardTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   statIcon: { fontSize: 20 },
@@ -1022,12 +1042,9 @@ const styles = StyleSheet.create({
   batchBtnDisabled: { opacity: 0.35 },
   batchBtnTxt: { fontSize: 10, fontFamily: "Inter_700Bold" },
   selectToggleBtn: {
-    paddingVertical: 11, paddingHorizontal: 14,
-    borderTopWidth: 1, borderTopColor: Colors.game.border,
-    alignItems: "center",
+    marginTop: 10,
   },
-  selectToggleBtnActive: { backgroundColor: Colors.game.green + "11" },
-  selectToggleTxt: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 0.8 },
+  selectToggleTxt: { fontSize: 10, letterSpacing: 0.8 },
   invSlotWrapSelected: { opacity: 0.9 },
   checkOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
@@ -1043,7 +1060,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     backgroundColor: Colors.game.surface,
   },
@@ -1068,12 +1085,6 @@ const styles = StyleSheet.create({
   },
   inventoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   invSlotWrap: { alignItems: "center", gap: 4 },
-  invSlot: {
-    width: 72, height: 72, borderRadius: 12,
-    borderWidth: 2, overflow: "visible",
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: Colors.game.surface,
-  },
   countBadge: {
     borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
     minWidth: 24, alignItems: "center",
@@ -1230,25 +1241,20 @@ const styles = StyleSheet.create({
   },
 
   closeBtn: {
-    backgroundColor: Colors.game.surface,
-    borderRadius: 14, paddingVertical: 14,
-    alignItems: "center", marginTop: 10,
-    borderWidth: 1, borderColor: Colors.game.border,
+    marginTop: 10,
   },
-  closeBtnText: { fontSize: 13, fontFamily: "Inter_700Bold", color: Colors.game.textMuted, letterSpacing: 2 },
 
   // Item detail
   detailOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.6)",
+    flex: 1, backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "center", alignItems: "center",
     padding: 24,
   },
-  detailCard: {
-    backgroundColor: Colors.game.surfaceAlt,
-    borderRadius: 20, padding: 20,
+  detailCardWrap: {
     width: "100%", maxWidth: 340,
-    borderWidth: 2, gap: 10,
   },
+  detailPanel: { gap: 12 },
+  detailBtnStack: { alignItems: "center", gap: 3 },
   detailImgWrap: { alignItems: "center", marginBottom: 4 },
   detailInfo: { gap: 8 },
   detailName: { fontSize: 15, fontFamily: "Inter_700Bold" },
@@ -1279,11 +1285,11 @@ const styles = StyleSheet.create({
   },
   quickSellTxt: {
     fontSize: 12, fontFamily: "Inter_700Bold",
-    color: Colors.game.green, letterSpacing: 1,
+    color: "#E6FFEE", letterSpacing: 1, textAlign: "center",
   },
   quickSellSub: {
     fontSize: 10, fontFamily: "Inter_400Regular",
-    color: Colors.game.textMuted,
+    color: "#C8E8D2", textAlign: "center",
   },
   listAhBtn: {
     backgroundColor: "rgba(201,168,76,0.10)", borderRadius: 12,

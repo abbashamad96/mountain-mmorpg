@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
+import { DragonCrest } from "@/components/ui";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 
 const REMEMBER_ME_KEY = "@mountain_remember_username";
@@ -223,6 +224,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
           {/* ── Main auth form ────────────────────────────────────────── */}
           {screen === "auth" && (
             <ScrollView showsVerticalScrollIndicator={false}>
+              <DragonCrest width={200} style={styles.crest} />
               <Text style={styles.title}>MOUNTAIN ACCOUNT</Text>
               <Text style={styles.subtitle}>
                 {mandatory
@@ -428,6 +430,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: 64, height: 64,
     justifyContent: "center",
+  },
+  crest: {
+    alignSelf: "center",
+    marginBottom: 4,
   },
   title: {
     fontSize: 14, fontFamily: "Inter_700Bold",
