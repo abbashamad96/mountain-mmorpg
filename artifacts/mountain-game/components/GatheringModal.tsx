@@ -153,7 +153,7 @@ export function GatheringModal({
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <OrnatePanel style={styles.cardWrap} contentStyle={styles.card} padding={22} glow>
-          <BannerLabel title="Gathering" icon={material.type === "Wood" ? "cube" : material.type === "Ore" ? "diamond" : material.type === "Herb" ? "leaf" : "shirt"} size="md" />
+          <BannerLabel title="Gathering" icon={material.type === "Wood" ? "leaf" : material.type === "Ore" ? "flame" : material.type === "Herb" ? "leaf" : "shirt"} size="md" />
 
           <RarityText
             rarity={material.rarity}

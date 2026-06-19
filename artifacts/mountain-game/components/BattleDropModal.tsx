@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 import Colors from "@/constants/colors";
+import { LinearGradient } from "expo-linear-gradient";
+import { OrnatePanel, RivetFrame } from "@/components/ui";
 import { Material, RARITY_COLORS, useGame } from "@/context/GameContext";
 import {
   formatChestName,
@@ -123,12 +125,13 @@ export function BattleDropModal({
     <Modal transparent visible animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.victoryLabel}>VICTORY</Text>
-            <Text style={styles.npcName}>Defeated {npcName}</Text>
-            <Text style={styles.lootLabel}>LOOT DROPPED</Text>
-          </View>
+          <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%" }} contentStyle={{ overflow: "hidden" }}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.victoryLabel}>VICTORY</Text>
+              <Text style={styles.npcName}>Defeated {npcName}</Text>
+              <Text style={styles.lootLabel}>LOOT DROPPED</Text>
+            </View>
 
           {/* Drops list */}
           <ScrollView
@@ -228,6 +231,7 @@ export function BattleDropModal({
               <Text style={styles.closeBtnText}>CLOSE</Text>
             </Pressable>
           </View>
+          </OrnatePanel>
         </Animated.View>
       </Animated.View>
 

@@ -151,9 +151,6 @@ export function SceneView({ scene, artIndex }: SceneViewProps) {
   );
 }
 
-const IMG_HEIGHT = Platform.OS === "web" ? 240 : undefined;
-const IMG_ASPECT = Platform.OS === "web" ? undefined : (16 / 9 as any);
-
 const styles = StyleSheet.create({
   wrapper: {
     borderRadius: 20,
@@ -161,16 +158,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 4 },
+    width: "100%",
+    height: 200,
   },
   frame: {
     borderRadius: 20,
     padding: 2,
+    width: "100%",
+    height: 200,
   },
-  sceneContainer: { width: "100%", borderRadius: 18, overflow: "hidden" },
+  sceneContainer: { width: "100%", height: 196, borderRadius: 18, overflow: "hidden" },
   pressable: {
     width: "100%",
-    height: IMG_HEIGHT,
-    aspectRatio: IMG_ASPECT,
+    height: 196,
     position: "relative",
     overflow: "hidden",
   },

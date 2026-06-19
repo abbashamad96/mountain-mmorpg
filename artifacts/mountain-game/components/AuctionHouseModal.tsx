@@ -2400,7 +2400,7 @@ const styles = StyleSheet.create({
   tabBtnTxtActive: { color: Colors.game.gold },
   // Scrollable content area
   contentScroll: {
-    maxHeight: 420,
+    maxHeight: 340,
     marginBottom: 10,
   },
   listScroll: {

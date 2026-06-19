@@ -592,7 +592,7 @@ const s = StyleSheet.create({
   rarityRow: { gap: 6, paddingBottom: 2 },
   rarityBtn: {
     alignItems: "center", justifyContent: "center",
-    minWidth: 36, height: 36, borderRadius: 10, borderWidth: 1,
+    minWidth: 36, height: 36, borderRadius: 10,
     backgroundColor: Colors.game.surface,
   },
   rarityBtnLocked: { opacity: 0.45 },
@@ -601,7 +601,7 @@ const s = StyleSheet.create({
   tierRow: { flexDirection: "row", gap: 8, marginBottom: 2 },
   tierBtn: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    height: 34, borderRadius: 10, borderWidth: 1,
+    height: 34, borderRadius: 10,
     backgroundColor: Colors.game.surface,
   },
   tierBtnText: { fontSize: 12, fontFamily: "Inter_700Bold" },

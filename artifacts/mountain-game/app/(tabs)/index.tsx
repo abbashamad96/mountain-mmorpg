@@ -54,7 +54,7 @@ import { GameItem, Potion, ITEM_RARITY_COLORS, formatChestName, formatItemName, 
 import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
 import { FullChestDrop } from "@/components/ChestOpenModal";
 import { useMultiplayer } from "@/context/MultiplayerContext";
-import { CRAFTING_MAX_ENERGY } from "@/lib/crafting";
+import { CRAFTING_MAX_ENERGY, CRAFTING_ENERGY_REGEN_MS } from "@/lib/crafting";
 
 // ─── Tool shop prices ─────────────────────────────────────────────────────────
 
@@ -357,9 +357,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
 
 function EventLogStack({ logs }: { logs: LogEntry[] }) {
   // eventLog is stored newest-first; take the most recent N then reverse for oldest-top display
-  const recent = logs.slice(0, MAX_LOG_VISIBLE).reverse();
+  const nonGoldXp = logs.filter((e) => e.type !== "gold_xp");
+  const recent = nonGoldXp.slice(0, MAX_LOG_VISIBLE).reverse();
   const animMapRef = useRef<Map<string, Animated.Value>>(new Map());
-  const floatTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -371,32 +371,17 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
         map.set(entry.id, anim);
         Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
         changed = true;
-        // Auto-dismiss gold_xp entries after 3 seconds
-        if (entry.type === "gold_xp") {
-          const timer = setTimeout(() => {
-            Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
-              // anim stays at 0; next re-render will prune from map
-            });
-          }, 3000);
-          floatTimersRef.current.set(entry.id, timer);
-        }
       }
     }
     for (const key of Array.from(map.keys())) {
       const stillInRecent = recent.find((e) => e.id === key);
       if (!stillInRecent) {
         map.delete(key);
-        const t = floatTimersRef.current.get(key);
-        if (t) { clearTimeout(t); floatTimersRef.current.delete(key); }
         changed = true;
       }
     }
     if (changed) forceUpdate((n) => n + 1);
-    return () => {
-      for (const t of floatTimersRef.current.values()) clearTimeout(t);
-      floatTimersRef.current.clear();
-    };
-  }, [logs]);
+  }, [recent]);
 
   if (recent.length === 0) return null;
   const map = animMapRef.current;
@@ -413,6 +398,57 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
             style={{ opacity: anim, transform: [{ translateY }] }}
           >
             <LogEntryRow entry={entry} />
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+}
+
+function FloatingGoldXpToasts({ logs }: { logs: LogEntry[] }) {
+  const goldXpEntries = logs.filter((e) => e.type === "gold_xp").slice(0, 3);
+  const animMapRef = useRef<Map<string, Animated.Value>>(new Map());
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const map = animMapRef.current;
+    let changed = false;
+    for (const entry of goldXpEntries) {
+      if (!map.has(entry.id)) {
+        const anim = new Animated.Value(0);
+        map.set(entry.id, anim);
+        Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        changed = true;
+        setTimeout(() => {
+          Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+        }, 3000);
+      }
+    }
+    for (const key of Array.from(map.keys())) {
+      if (!goldXpEntries.find((e) => e.id === key)) {
+        map.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) forceUpdate((n) => n + 1);
+  }, [goldXpEntries]);
+
+  if (goldXpEntries.length === 0) return null;
+  const map = animMapRef.current;
+
+  return (
+    <View style={floatStyles.container} pointerEvents="none">
+      {goldXpEntries.map((entry) => {
+        const anim = map.get(entry.id);
+        if (!anim) return null;
+        return (
+          <Animated.View key={entry.id} style={[floatStyles.toast, { opacity: anim }]}>
+            {entry.goldGained > 0 && (
+              <Text style={floatStyles.goldText}>+{entry.goldGained}g</Text>
+            )}
+            {entry.xpGained > 0 && (
+              <Text style={floatStyles.xpText}>+{entry.xpGained} xp</Text>
+            )}
           </Animated.View>
         );
       })}
@@ -709,6 +745,7 @@ export default function GameScreen() {
   const [_showToolShop] = useState(false);
   const [showCrafting, setShowCrafting] = useState(false);
   const [showRubyShop, setShowRubyShop] = useState(false);
+  const [explorePressed, setExplorePressed] = useState(false);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -1282,7 +1319,7 @@ export default function GameScreen() {
             })()}
           </View>
         </View>
-        {/* Energy bar */}
+        {/* Energy bar + countdown */}
         <View style={styles.energyBarRow}>
           <Ionicons name="flash" size={13} color={Colors.game.blueLight} />
           <GemBar
@@ -1293,6 +1330,18 @@ export default function GameScreen() {
             style={styles.energyBar}
           />
           <Text style={styles.energyText}>{char.craftingEnergy}/{CRAFTING_MAX_ENERGY}</Text>
+          {char.craftingEnergy < CRAFTING_MAX_ENERGY && (
+            <Text style={styles.energyTimer}>
+              {(() => {
+                const now = Date.now();
+                const ms = Math.max(0, char.energyLastRegen + CRAFTING_ENERGY_REGEN_MS - now);
+                const s = Math.ceil(ms / 1000);
+                const m = Math.floor(s / 60);
+                const ss = String(s % 60).padStart(2, "0");
+                return `+1 in ${m}:${ss}`;
+              })()}
+            </Text>
+          )}
         </View>
       </LinearGradient>
 
@@ -1305,6 +1354,9 @@ export default function GameScreen() {
           {ahToasts.map((t) => <AhToast key={t.id} toast={t} />)}
         </View>
       )}
+
+      {/* ── Floating gold/xp toasts ─────────────────────────────────────── */}
+      <FloatingGoldXpToasts logs={gameState.eventLog} />
 
       {/* ── Event log ────────────────────────────────────────────────────── */}
       <View style={styles.logWrap}>
@@ -1325,16 +1377,19 @@ export default function GameScreen() {
 
       {/* ── Explore button at bottom ─────────────────────────────────────── */}
       <View style={styles.exploreRow}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.exploreBtn,
-            pressed && styles.exploreBtnPressed,
-            isInteracting && styles.exploreBtnDisabled,
-          ]}
-          onPress={handleScenePress}
-          disabled={isInteracting}
-          testID="scene-press-button"
-        >
+        <View style={styles.exploreBtnWrap}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.exploreBtn,
+              pressed && styles.exploreBtnPressed,
+              isInteracting && styles.exploreBtnDisabled,
+            ]}
+            onPress={handleScenePress}
+            onPressIn={() => setExplorePressed(true)}
+            onPressOut={() => setExplorePressed(false)}
+            disabled={isInteracting}
+            testID="scene-press-button"
+          >
           <LinearGradient
             colors={isInteracting
               ? [Colors.game.surfaceAlt, Colors.game.surface]
@@ -1349,6 +1404,8 @@ export default function GameScreen() {
             </Text>
           </LinearGradient>
         </Pressable>
+        <ExploreButtonParticles isInteracting={isInteracting} pressed={explorePressed} />
+      </View>
       </View>
 
       {/* ── Timer bar ────────────────────────────────────────────────────── */}
@@ -1601,16 +1658,18 @@ const styles = StyleSheet.create({
   },
   energyBar: { flex: 1 },
   energyText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, minWidth: 28, textAlign: "right" },
+  energyTimer: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.blueLight },
   activityBadge: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   activityText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },
 
   // ── Content areas ─────────────────────────────────────────────────────────
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
-  sceneWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
+  sceneWrap: { paddingHorizontal: 16, paddingTop: 6, height: 200 },
 
   // ── Explore button at bottom ─────────────────────────────────────────────
   exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  exploreBtnWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
   exploreBtn: { borderRadius: 16, overflow: "hidden" },
   exploreBtnPressed: { opacity: 0.85 },
   exploreBtnDisabled: { opacity: 0.5 },
@@ -1626,5 +1685,135 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: 3,
     textTransform: "uppercase",
+  },
+});
+
+function ExploreButtonParticles({ isInteracting, pressed }: { isInteracting: boolean; pressed: boolean }) {
+  const particles = useRef(
+    Array.from({ length: 8 }).map((_, i) => ({
+      id: i,
+      baseX: new Animated.Value(0),
+      baseY: new Animated.Value(0),
+      opacity: new Animated.Value(0.6),
+      scale: new Animated.Value(0.5),
+    }))
+  ).current;
+
+  useEffect(() => {
+    const anims: Animated.CompositeAnimation[] = [];
+    particles.forEach((p, i) => {
+      const angle = (i / 8) * Math.PI * 2;
+      const radius = 42;
+      const offsetX = Math.cos(angle) * radius;
+      const offsetY = Math.sin(angle) * radius;
+      p.baseX.setValue(offsetX);
+      p.baseY.setValue(offsetY);
+      const floatAnim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(p.opacity, { toValue: 0.9, duration: 800 + i * 120, useNativeDriver: true }),
+          Animated.timing(p.opacity, { toValue: 0.4, duration: 800 + i * 120, useNativeDriver: true }),
+        ])
+      );
+      floatAnim.start();
+      anims.push(floatAnim);
+    });
+    return () => { anims.forEach(a => a.stop()); };
+  }, []);
+
+  useEffect(() => {
+    if (pressed) {
+      particles.forEach((p, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        const burstDist = 60;
+        Animated.parallel([
+          Animated.timing(p.baseX, { toValue: Math.cos(angle) * burstDist, duration: 200, useNativeDriver: true }),
+          Animated.timing(p.baseY, { toValue: Math.sin(angle) * burstDist, duration: 200, useNativeDriver: true }),
+          Animated.timing(p.scale, { toValue: 1.2, duration: 200, useNativeDriver: true }),
+        ]).start(() => {
+          const radius = 42;
+          Animated.parallel([
+            Animated.timing(p.baseX, { toValue: Math.cos(angle) * radius, duration: 400, useNativeDriver: true }),
+            Animated.timing(p.baseY, { toValue: Math.sin(angle) * radius, duration: 400, useNativeDriver: true }),
+            Animated.timing(p.scale, { toValue: 0.5, duration: 400, useNativeDriver: true }),
+          ]).start();
+        });
+      });
+    }
+  }, [pressed]);
+
+  if (isInteracting) return null;
+
+  return (
+    <View style={particleStyles.wrap} pointerEvents="none">
+      {particles.map((p) => (
+        <Animated.View
+          key={p.id}
+          style={[
+            particleStyles.dot,
+            {
+              opacity: p.opacity,
+              transform: [
+                { translateX: p.baseX },
+                { translateY: p.baseY },
+                { scale: p.scale },
+              ],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+const particleStyles = StyleSheet.create({
+  wrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dot: {
+    position: "absolute",
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.game.goldLight,
+  },
+});
+
+const floatStyles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    top: 80,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    gap: 6,
+    zIndex: 100,
+    pointerEvents: "none",
+  },
+  toast: {
+    backgroundColor: "rgba(20,14,0,0.88)",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.game.gold + "66",
+    shadowColor: Colors.game.gold,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  goldText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.goldLight,
+  },
+  xpText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.purpleLight,
   },
 });
