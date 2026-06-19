@@ -124,8 +124,9 @@ export function BattleDropModal({
   return (
     <Modal transparent visible animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-        <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
-          <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%" }} contentStyle={{ overflow: "hidden" }}>
+        <View style={{ width: "100%", maxWidth: 420, alignSelf: "center" }}>
+          <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
+            <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%" }} contentStyle={{ overflow: "hidden" }}>
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.victoryLabel}>VICTORY</Text>
@@ -232,7 +233,8 @@ export function BattleDropModal({
             </Pressable>
           </View>
           </OrnatePanel>
-        </Animated.View>
+          </Animated.View>
+        </View>
       </Animated.View>
 
       {/* ── Item options ── */}
@@ -548,6 +550,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
+    maxWidth: 420,
     maxHeight: "80%",
     backgroundColor: Colors.game.surfaceAlt,
     borderRadius: 22,

@@ -291,8 +291,9 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
   return (
     <Modal transparent visible={visible} animationType="none">
       <View style={styles.overlay}>
-        <Animated.View style={[styles.cardWrap, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-          <OrnatePanel padding={18} glow contentStyle={styles.cardContent}>
+        <View style={{ width: "100%", maxWidth: 420, alignSelf: "center" }}>
+          <Animated.View style={[styles.cardWrap, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            <OrnatePanel padding={18} glow contentStyle={styles.cardContent}>
 
             {/* Title */}
             <View style={styles.titleRow}>
@@ -401,7 +402,8 @@ export function BattleModal({ visible, npc, playerStats, playerLevel, onComplete
             )}
 
           </OrnatePanel>
-        </Animated.View>
+          </Animated.View>
+        </View>
       </View>
     </Modal>
   );
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "center", alignItems: "center", padding: 20,
   },
-  cardWrap: { width: "100%" },
+  cardWrap: { width: "100%", maxWidth: 420 },
   cardContent: { gap: 10 },
   titleRow: { alignItems: "center", gap: 8 },
   npcName: { fontSize: 22, fontFamily: "Inter_700Bold" },

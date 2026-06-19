@@ -29,7 +29,7 @@ async function getStripeCredentials(): Promise<{ secretKey: string }> {
     );
   }
 
-  const data = await resp.json();
+  const data = (await resp.json()) as { items?: Array<{ settings?: { secret?: string } }> };
   const settings = data.items?.[0]?.settings;
 
   if (!settings?.secret) {
