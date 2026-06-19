@@ -78,6 +78,7 @@ export function BannerLabel({ title, icon, style, size = "md" }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     width: "100%",
+    maxWidth: 420,
     alignItems: "center",
     justifyContent: "center",
   },
