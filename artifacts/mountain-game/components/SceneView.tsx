@@ -10,18 +10,8 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import Reanimated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-  cancelAnimation,
-} from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { SceneType } from "@/context/GameContext";
-import { FantasyButton } from "./ui";
 
 // ── Full background image pool ────────────────────────────────────────────────
 const BG_IMAGES: ImageSourcePropType[] = [
@@ -101,17 +91,11 @@ const SCENE_SUBTITLES: Record<SceneType, string> = {
 interface SceneViewProps {
   scene: SceneType;
   artIndex: number;
-  onPress: () => void;
-  disabled: boolean;
 }
 
-export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps) {
+export function SceneView({ scene, artIndex }: SceneViewProps) {
   const fadeAnim = useRef(new RNAnimated.Value(1)).current;
   const prevArtIndex = useRef(artIndex);
-
-  // Reanimated values for the live "explore" pulse + flash
-  const pulse = useSharedValue(0);
-  const flash = useSharedValue(0);
 
   // Crossfade when the background image cycles
   useEffect(() => {
@@ -123,43 +107,6 @@ export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps
       ]).start();
     }
   }, [artIndex]);
-
-  // Idle pulse on the explore button glow — only when ready
-  useEffect(() => {
-    if (!disabled) {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
-        ),
-        -1,
-        false,
-      );
-    } else {
-      cancelAnimation(pulse);
-      pulse.value = withTiming(0, { duration: 200 });
-    }
-    return () => cancelAnimation(pulse);
-  }, [disabled]);
-
-  // Cancel the press flash on unmount
-  useEffect(() => () => cancelAnimation(flash), []);
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.35 + pulse.value * 0.55,
-    transform: [{ scale: 1 + pulse.value * 0.06 }],
-  }));
-
-  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
-
-  const handlePress = () => {
-    if (disabled) return;
-    flash.value = withSequence(
-      withTiming(0.4, { duration: 60 }),
-      withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) }),
-    );
-    onPress();
-  };
 
   const bgImage = BG_IMAGES[artIndex % BG_IMAGES_COUNT];
 
@@ -189,12 +136,6 @@ export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps
               pointerEvents="none"
             />
 
-            {/* Explore flash */}
-            <Reanimated.View
-              style={[StyleSheet.absoluteFill, styles.flashOverlay, flashStyle]}
-              pointerEvents="none"
-            />
-
             {/* Scene label — top-left banner */}
             <View style={styles.labelArea} pointerEvents="none">
               <View style={styles.labelBadge}>
@@ -202,34 +143,6 @@ export function SceneView({ scene, artIndex, onPress, disabled }: SceneViewProps
                 <Text style={styles.labelText}>{SCENE_LABELS[scene]}</Text>
               </View>
               <Text style={styles.subtitleText}>{SCENE_SUBTITLES[scene]}</Text>
-            </View>
-
-            {/* Explore button — centered at bottom */}
-            <View style={styles.exploreArea} pointerEvents="box-none">
-              <View style={styles.exploreBtnWrap}>
-                <Reanimated.View style={[styles.exploreGlow, glowStyle]} pointerEvents="none" />
-                {!disabled ? (
-                  <FantasyButton
-                    label="EXPLORE"
-                    icon="footsteps"
-                    size="lg"
-                    variant="gold"
-                    onPress={handlePress}
-                    glow
-                    testID="scene-press-button"
-                    style={styles.exploreBtn}
-                  />
-                ) : (
-                  <FantasyButton
-                    label="EXPLORING..."
-                    icon="compass"
-                    size="lg"
-                    variant="dark"
-                    disabled
-                    style={styles.exploreBtn}
-                  />
-                )}
-              </View>
             </View>
           </View>
         </RNAnimated.View>
@@ -267,7 +180,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  flashOverlay: { backgroundColor: "#FFE9A0" },
   labelArea: {
     position: "absolute",
     top: 12, left: 12, right: 12,
@@ -295,28 +207,5 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.9)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
-  },
-  exploreArea: {
-    position: "absolute",
-    bottom: 14, left: 0, right: 0,
-    alignItems: "center",
-  },
-  exploreBtnWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  exploreGlow: {
-    position: "absolute",
-    width: "120%",
-    height: "180%",
-    borderRadius: 40,
-    backgroundColor: Colors.game.gold,
-    shadowColor: Colors.game.goldBright,
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  exploreBtn: {
-    minWidth: 200,
   },
 });

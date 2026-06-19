@@ -214,7 +214,7 @@ const ss = StyleSheet.create({
     maxHeight: 320,
     marginBottom: 8,
   },
-  scroll: { flexGrow: 0 },
+  scroll: { flex: 1 },
   scrollContent: { gap: 8 },
 
   // Section

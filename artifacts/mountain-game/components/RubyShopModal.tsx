@@ -26,6 +26,10 @@ interface Props {
   onClose: () => void;
   username: string | null;
   onRequireLogin: () => void;
+  rubies: number;
+  currentEnergy: number;
+  maxEnergy: number;
+  onBuyEnergy: () => void;
 }
 
 const BASE_URL = "/api";
@@ -79,11 +83,12 @@ function RubyPackCard({
   );
 }
 
-export function RubyShopModal({ visible, onClose, username, onRequireLogin }: Props) {
+export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubies, currentEnergy, maxEnergy, onBuyEnergy }: Props) {
   const [packs, setPacks] = useState<RubyPack[]>([]);
   const [loadingPacks, setLoadingPacks] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [energyMsg, setEnergyMsg] = useState<string | null>(null);
 
   const fetchPacks = useCallback(async () => {
     setLoadingPacks(true);
@@ -134,6 +139,20 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin }: Pr
     [username, onRequireLogin, onClose],
   );
 
+  const handleBuyEnergy = useCallback(() => {
+    setEnergyMsg(null);
+    if (currentEnergy >= maxEnergy) {
+      setEnergyMsg("Energy is already at maximum!");
+      return;
+    }
+    if (rubies < 6) {
+      setEnergyMsg("Not enough rubies. Need 6 to buy 1 energy.");
+      return;
+    }
+    onBuyEnergy();
+    setEnergyMsg("Energy purchased! +1");
+  }, [rubies, currentEnergy, maxEnergy, onBuyEnergy]);
+
   return (
     <Modal
       visible={visible}
@@ -170,6 +189,27 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin }: Pr
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
+
+          {/* Energy purchase section */}
+          <View style={styles.energySection}>
+            <Text style={styles.energyTitle}>Energy</Text>
+            <Text style={styles.energySubtitle}>Current: {currentEnergy}/{maxEnergy}</Text>
+            <Text style={styles.energyCost}>◆ 6 rubies = +1 Energy</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.energyBtn,
+                pressed && styles.energyBtnPressed,
+                (currentEnergy >= maxEnergy || rubies < 6) && styles.energyBtnDisabled,
+              ]}
+              onPress={handleBuyEnergy}
+              disabled={currentEnergy >= maxEnergy || rubies < 6}
+            >
+              <Text style={styles.energyBtnText}>BUY ENERGY</Text>
+            </Pressable>
+            {energyMsg && (
+              <Text style={styles.energyMsg}>{energyMsg}</Text>
+            )}
+          </View>
 
           {loadingPacks ? (
             <View style={styles.loadingWrap}>
@@ -391,5 +431,55 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 16,
     lineHeight: 15,
+  },
+  energySection: {
+    margin: 16,
+    marginBottom: 0,
+    backgroundColor: Colors.game.surface,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+    gap: 8,
+  },
+  energyTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.text,
+  },
+  energySubtitle: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+  },
+  energyCost: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: "#E91E8C",
+  },
+  energyBtn: {
+    backgroundColor: "#E91E8C",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  energyBtnPressed: {
+    backgroundColor: "#c0156f",
+  },
+  energyBtnDisabled: {
+    backgroundColor: "#5a1a3a",
+  },
+  energyBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    letterSpacing: 1,
+  },
+  energyMsg: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textDim,
+    textAlign: "center",
   },
 });

@@ -570,6 +570,7 @@ interface GameContextType {
   checkCraftingJobs: () => void;
   useSweepCharge: () => boolean;
   incrementEnemiesDefeated: () => void;
+  purchaseEnergyWithRubies: () => boolean;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -1065,6 +1066,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return success;
   }, []);
 
+  const purchaseEnergyWithRubies = useCallback((): boolean => {
+    let success = false;
+    setGameState((prev) => {
+      const char = prev.character;
+      const ENERGY_COST = 6;
+      const MAX_ENERGY = CRAFTING_MAX_ENERGY;
+      if (char.rubies < ENERGY_COST) return prev;
+      if (char.craftingEnergy >= MAX_ENERGY) return prev;
+      success = true;
+      const next = {
+        ...prev,
+        character: {
+          ...char,
+          rubies: char.rubies - ENERGY_COST,
+          craftingEnergy: char.craftingEnergy + 1,
+        },
+      };
+      stateRef.current = next;
+      return next;
+    });
+    return success;
+  }, []);
+
   const loadState = useCallback((state: Partial<GameState>) => {
     if (!state) return;
     const saved = state as GameState;
@@ -1099,7 +1123,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge, purchaseEnergyWithRubies }}
     >
       {children}
     </GameContext.Provider>

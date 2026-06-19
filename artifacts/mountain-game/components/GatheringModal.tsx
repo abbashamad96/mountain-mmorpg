@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { Material, RARITY_COLORS } from "@/context/GameContext";
-import { GatheringTool, TOOL_RARITY_COLORS, TOOL_NAMES } from "@/lib/tools";
+import { GatheringTool, TOOL_RARITY_COLORS, TOOL_NAMES, TOOL_ICONS, MATERIAL_TO_TOOL } from "@/lib/tools";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
 import { ToolImage } from "./ToolImage";
@@ -153,7 +153,7 @@ export function GatheringModal({
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
         <OrnatePanel style={styles.cardWrap} contentStyle={styles.card} padding={22} glow>
-          <BannerLabel title="Gathering" icon="leaf" size="md" />
+          <BannerLabel title="Gathering" icon={material.type === "Wood" ? "cube" : material.type === "Ore" ? "diamond" : material.type === "Herb" ? "leaf" : "shirt"} size="md" />
 
           <RarityText
             rarity={material.rarity}
@@ -239,18 +239,8 @@ export function GatheringModal({
                 />
 
                 <FantasyButton
-                  label="⚡ SWEEP"
-                  icon="flash"
-                  variant="amethyst"
-                  size="md"
-                  onPress={handleSweep}
-                  disabled={sweepCharges <= 0}
-                  style={styles.sweepBtn}
-                />
-
-                <FantasyButton
                   label={cooldown ? "• • •" : "GATHER"}
-                  icon="hand-left"
+                  icon={equippedTool ? (equippedTool.type === "Axe" ? "hammer" : equippedTool.type === "Pickaxe" ? "construct" : equippedTool.type === "SkinningKnife" ? "cut" : "leaf") : "hand-left"}
                   variant="gold"
                   size="md"
                   onPress={handleGather}
@@ -259,6 +249,16 @@ export function GatheringModal({
                   style={styles.gatherBtn}
                 />
               </View>
+
+              <FantasyButton
+                label="SWEEP"
+                icon="flash"
+                variant="amethyst"
+                size="md"
+                onPress={handleSweep}
+                disabled={sweepCharges <= 0}
+                style={styles.sweepBtn}
+              />
             </View>
           )}
         </OrnatePanel>

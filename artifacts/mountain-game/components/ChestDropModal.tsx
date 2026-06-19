@@ -3,6 +3,7 @@ import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native
 import Colors from "@/constants/colors";
 import { ItemChest } from "@/context/GameContext";
 import { ITEM_RARITY_COLORS } from "@/lib/items";
+import { OrnatePanel, RivetFrame } from "@/components/ui";
 import { ChestImage } from "./ChestImage";
 
 interface ChestDropModalProps {
@@ -32,29 +33,35 @@ export function ChestDropModal({ chest, onCollect }: ChestDropModalProps) {
   return (
     <Modal transparent visible={!!chest} animationType="none">
       <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-        <Animated.View style={[styles.card, { borderColor: rc + "88", transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.eyebrow}>CHEST FOUND</Text>
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <OrnatePanel accent={rc} corners glow style={{ width: 300 }}>
+            <View style={styles.card}>
+              <Text style={styles.eyebrow}>CHEST FOUND</Text>
 
-          <Text style={[styles.rarityTitle, { color: rc }]}>
-            {`T${chest.tier} ${chest.rarity}`}
-          </Text>
+              <Text style={[styles.rarityTitle, { color: rc }]}>
+                {`T${chest.tier} ${chest.rarity}`}
+              </Text>
 
-          <View style={styles.imageWrap}>
-            <ChestImage rarity={chest.rarity} size={148} />
-          </View>
+              <View style={styles.imageWrap}>
+                <RivetFrame color={rc + "88"} size={148}>
+                  <ChestImage rarity={chest.rarity} size={128} />
+                </RivetFrame>
+              </View>
 
-          {!chest.tradable && (
-            <View style={[styles.boundBadge, { borderColor: rc + "44" }]}>
-              <Text style={[styles.boundText, { color: rc }]}>ACCOUNT BOUND</Text>
+              {!chest.tradable && (
+                <View style={[styles.boundBadge, { borderColor: rc + "44" }]}>
+                  <Text style={[styles.boundText, { color: rc }]}>ACCOUNT BOUND</Text>
+                </View>
+              )}
+
+              <Pressable
+                style={[styles.collectBtn, { borderColor: rc }]}
+                onPress={() => onCollect(chest)}
+              >
+                <Text style={[styles.collectBtnText, { color: rc }]}>COLLECT</Text>
+              </Pressable>
             </View>
-          )}
-
-          <Pressable
-            style={[styles.collectBtn, { borderColor: rc }]}
-            onPress={() => onCollect(chest)}
-          >
-            <Text style={[styles.collectBtnText, { color: rc }]}>COLLECT</Text>
-          </Pressable>
+          </OrnatePanel>
         </Animated.View>
       </Animated.View>
     </Modal>

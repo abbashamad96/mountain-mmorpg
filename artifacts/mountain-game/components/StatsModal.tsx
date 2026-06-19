@@ -10,7 +10,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
-import { FantasyButton, OrnatePanel, GemBar, BannerLabel, RivetFrame } from "@/components/ui";
+import { FantasyButton, OrnatePanel, RivetFrame } from "@/components/ui";
 import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest, SWEEP_MAX_CHARGES, SWEEP_REGEN_MS } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { Potion, GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
@@ -31,14 +31,12 @@ import { ToolsTab } from "./ToolsTab";
 interface StatsModalProps {
   visible: boolean;
   onClose: () => void;
-  defaultTab?: "profile" | "inventory" | "equipment" | "tools";
+  defaultTab?: "inventory" | "equipment" | "tools";
   onListOnAh?: (entry: MaterialEntry) => void;
   onListItemOnAh?: (item: GameItem) => void;
   onListChestOnAh?: (chest: ItemChest) => void;
   onListPotionOnAh?: (potion: Potion) => void;
   onListToolOnAh?: (tool: GatheringTool) => void;
-  onPressAccount?: () => void;
-  onPressChat?: () => void;
 }
 
 const STAT_CONFIG = [
@@ -186,17 +184,14 @@ function ItemDetailModal({
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh, onPressAccount, onPressChat }: StatsModalProps) {
+export function StatsModal({ visible, onClose, defaultTab = "inventory", onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh }: StatsModalProps) {
   const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag, salvageItem, sellItemToNpc } = useGame();
-  const { isAuthenticated, authUsername, status } = useMultiplayer();
   const char = gameState.character;
-  const hasPending = char.pendingStatPoints > 0;
-  const xpPct = Math.min(100, (char.xp / char.xpToNext) * 100);
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "inventory" | "equipment" | "tools">(defaultTab);
+  const [activeTab, setActiveTab] = useState<"inventory" | "equipment" | "tools">(defaultTab);
 
   // Sync tab when modal opens with a new defaultTab
   useEffect(() => {
@@ -294,14 +289,6 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
               style={styles.tabFlex}
               textStyle={styles.tabTxt}
               size="sm"
-              variant={activeTab === "profile" ? "gold" : "dark"}
-              label="PROFILE"
-              onPress={() => setActiveTab("profile")}
-            />
-            <FantasyButton
-              style={styles.tabFlex}
-              textStyle={styles.tabTxt}
-              size="sm"
               variant={activeTab === "inventory" ? "gold" : "dark"}
               label={`ITEMS ${totalItems > 0 ? `(${totalItems})` : ""}`}
               onPress={() => setActiveTab("inventory")}
@@ -323,149 +310,6 @@ export function StatsModal({ visible, onClose, defaultTab = "profile", onListOnA
               onPress={() => setActiveTab("tools")}
             />
           </View>
-
-          {/* ── Profile tab ───────────────────────────────────────────── */}
-          {activeTab === "profile" && (
-            <View style={styles.tabContent}>
-              <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                  <BannerLabel
-                    title={isAuthenticated && authUsername ? authUsername : "WANDERER"}
-                    icon="person"
-                    size="sm"
-                    align="left"
-                    style={styles.nameBanner}
-                  />
-                  <View style={styles.levelRow}>
-                    <Text style={styles.lvLabel}>Level </Text>
-                    <Text style={styles.lvValue}>{char.level}</Text>
-                  </View>
-                </View>
-                <View style={styles.goldBlock}>
-                  <View style={styles.goldCoin}>
-                    <Text style={styles.goldCoinText}>G</Text>
-                  </View>
-                  <Text style={styles.goldVal}>{char.gold.toLocaleString()}</Text>
-                </View>
-              </View>
-
-              {/* ── Online status + account/chat actions ── */}
-              <View style={styles.onlineRow}>
-                <View style={[styles.onlineDot, { backgroundColor: isAuthenticated && status === "connected" ? Colors.game.green : status === "connecting" ? Colors.game.gold : Colors.game.red }]} />
-                <Text style={styles.onlineStatus}>
-                  {isAuthenticated && status === "connected"
-                    ? `Online · @${authUsername ?? ""}`
-                    : status === "connecting" ? "Connecting…"
-                    : isAuthenticated ? "Disconnected"
-                    : "Not logged in"}
-                </Text>
-                <View style={{ flex: 1 }} />
-                <FantasyButton
-                  size="sm"
-                  variant="dark"
-                  icon="chatbubble-ellipses"
-                  label="Chat"
-                  onPress={() => { onClose(); onPressChat?.(); }}
-                />
-                <FantasyButton
-                  size="sm"
-                  variant={isAuthenticated ? "emerald" : "gold"}
-                  icon={isAuthenticated ? "person-circle" : "log-in"}
-                  label={isAuthenticated ? "Account" : "Login"}
-                  onPress={() => { onClose(); onPressAccount?.(); }}
-                />
-              </View>
-
-              {/* ── Lifetime stats counters ── */}
-              <View style={styles.lifetimeRow}>
-                <View style={styles.lifetimeStat}>
-                  <Text style={styles.lifetimeVal}>{gameState.totalEvents.toLocaleString()}</Text>
-                  <Text style={styles.lifetimeLabel}>Events</Text>
-                </View>
-                <View style={styles.lifetimeDivider} />
-                <View style={styles.lifetimeStat}>
-                  <Text style={[styles.lifetimeVal, { color: Colors.game.red }]}>{(gameState.enemiesDefeated ?? 0).toLocaleString()}</Text>
-                  <Text style={styles.lifetimeLabel}>Enemies Defeated</Text>
-                </View>
-              </View>
-
-              <View style={styles.xpRow}>
-                <View style={styles.xpGem}>
-                  <Text style={styles.xpGemText}>✦</Text>
-                </View>
-                <View style={styles.xpTrack}>
-                  <GemBar progress={xpPct / 100} gem="amethyst" height={9} />
-                </View>
-                <Text style={styles.xpNums}>{char.xp}/{char.xpToNext}</Text>
-              </View>
-
-              {hasPending && (
-                <View style={styles.pendingBanner}>
-                  <Text style={styles.pendingText}>
-                    ✦ {char.pendingStatPoints} stat point{char.pendingStatPoints > 1 ? "s" : ""} to allocate
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.divider} />
-
-              {/* Active buffs — only show non-expired */}
-              {char.activeBuffs.filter((b) => b.expiresAt > Date.now()).length > 0 && (
-                <View style={{ marginBottom: 10, gap: 6 }}>
-                  {char.activeBuffs.filter((b) => b.expiresAt > Date.now()).map((buff) => {
-                    const label = buff.type === "Gold" ? "🟡 Gold Boost" : buff.type === "XP" ? "✨ XP Boost" : "⚡ Speed Boost";
-                    const color = buff.type === "Gold" ? Colors.game.gold : buff.type === "XP" ? Colors.game.purpleLight : Colors.game.blue;
-                    return (
-                      <View key={buff.type} style={[styles.buffBadge, { borderColor: color }]}>
-                        <Text style={[styles.buffText, { color }]}>{label} · {Math.round((buff.multiplier - 1) * 100)}%</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.statGrid}>
-                  {STAT_CONFIG.map((s) => {
-                    const val = char.stats[s.key];
-                    let derivedLabel: string | null = null;
-                    if (s.key === "defence") derivedLabel = "increases block chance";
-                    else if (s.key === "speed") derivedLabel = "increases turn frequency";
-                    else if (s.key === "strength") derivedLabel = `${Math.round(val * 0.9)}–${Math.round(val * 1.1)} dmg`;
-                    else if (s.key === "health") derivedLabel = `${Math.floor(val * 10)} max HP`;
-                    return (
-                      <View key={s.key} style={styles.statCard}>
-                        <View style={styles.statCardTop}>
-                          <Text style={styles.statIcon}>{s.icon}</Text>
-                          <View style={styles.statInfo}>
-                            <Text style={[styles.statName, { color: s.color }]}>{s.label}</Text>
-                            <Text style={styles.statDesc}>{s.desc}</Text>
-                            {derivedLabel && (
-                              <Text style={[styles.statDerived, { color: s.color }]}>{derivedLabel}</Text>
-                            )}
-                          </View>
-                          <Text style={[styles.statVal, { color: s.color }]}>
-                            {s.key === "strength" ? val.toFixed(2) : Math.floor(val)}
-                          </Text>
-                        </View>
-                        {hasPending && (
-                          <FantasyButton
-                            variant="gold"
-                            size="sm"
-                            fullWidth
-                            icon="add-circle"
-                            label={`Allocate (${s.bonus})`}
-                            onPress={() => allocateStat(s.key)}
-                          />
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-                <View style={{ height: 24 }} />
-              </ScrollView>
-            </View>
-          )}
 
           {/* ── Equipment tab ───────────────────────────────────────────── */}
           {activeTab === "equipment" && (

@@ -359,6 +359,7 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
   // eventLog is stored newest-first; take the most recent N then reverse for oldest-top display
   const recent = logs.slice(0, MAX_LOG_VISIBLE).reverse();
   const animMapRef = useRef<Map<string, Animated.Value>>(new Map());
+  const floatTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -370,15 +371,31 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
         map.set(entry.id, anim);
         Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
         changed = true;
+        // Auto-dismiss gold_xp entries after 3 seconds
+        if (entry.type === "gold_xp") {
+          const timer = setTimeout(() => {
+            Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
+              // anim stays at 0; next re-render will prune from map
+            });
+          }, 3000);
+          floatTimersRef.current.set(entry.id, timer);
+        }
       }
     }
     for (const key of Array.from(map.keys())) {
-      if (!recent.find((e) => e.id === key)) {
+      const stillInRecent = recent.find((e) => e.id === key);
+      if (!stillInRecent) {
         map.delete(key);
+        const t = floatTimersRef.current.get(key);
+        if (t) { clearTimeout(t); floatTimersRef.current.delete(key); }
         changed = true;
       }
     }
     if (changed) forceUpdate((n) => n + 1);
+    return () => {
+      for (const t of floatTimersRef.current.values()) clearTimeout(t);
+      floatTimersRef.current.clear();
+    };
   }, [logs]);
 
   if (recent.length === 0) return null;
@@ -640,7 +657,7 @@ export default function GameScreen() {
     incrementEvents, incrementEnemiesDefeated, loadState, resetGameState,
     addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
     addToolToBag, consumePotion, equipItem, removeItemFromBag, salvageItem, sellItemToNpc,
-    useSweepCharge,
+    useSweepCharge, purchaseEnergyWithRubies,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -666,7 +683,7 @@ export default function GameScreen() {
   const artThresholdRef = useRef(Math.floor(10 + Math.random() * 11));
 
   const [showStats, setShowStats] = useState(false);
-  const [statsDefaultTab, setStatsDefaultTab] = useState<"profile" | "inventory" | "equipment" | "tools">("profile");
+  const [statsDefaultTab, setStatsDefaultTab] = useState<"inventory" | "equipment" | "tools">("inventory");
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -910,16 +927,7 @@ export default function GameScreen() {
         // 90%: auto-open chest — player must tap OPEN CHEST to interact
         pendingDropCooldownRef.current = duration;
         setAutoOpenChest(roll.chest);
-        addLogEntry({
-          id: roll.id,
-          timestamp: roll.timestamp,
-          type: "item_chest",
-          summary: `Found a ${roll.chest.rarity} Chest! (Tap to open)`,
-          goldGained: 0,
-          xpGained: 0,
-          material: null,
-          chest: roll.chest,
-        });
+        // No separate log entry here — combined entry added when chest is opened
       } else {
         // 10%: collectable chest goes to bag
         pendingDropCooldownRef.current = duration;
@@ -1201,7 +1209,7 @@ export default function GameScreen() {
           {/* Avatar circle — tap to open profile */}
           <Pressable
             style={styles.avatarWrap}
-            onPress={() => { setStatsDefaultTab("profile"); setShowStats(true); }}
+            onPress={() => { setShowStats(true); }}
             hitSlop={6}
           >
             <View style={styles.avatar}>
@@ -1212,6 +1220,11 @@ export default function GameScreen() {
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>LV{char.level}</Text>
             </View>
+            {char.pendingStatPoints > 0 && (
+              <View style={styles.statBubble}>
+                <Text style={styles.statBubbleText}>{char.pendingStatPoints > 9 ? "9+" : char.pendingStatPoints}</Text>
+              </View>
+            )}
           </Pressable>
 
           {/* Name + scene + XP bar */}
@@ -1303,13 +1316,39 @@ export default function GameScreen() {
         <SceneView
           scene={gameState.currentScene}
           artIndex={artIndex}
-          onPress={handleScenePress}
-          disabled={isInteracting}
         />
         <QuickPotionPicker
           potionBag={char.potionBag}
           onUse={consumePotion}
         />
+      </View>
+
+      {/* ── Explore button at bottom ─────────────────────────────────────── */}
+      <View style={styles.exploreRow}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.exploreBtn,
+            pressed && styles.exploreBtnPressed,
+            isInteracting && styles.exploreBtnDisabled,
+          ]}
+          onPress={handleScenePress}
+          disabled={isInteracting}
+          testID="scene-press-button"
+        >
+          <LinearGradient
+            colors={isInteracting
+              ? [Colors.game.surfaceAlt, Colors.game.surface]
+              : [Colors.game.gold, Colors.game.goldDeep]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.exploreBtnGrad}
+          >
+            <Text style={styles.exploreBtnLabel}>
+              {isInteracting ? "EXPLORING..." : "EXPLORE"}
+            </Text>
+          </LinearGradient>
+        </Pressable>
       </View>
 
       {/* ── Timer bar ────────────────────────────────────────────────────── */}
@@ -1366,47 +1405,32 @@ export default function GameScreen() {
           onClaim={(drop: FullChestDrop) => {
             const isTool = "passiveChance" in drop;
             const isItem = !isTool && "slot" in drop;
+            const chest = autoOpenChest!;
+            let dropName = "";
             if (isTool) {
               addToolToBag(drop as GatheringTool);
-              pushToast(`Chest opened! Got ${formatToolName(drop as GatheringTool)}`, false);
-              addLogEntry({
-                id: `c-${Date.now()}`,
-                timestamp: Date.now(),
-                type: "item_chest",
-                summary: `You opened ${formatChestName(autoOpenChest!)} and got ${formatToolName(drop as GatheringTool)}`,
-                goldGained: 0,
-                xpGained: 0,
-                material: null,
-                chest: autoOpenChest,
-              });
+              dropName = formatToolName(drop as GatheringTool);
             } else if (isItem) {
               addItemToBag(drop as GameItem);
-              pushToast(`Chest opened! Got ${formatItemName(drop as GameItem)}`, false);
-              addLogEntry({
-                id: `c-${Date.now()}`,
-                timestamp: Date.now(),
-                type: "item_chest",
-                summary: `You opened ${formatChestName(autoOpenChest!)} and got ${formatItemName(drop as GameItem)}`,
-                goldGained: 0,
-                xpGained: 0,
-                material: null,
-                itemDrop: drop as GameItem,
-                chest: autoOpenChest,
-              });
+              dropName = formatItemName(drop as GameItem);
             } else {
               addPotionToBag(drop as any);
-              pushToast(`Chest opened! Got ${formatPotionName(drop as any)}`, false);
-              addLogEntry({
-                id: `c-${Date.now()}`,
-                timestamp: Date.now(),
-                type: "item_chest",
-                summary: `You opened ${formatChestName(autoOpenChest!)} and got ${formatPotionName(drop as any)}`,
-                goldGained: 0,
-                xpGained: 0,
-                material: null,
-                chest: autoOpenChest,
-              });
+              dropName = formatPotionName(drop as any);
             }
+            pushToast(`Chest opened! Got ${dropName}`, false);
+            // Single combined log entry
+            addLogEntry({
+              id: `c-${Date.now()}`,
+              timestamp: Date.now(),
+              type: "item_chest",
+              summary: `Found ${chest.rarity} Chest and got ${dropName}`,
+              goldGained: 0,
+              xpGained: 0,
+              material: null,
+              chest,
+              itemDrop: isItem ? (drop as GameItem) : undefined,
+              potionDrop: !isTool && !isItem ? (drop as any) : undefined,
+            });
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
             cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
@@ -1457,6 +1481,10 @@ export default function GameScreen() {
         onClose={() => setShowRubyShop(false)}
         username={authUsername}
         onRequireLogin={() => { setShowRubyShop(false); setShowAuth(true); }}
+        rubies={char.rubies}
+        currentEnergy={char.craftingEnergy}
+        maxEnergy={CRAFTING_MAX_ENERGY}
+        onBuyEnergy={purchaseEnergyWithRubies}
       />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal
@@ -1468,8 +1496,6 @@ export default function GameScreen() {
         onListChestOnAh={handleListChestOnAh}
         onListPotionOnAh={handleListPotionOnAh}
         onListToolOnAh={handleListToolOnAh}
-        onPressAccount={() => setShowAuth(true)}
-        onPressChat={() => setShowChat(true)}
       />
       <GatheringModal
         visible={showGather}
@@ -1536,6 +1562,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.game.gold + "55",
   },
   levelBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  statBubble: {
+    position: "absolute", top: -2, right: -6,
+    backgroundColor: Colors.game.purple,
+    borderRadius: 8, minWidth: 16, height: 16, paddingHorizontal: 3,
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: Colors.game.background,
+  },
+  statBubbleText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
 
   charMeta: { flex: 1, gap: 2 },
   charName: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.text, letterSpacing: 0.2 },
@@ -1574,4 +1608,23 @@ const styles = StyleSheet.create({
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
   sceneWrap: { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
+
+  // ── Explore button at bottom ─────────────────────────────────────────────
+  exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  exploreBtn: { borderRadius: 16, overflow: "hidden" },
+  exploreBtnPressed: { opacity: 0.85 },
+  exploreBtnDisabled: { opacity: 0.5 },
+  exploreBtnGrad: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exploreBtnLabel: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    letterSpacing: 3,
+    textTransform: "uppercase",
+  },
 });
