@@ -29,7 +29,9 @@ interface Props {
   rubies: number;
   currentEnergy: number;
   maxEnergy: number;
+  energyLimitExtender: number;
   onBuyEnergy: () => void;
+  onBuyMaxEnergy: () => void;
 }
 
 const BASE_URL = "/api";
@@ -83,12 +85,13 @@ function RubyPackCard({
   );
 }
 
-export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubies, currentEnergy, maxEnergy, onBuyEnergy }: Props) {
+export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubies, currentEnergy, maxEnergy, energyLimitExtender, onBuyEnergy, onBuyMaxEnergy }: Props) {
   const [packs, setPacks] = useState<RubyPack[]>([]);
   const [loadingPacks, setLoadingPacks] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [energyMsg, setEnergyMsg] = useState<string | null>(null);
+  const [maxEnergyMsg, setMaxEnergyMsg] = useState<string | null>(null);
 
   const fetchPacks = useCallback(async () => {
     setLoadingPacks(true);
@@ -153,6 +156,16 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubi
     setEnergyMsg("Energy purchased! +1");
   }, [rubies, currentEnergy, maxEnergy, onBuyEnergy]);
 
+  const handleBuyMaxEnergy = useCallback(() => {
+    setMaxEnergyMsg(null);
+    if (rubies < 8) {
+      setMaxEnergyMsg("Not enough rubies. Need 8 to extend max energy.");
+      return;
+    }
+    onBuyMaxEnergy();
+    setMaxEnergyMsg("Max energy extended! +1 slot");
+  }, [rubies, onBuyMaxEnergy]);
+
   return (
     <Modal
       visible={visible}
@@ -193,7 +206,7 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubi
           {/* Energy purchase section */}
           <View style={styles.energySection}>
             <Text style={styles.energyTitle}>Energy</Text>
-            <Text style={styles.energySubtitle}>Current: {currentEnergy}/{maxEnergy}</Text>
+            <Text style={styles.energySubtitle}>Current: {currentEnergy}/{maxEnergy} (base {maxEnergy - energyLimitExtender} + {energyLimitExtender} extended)</Text>
             <Text style={styles.energyCost}>◆ 6 rubies = +1 Energy</Text>
             <Pressable
               style={({ pressed }) => [
@@ -208,6 +221,22 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubi
             </Pressable>
             {energyMsg && (
               <Text style={styles.energyMsg}>{energyMsg}</Text>
+            )}
+            <View style={styles.divider} />
+            <Text style={styles.energyCost}>◆ 8 rubies = +1 Max Energy (permanent)</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.energyBtn,
+                pressed && styles.energyBtnPressed,
+                rubies < 8 && styles.energyBtnDisabled,
+              ]}
+              onPress={handleBuyMaxEnergy}
+              disabled={rubies < 8}
+            >
+              <Text style={styles.energyBtnText}>EXTEND MAX ENERGY</Text>
+            </Pressable>
+            {maxEnergyMsg && (
+              <Text style={styles.energyMsg}>{maxEnergyMsg}</Text>
             )}
           </View>
 
@@ -481,5 +510,10 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     color: Colors.game.textDim,
     textAlign: "center",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.game.border,
+    marginVertical: 12,
   },
 });

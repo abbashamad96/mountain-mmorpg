@@ -60,18 +60,18 @@ const xpS = StyleSheet.create({
   label: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim, textAlign: "right" },
 });
 
-function EnergyBar({ energy, lastRegen, now }: { energy: number; lastRegen: number; now: number }) {
+function EnergyBar({ energy, lastRegen, now, maxEnergy }: { energy: number; lastRegen: number; now: number; maxEnergy: number }) {
   const msUntil = lastRegen + CRAFTING_ENERGY_REGEN_MS - now;
   const secs = Math.max(0, Math.ceil(msUntil / 1000));
   const m = Math.floor(secs / 60);
   const ss = String(secs % 60).padStart(2, "0");
-  const regenLabel = energy >= CRAFTING_MAX_ENERGY ? "Full" : `+1 in ${m}:${ss}`;
-  const pct = Math.min(1, energy / CRAFTING_MAX_ENERGY);
+  const regenLabel = energy >= maxEnergy ? "Full" : `+1 in ${m}:${ss}`;
+  const pct = Math.min(1, energy / maxEnergy);
   return (
     <View style={eS.row}>
       <Text style={eS.icon}>⚡</Text>
       <GemBar progress={pct} gem="ember" height={6} style={eS.track} />
-      <Text style={eS.count}>{energy}/{CRAFTING_MAX_ENERGY}</Text>
+      <Text style={eS.count}>{energy}/{maxEnergy}</Text>
       <Text style={eS.regen}>{regenLabel}</Text>
     </View>
   );
@@ -224,6 +224,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
           {/* ── XP + Energy ── */}
           <View style={s.topSection}>
             <XpBar current={skill.xp} total={xpToNext} level={skill.level} />
+            <EnergyBar energy={char.craftingEnergy} lastRegen={char.energyLastRegen} now={now} maxEnergy={CRAFTING_MAX_ENERGY + char.energyLimitExtender} />
           </View>
 
           <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>

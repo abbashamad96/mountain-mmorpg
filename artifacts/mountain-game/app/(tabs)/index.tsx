@@ -693,7 +693,7 @@ export default function GameScreen() {
     incrementEvents, incrementEnemiesDefeated, loadState, resetGameState,
     addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
     addToolToBag, consumePotion, equipItem, removeItemFromBag, salvageItem, sellItemToNpc,
-    useSweepCharge, purchaseEnergyWithRubies,
+    useSweepCharge, purchaseEnergyWithRubies, purchaseEnergyLimitExtender, regenCraftingEnergy, checkCraftingJobs,
   } = useGame();
   const {
     ahEvents, consumeAhEvent,
@@ -719,7 +719,7 @@ export default function GameScreen() {
   const artThresholdRef = useRef(Math.floor(10 + Math.random() * 11));
 
   const [showStats, setShowStats] = useState(false);
-  const [statsDefaultTab, setStatsDefaultTab] = useState<"inventory" | "equipment" | "tools">("inventory");
+  const [statsDefaultTab, setStatsDefaultTab] = useState<"inventory" | "equipment" | "tools" | "profile">("inventory");
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -804,6 +804,15 @@ export default function GameScreen() {
     }, 1000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [gameState, isAuthenticated, status, saveGameState]);
+
+  // ── Energy regen timer (runs on main screen, not just crafting tab) ────
+  useEffect(() => {
+    const id = setInterval(() => {
+      regenCraftingEnergy();
+      checkCraftingJobs();
+    }, 1000);
+    return () => clearInterval(id);
+  }, [regenCraftingEnergy, checkCraftingJobs]);
 
   // ── AH toast helper ───────────────────────────────────────────────────────
   const pushToast = useCallback((msg: string, isGold: boolean) => {
@@ -1246,7 +1255,7 @@ export default function GameScreen() {
           {/* Avatar circle — tap to open profile */}
           <Pressable
             style={styles.avatarWrap}
-            onPress={() => { setShowStats(true); }}
+            onPress={() => { setStatsDefaultTab("profile"); setShowStats(true); }}
             hitSlop={6}
           >
             <View style={styles.avatar}>
@@ -1323,14 +1332,14 @@ export default function GameScreen() {
         <View style={styles.energyBarRow}>
           <Ionicons name="flash" size={13} color={Colors.game.blueLight} />
           <GemBar
-            progress={Math.min(1, char.craftingEnergy / CRAFTING_MAX_ENERGY)}
+            progress={Math.min(1, char.craftingEnergy / (CRAFTING_MAX_ENERGY + char.energyLimitExtender))}
             gem="sapphire"
             height={6}
             framed={false}
             style={styles.energyBar}
           />
-          <Text style={styles.energyText}>{char.craftingEnergy}/{CRAFTING_MAX_ENERGY}</Text>
-          {char.craftingEnergy < CRAFTING_MAX_ENERGY && (
+          <Text style={styles.energyText}>{char.craftingEnergy}/{CRAFTING_MAX_ENERGY + char.energyLimitExtender}</Text>
+          {char.craftingEnergy < (CRAFTING_MAX_ENERGY + char.energyLimitExtender) && (
             <Text style={styles.energyTimer}>
               {(() => {
                 const now = Date.now();
@@ -1540,14 +1549,16 @@ export default function GameScreen() {
         onRequireLogin={() => { setShowRubyShop(false); setShowAuth(true); }}
         rubies={char.rubies}
         currentEnergy={char.craftingEnergy}
-        maxEnergy={CRAFTING_MAX_ENERGY}
+        maxEnergy={CRAFTING_MAX_ENERGY + char.energyLimitExtender}
+        energyLimitExtender={char.energyLimitExtender}
         onBuyEnergy={purchaseEnergyWithRubies}
+        onBuyMaxEnergy={purchaseEnergyLimitExtender}
       />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
       <StatsModal
         visible={showStats}
         onClose={() => setShowStats(false)}
-        defaultTab={statsDefaultTab}
+        defaultTab={statsDefaultTab as "inventory" | "equipment" | "tools" | "profile"}
         onListOnAh={handleListOnAh}
         onListItemOnAh={handleListItemOnAh}
         onListChestOnAh={handleListChestOnAh}

@@ -156,6 +156,7 @@ export interface Character {
   craftingJobs: CraftingJob[];
   pendingCraftBatches: PendingCraftBatch[];
   rubies: number;
+  energyLimitExtender: number;
   sweepCharges: number;
   sweepChargesLastRegen: number;
 }
@@ -519,6 +520,7 @@ const defaultCharacter: Character = {
   craftingJobs: [],
   pendingCraftBatches: [],
   rubies: 0,
+  energyLimitExtender: 0,
   sweepCharges: SWEEP_MAX_CHARGES,
   sweepChargesLastRegen: 0,
 };
@@ -571,6 +573,7 @@ interface GameContextType {
   useSweepCharge: () => boolean;
   incrementEnemiesDefeated: () => void;
   purchaseEnergyWithRubies: () => boolean;
+  purchaseEnergyLimitExtender: () => boolean;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -609,6 +612,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           craftingJobs: saved.character?.craftingJobs ?? [],
           pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
           rubies: saved.character?.rubies ?? 0,
+          energyLimitExtender: saved.character?.energyLimitExtender ?? 0,
           sweepCharges: saved.character?.sweepCharges ?? SWEEP_MAX_CHARGES,
           sweepChargesLastRegen: saved.character?.sweepChargesLastRegen ?? 0,
         };
@@ -623,10 +627,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           }
         }
         if (char.sweepChargesLastRegen === 0) char.sweepChargesLastRegen = now;
-        if (char.craftingEnergy < CRAFTING_MAX_ENERGY && char.energyLastRegen > 0) {
+        const maxEnergy = CRAFTING_MAX_ENERGY + char.energyLimitExtender;
+        if (char.craftingEnergy < maxEnergy && char.energyLastRegen > 0) {
           const steps = Math.floor((now - char.energyLastRegen) / CRAFTING_ENERGY_REGEN_MS);
           if (steps > 0) {
-            char.craftingEnergy = Math.min(CRAFTING_MAX_ENERGY, char.craftingEnergy + steps);
+            char.craftingEnergy = Math.min(maxEnergy, char.craftingEnergy + steps);
             char.energyLastRegen = char.energyLastRegen + steps * CRAFTING_ENERGY_REGEN_MS;
           }
         }
@@ -867,11 +872,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     setGameState((prev) => {
       const char = prev.character;
-      if (char.craftingEnergy >= CRAFTING_MAX_ENERGY) return prev;
+      const maxEnergy = CRAFTING_MAX_ENERGY + char.energyLimitExtender;
+      if (char.craftingEnergy >= maxEnergy) return prev;
       const lastRegen = char.energyLastRegen > 0 ? char.energyLastRegen : now;
       const steps = Math.floor((now - lastRegen) / CRAFTING_ENERGY_REGEN_MS);
       if (steps <= 0) return prev;
-      const newEnergy = Math.min(CRAFTING_MAX_ENERGY, char.craftingEnergy + steps);
+      const newEnergy = Math.min(maxEnergy, char.craftingEnergy + steps);
       const newLastRegen = lastRegen + steps * CRAFTING_ENERGY_REGEN_MS;
       const next = { ...prev, character: { ...char, craftingEnergy: newEnergy, energyLastRegen: newLastRegen } };
       stateRef.current = next;
@@ -1071,9 +1077,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState((prev) => {
       const char = prev.character;
       const ENERGY_COST = 6;
-      const MAX_ENERGY = CRAFTING_MAX_ENERGY;
+      const maxEnergy = CRAFTING_MAX_ENERGY + char.energyLimitExtender;
       if (char.rubies < ENERGY_COST) return prev;
-      if (char.craftingEnergy >= MAX_ENERGY) return prev;
+      if (char.craftingEnergy >= maxEnergy) return prev;
       success = true;
       const next = {
         ...prev,
@@ -1081,6 +1087,27 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           ...char,
           rubies: char.rubies - ENERGY_COST,
           craftingEnergy: char.craftingEnergy + 1,
+        },
+      };
+      stateRef.current = next;
+      return next;
+    });
+    return success;
+  }, []);
+
+  const purchaseEnergyLimitExtender = useCallback((): boolean => {
+    let success = false;
+    setGameState((prev) => {
+      const char = prev.character;
+      const EXTENDER_COST = 8;
+      if (char.rubies < EXTENDER_COST) return prev;
+      success = true;
+      const next = {
+        ...prev,
+        character: {
+          ...char,
+          rubies: char.rubies - EXTENDER_COST,
+          energyLimitExtender: char.energyLimitExtender + 1,
         },
       };
       stateRef.current = next;
@@ -1108,6 +1135,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       energyLastRegen: saved.character?.energyLastRegen ?? Date.now(),
       craftingJobs: saved.character?.craftingJobs ?? [],
       pendingCraftBatches: saved.character?.pendingCraftBatches ?? [],
+      rubies: saved.character?.rubies ?? 0,
+      energyLimitExtender: saved.character?.energyLimitExtender ?? 0,
       sweepCharges: saved.character?.sweepCharges ?? SWEEP_MAX_CHARGES,
       sweepChargesLastRegen: saved.character?.sweepChargesLastRegen ?? 0,
     };
@@ -1123,7 +1152,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge, purchaseEnergyWithRubies }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge, purchaseEnergyWithRubies, purchaseEnergyLimitExtender }}
     >
       {children}
     </GameContext.Provider>
