@@ -29,7 +29,7 @@ interface Props {
  * distorts, and the title is overlaid on the dark plate.
  */
 export function BannerLabel({ title, icon, style, size = "md" }: Props) {
-  const frac = size === "lg" ? 1 : size === "sm" ? 0.64 : 0.84;
+  const frac = size === "lg" ? 0.75 : size === "sm" ? 0.45 : 0.62;
   const fs = size === "lg" ? 16 : size === "sm" ? 11 : 13;
   const [w, setW] = useState(0);
 
