@@ -23,6 +23,7 @@ import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
 import { BattleDropModal, BattleDrop } from "@/components/BattleDropModal";
+import { ExploreParticles } from "@/components/ExploreParticles";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { ChestDropModal } from "@/components/ChestDropModal";
@@ -1415,8 +1416,7 @@ export default function GameScreen() {
           </LinearGradient>
         </Pressable>
         <ExploreButtonParticles isInteracting={isInteracting} pressed={explorePressed} />
-        <Image source={require("../../assets/images/tierb.gif")} style={{ position: "absolute", left: -60, top: -20, width: 60, height: 80, opacity: 0.85 }} />
-        <Image source={require("../../assets/images/tierb.gif")} style={{ position: "absolute", right: -60, top: -20, width: 60, height: 80, opacity: 0.85, transform: [{ scaleX: -1 }] }} />
+        <ExploreParticles />
       </View>
       </View>
 
