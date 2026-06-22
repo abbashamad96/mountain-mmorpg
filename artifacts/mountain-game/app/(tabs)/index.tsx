@@ -2,6 +2,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -1414,6 +1415,8 @@ export default function GameScreen() {
           </LinearGradient>
         </Pressable>
         <ExploreButtonParticles isInteracting={isInteracting} pressed={explorePressed} />
+        <Image source={require("../../assets/images/tierb.gif")} style={{ position: "absolute", left: -60, top: -20, width: 60, height: 80, opacity: 0.85 }} />
+        <Image source={require("../../assets/images/tierb.gif")} style={{ position: "absolute", right: -60, top: -20, width: 60, height: 80, opacity: 0.85, transform: [{ scaleX: -1 }] }} />
       </View>
       </View>
 
