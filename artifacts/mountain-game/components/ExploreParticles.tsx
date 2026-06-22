@@ -58,7 +58,7 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
 export function ExploreParticles() {
   if (Platform.OS !== "web") return null;
   return (
-    <View style={{ position: "absolute", top: 0, left: -62, right: -62, bottom: 0, alignItems: "center", flexDirection: "row", justifyContent: "space-between", pointerEvents: "none" } as any}>
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", flexDirection: "row", justifyContent: "space-between", pointerEvents: "none" } as any}>
       <ParticleCanvas />
       <ParticleCanvas flip />
     </View>

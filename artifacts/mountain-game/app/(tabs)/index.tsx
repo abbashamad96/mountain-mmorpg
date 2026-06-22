@@ -1416,7 +1416,6 @@ export default function GameScreen() {
           </LinearGradient>
         </Pressable>
         <ExploreButtonParticles isInteracting={isInteracting} pressed={explorePressed} />
-        <ExploreParticles />
       </View>
       </View>
 
