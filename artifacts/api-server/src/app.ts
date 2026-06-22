@@ -64,6 +64,7 @@ const clientDistPath = path.join(__dirname, "../web-build");
 
 
 
+app.use((req, res, next) => { if (req.path.endsWith(".ttf")) { res.setHeader("Content-Type", "font/ttf"); } next(); });
 app.use(express.static(clientDistPath));
 
 // 2. Explicitly type req and res to pass strict tsc checks

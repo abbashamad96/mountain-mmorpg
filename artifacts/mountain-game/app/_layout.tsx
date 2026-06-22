@@ -36,8 +36,8 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    ...Feather.font,
-    ...Ionicons.font,
+    Feather: "/assets/fonts/Feather.ca4b48e04dc1ce10bfbddb262c8b835f.ttf",
+    Ionicons: "/assets/fonts/Ionicons.b4eb097d35f44ed943676fd56f6bdc51.ttf",
   });
 
   useEffect(() => {
