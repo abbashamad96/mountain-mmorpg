@@ -666,11 +666,7 @@ const tabBarStyles = StyleSheet.create({
     flexDirection: "row",
     borderTopWidth: 1, borderTopColor: Colors.game.gold + "55",
     paddingTop: 10, paddingHorizontal: 8,
-    position: Platform.OS === "web" ? "sticky" : "relative",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    width: "100%",
+    position: "relative",
   },
   topTrim: { position: "absolute", top: 0, left: 0, right: 0, height: 1.5, opacity: 0.6 },
   tabWrap: { flex: 1 },
@@ -1611,7 +1607,7 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.game.background },
+  root: { flex: 1, backgroundColor: Colors.game.background, justifyContent: "space-between" },
 
   // ── Character header ──────────────────────────────────────────────────────
   characterCard: {
