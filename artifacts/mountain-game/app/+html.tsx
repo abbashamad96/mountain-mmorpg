@@ -29,6 +29,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
           }
         `}</style>
         <ScrollViewStyleReset />
+        
       </head>
       <body>{children}</body>
     </html>
