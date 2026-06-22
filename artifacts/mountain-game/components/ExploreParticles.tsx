@@ -9,9 +9,9 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
     const ctx = canvas.getContext("2d")!;
     const W = canvas.width, H = canvas.height;
     const particles = Array.from({ length: 120 }, () => ({
-      x: Math.random() * W, y: H + Math.random() * 20,
-      vy: -(0.15 + Math.random() * 0.45),
-      vx: (Math.random() - 0.5) * 0.15,
+      x: -Math.random() * 10, y: Math.random() * H,
+      vy: (Math.random() - 0.5) * 0.04,
+      vx: 0.04 + Math.random() * 0.08,
       size: 0.8 + Math.random() * 2.2,
       opacity: 0.4 + Math.random() * 0.6,
       isLine: Math.random() > 0.6,
@@ -38,7 +38,7 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
           ctx.fillStyle = `rgba(220,240,255,${alpha})`; ctx.fill();
         }
         p.x += p.vx; p.y += p.vy;
-        if (p.y < -20) { p.y = H + 5; p.x = Math.random() * W; p.opacity = 0.4 + Math.random() * 0.6; }
+        if (p.x > W + 5) { p.x = -5; p.y = Math.random() * H; p.opacity = 0.4 + Math.random() * 0.6; }
       }
       raf = requestAnimationFrame(draw);
     }
@@ -48,9 +48,9 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
   return (
     <canvas
       ref={ref}
-      width={60}
-      height={80}
-      style={{ opacity: 0.85, transform: flip ? "scaleX(-1)" : undefined } as any}
+      width={15}
+      height={50}
+      style={{ opacity: 0.85, background: "transparent" } as any}
     />
   );
 }
@@ -58,7 +58,7 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
 export function ExploreParticles() {
   if (Platform.OS !== "web") return null;
   return (
-    <View style={{ position: "absolute", top: 0, left: -60, right: -60, bottom: 0, alignItems: "center", overflow: "visible", flexDirection: "row", justifyContent: "space-between", pointerEvents: "none" } as any}>
+    <View style={{ position: "absolute", top: 0, left: -50, right: -50, bottom: 0, alignItems: "center", flexDirection: "row", justifyContent: "space-between", pointerEvents: "none" } as any}>
       <ParticleCanvas />
       <ParticleCanvas flip />
     </View>
