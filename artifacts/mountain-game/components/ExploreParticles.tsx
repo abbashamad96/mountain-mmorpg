@@ -2,10 +2,9 @@ import React, { useEffect, useRef } from "react";
 import { Platform, View } from "react-native";
 
 function ParticleCanvas({ flip }: { flip?: boolean }) {
-  const canvasRef = useRef<any>(null);
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const canvas = canvasRef.current as HTMLCanvasElement;
+    const canvas = ref.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const W = canvas.width, H = canvas.height;
@@ -46,8 +45,14 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
     draw();
     return () => cancelAnimationFrame(raf);
   }, []);
-  if (Platform.OS !== "web") return null;
-  return <canvas ref={canvasRef} width={60} height={80} style={{ opacity: 0.85, transform: flip ? "scaleX(-1)" : undefined }} />;
+  return (
+    <canvas
+      ref={ref}
+      width={60}
+      height={80}
+      style={{ opacity: 0.85, transform: flip ? "scaleX(-1)" : undefined } as any}
+    />
+  );
 }
 
 export function ExploreParticles() {

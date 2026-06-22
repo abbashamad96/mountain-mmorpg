@@ -32,10 +32,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Inter_400Regular: "/assets/fonts/Inter_400Regular.51b6ad87261f18b6433ec52871ddfabc.ttf",
+    Inter_500Medium: "/assets/fonts/Inter_500Medium.137ab18bace28dd0bd83eb3b8ed2bc54.ttf",
+    Inter_600SemiBold: "/assets/fonts/Inter_600SemiBold.a5f35888d2da465de352e0dcfaf33324.ttf",
+    Inter_700Bold: "/assets/fonts/Inter_700Bold.6e237de4f1f413afa2fcc45c77ac343a.ttf",
     Feather: "/assets/fonts/Feather.ca4b48e04dc1ce10bfbddb262c8b835f.ttf",
     Ionicons: "/assets/fonts/Ionicons.b4eb097d35f44ed943676fd56f6bdc51.ttf",
   });
