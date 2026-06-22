@@ -1414,9 +1414,9 @@ export default function GameScreen() {
               {isInteracting ? "EXPLORING..." : "EXPLORE"}
             </Text>
           </LinearGradient>
+          <ExploreParticles />
         </Pressable>
         <ExploreButtonParticles isInteracting={isInteracting} pressed={explorePressed} />
-        <ExploreParticles />
       </View>
       </View>
 
@@ -1684,7 +1684,7 @@ const styles = StyleSheet.create({
   // ── Explore button at bottom ─────────────────────────────────────────────
   exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
   exploreBtnWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
-  exploreBtn: { borderRadius: 16, overflow: "hidden" },
+  exploreBtn: { borderRadius: 16 },
   exploreBtnPressed: { opacity: 0.85 },
   exploreBtnDisabled: { opacity: 0.5 },
   exploreBtnGrad: {
@@ -1692,6 +1692,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 16,
+    overflow: "hidden",
   },
   exploreBtnLabel: {
     fontSize: 16,
