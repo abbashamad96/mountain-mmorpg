@@ -29,13 +29,7 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
           ctx.strokeStyle = lg;
           ctx.lineWidth = p.size * 0.6;
           ctx.beginPath(); ctx.moveTo(p.x, p.y + p.lineH); ctx.lineTo(p.x, p.y); ctx.stroke();
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.8, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(180,230,255,${alpha})`; ctx.fill();
         } else {
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(120,200,255,${alpha * 0.7})`; ctx.fill();
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(220,240,255,${alpha})`; ctx.fill();
         }
         p.x += p.vx; p.y += p.vy;
         if (p.y < -20) { p.y = H + 5; p.x = Math.random() * W; p.opacity = 0.4 + Math.random() * 0.6; }

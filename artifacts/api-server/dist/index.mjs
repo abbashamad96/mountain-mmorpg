@@ -69244,6 +69244,12 @@ app.use(import_express6.default.json());
 app.use(import_express6.default.urlencoded({ extended: true }));
 app.use("/api", routes_default);
 var clientDistPath = path2.join(__dirname, "../web-build");
+app.use((req, res, next) => {
+  if (req.path.endsWith(".ttf")) {
+    res.setHeader("Content-Type", "font/ttf");
+  }
+  next();
+});
 app.use(import_express6.default.static(clientDistPath));
 app.use((req, res) => {
   res.sendFile(path2.join(clientDistPath, "index.html"));
