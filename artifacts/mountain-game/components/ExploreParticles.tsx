@@ -1,50 +1,83 @@
 import React, { useEffect, useRef } from "react";
 import { Platform, View } from "react-native";
 
-function ParticleCanvas({ flip }: { flip?: boolean }) {
+function ParticleCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const W = canvas.width, H = canvas.height;
-    const particles = Array.from({ length: 120 }, () => ({
-      x: Math.random() * W, y: H + Math.random() * 20,
-      vy: -(0.15 + Math.random() * 0.45),
-      vx: (Math.random() - 0.5) * 0.15,
-      size: 0.8 + Math.random() * 2.2,
-      opacity: 0.4 + Math.random() * 0.6,
-      isLine: Math.random() > 0.6,
-      lineH: 8 + Math.random() * 18,
+
+    const particles = Array.from({ length: 60 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vy: -(0.08 + Math.random() * 0.2),
+      vx: (Math.random() - 0.5) * 0.05,
+      size: 0.6 + Math.random() * 1.6,
+      opacity: 0.3 + Math.random() * 0.6,
+      isLine: Math.random() > 0.45,
+      lineH: 6 + Math.random() * 14,
+      isDot: Math.random() > 0.6,
+      glow: Math.random() > 0.7,
     }));
+
     let raf: number;
     function draw() {
       ctx.clearRect(0, 0, W, H);
       for (const p of particles) {
-        const alpha = p.opacity * Math.max(0, Math.min(1, (H - p.y) / H * 3));
+        const fade = Math.max(0, Math.min(1, (H - p.y) / (H * 0.6)));
+        const alpha = p.opacity * fade;
+
         if (p.isLine) {
-          const lg = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.lineH);
-          lg.addColorStop(0, `rgba(80,200,255,${alpha * 0.9})`);
+          const lg = ctx.createLinearGradient(p.x, p.y + p.lineH, p.x, p.y);
+          lg.addColorStop(0, `rgba(0,180,255,${alpha * 0.9})`);
+          lg.addColorStop(0.5, `rgba(80,210,255,${alpha * 0.5})`);
           lg.addColorStop(1, `rgba(0,120,255,0)`);
           ctx.strokeStyle = lg;
-          ctx.lineWidth = p.size * 0.6;
-          ctx.beginPath(); ctx.moveTo(p.x, p.y + p.lineH); ctx.lineTo(p.x, p.y); ctx.stroke();
-        } else {
+          ctx.lineWidth = p.size * 0.7;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y + p.lineH);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
         }
-        p.x += p.vx; p.y += p.vy;
-        if (p.y < -20) { p.y = H + 5; p.x = Math.random() * W; p.opacity = 0.4 + Math.random() * 0.6; }
+
+        if (p.isDot) {
+          if (p.glow) {
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+            g.addColorStop(0, `rgba(120,220,255,${alpha})`);
+            g.addColorStop(1, `rgba(0,100,255,0)`);
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = `rgba(180,230,255,${alpha})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * 0.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.y < -20) {
+          p.y = H + 5;
+          p.x = Math.random() * W;
+          p.opacity = 0.3 + Math.random() * 0.6;
+        }
       }
       raf = requestAnimationFrame(draw);
     }
     draw();
     return () => cancelAnimationFrame(raf);
   }, []);
+
   return (
     <canvas
       ref={ref}
-      width={60}
-      height={80}
-      style={{ opacity: 0.85, transform: flip ? "scaleX(-1)" : undefined } as any}
+      width={80}
+      height={100}
+      style={{ display: "block" } as any}
     />
   );
 }
@@ -52,9 +85,23 @@ function ParticleCanvas({ flip }: { flip?: boolean }) {
 export function ExploreParticles() {
   if (Platform.OS !== "web") return null;
   return (
-    <View style={{ position: "absolute", top: 0, left: -60, right: -60, bottom: 0, alignItems: "center", overflow: "visible", flexDirection: "row", justifyContent: "space-between", pointerEvents: "none" } as any}>
+    <View
+      style={{
+        position: "absolute",
+        top: -20,
+        left: -80,
+        right: -80,
+        bottom: -20,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        overflow: "visible",
+        pointerEvents: "none",
+      } as any}
+    >
       <ParticleCanvas />
-      <ParticleCanvas flip />
+      <ParticleCanvas />
+      <ParticleCanvas />
+      <ParticleCanvas />
     </View>
   );
 }

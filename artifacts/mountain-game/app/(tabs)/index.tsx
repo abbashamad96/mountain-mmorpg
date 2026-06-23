@@ -2295,7 +2295,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  exploreBtn: { borderRadius: 16 },
+  exploreBtn: { borderRadius: 16, alignSelf: "stretch" },
   exploreBtnPressed: { opacity: 0.85 },
   exploreBtnDisabled: { opacity: 0.5 },
   exploreBtnGrad: {
