@@ -434,17 +434,10 @@ function DungeonEffect() {
 
 // ─── Ruins / Dust Effect ──────────────────────────────────────────────────────
 
-function RuinsEffect() {
-  const COUNT = 9;
-  const motes = useRef(
-    Array.from({ length: COUNT }, (_, i) => ({
-      xAnim: new Animated.Value(Math.random()),
-      yAnim: new Animated.Value(Math.random()),
-      opacity: new Animated.Value(0),
-      size: 2 + Math.random() * 4,
-      duration: 3000 + Math.random() * 2000,
-      delay: i * 350,
-    }))
+function RuinsEffect() 
+{
+  return null;
+}
   ).current;
 
   useEffect(() => {

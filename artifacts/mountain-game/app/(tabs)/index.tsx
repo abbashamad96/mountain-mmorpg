@@ -52,7 +52,15 @@ import {
   getEffectiveStats,
   ActiveBuff,
 } from "@/context/GameContext";
-import { GameItem, Potion, ITEM_RARITY_COLORS, formatChestName, formatItemName, formatPotionName, ChestDrop } from "@/lib/items";
+import {
+  GameItem,
+  Potion,
+  ITEM_RARITY_COLORS,
+  formatChestName,
+  formatItemName,
+  formatPotionName,
+  ChestDrop,
+} from "@/lib/items";
 import { GatheringTool, MATERIAL_TO_TOOL, formatToolName } from "@/lib/tools";
 import { FullChestDrop } from "@/components/ChestOpenModal";
 import { useMultiplayer } from "@/context/MultiplayerContext";
@@ -61,10 +69,10 @@ import { CRAFTING_MAX_ENERGY, CRAFTING_ENERGY_REGEN_MS } from "@/lib/crafting";
 // ─── Tool shop prices ─────────────────────────────────────────────────────────
 
 const SHOP_PRICES: Record<string, number> = {
-  Common:   50_000,
+  Common: 50_000,
   Uncommon: 200_000,
-  Rare:     1_000_000,
-  Epic:     5_000_000,
+  Rare: 1_000_000,
+  Epic: 5_000_000,
 };
 
 // ─── AH toast banner ──────────────────────────────────────────────────────────
@@ -75,9 +83,17 @@ function AhToast({ toast }: { toast: AhToastData }) {
   const fade = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.sequence([
-      Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
       Animated.delay(2700),
-      Animated.timing(fade, { toValue: 0, duration: 400, useNativeDriver: true }),
+      Animated.timing(fade, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
   return (
@@ -94,14 +110,21 @@ function AhToast({ toast }: { toast: AhToastData }) {
 
 const toastStyles = StyleSheet.create({
   toast: {
-    flexDirection: "row", alignItems: "center", gap: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
     backgroundColor: "rgba(18,18,24,0.92)",
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: Colors.game.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
     alignSelf: "flex-start",
   },
   toastTxt: {
-    fontSize: 12, fontFamily: "Inter_500Medium", color: Colors.game.text,
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.text,
     flexShrink: 1,
   },
 });
@@ -109,29 +132,29 @@ const toastStyles = StyleSheet.create({
 // ─── Scene / activity display helpers ────────────────────────────────────────
 
 const SCENE_NAME_MAP: Record<string, string> = {
-  default:  "Mysterious Road",
-  storm:    "The Storm Path",
+  default: "Mysterious Road",
+  storm: "The Storm Path",
   treasure: "Ancient Ruins Trail",
-  combat:   "Danger Zone",
-  ruins:    "Forgotten Ruins",
-  forest:   "Enchanted Forest",
-  snow:     "Blizzard Pass",
-  dungeon:  "Sunken Dungeon",
+  combat: "Danger Zone",
+  ruins: "Forgotten Ruins",
+  forest: "Enchanted Forest",
+  snow: "Blizzard Pass",
+  dungeon: "Sunken Dungeon",
   volcanic: "Volcanic Ridge",
-  night:    "Moonlit Path",
+  night: "Moonlit Path",
 };
 
 const SCENE_ACTIVITY_MAP: Record<string, { label: string; color: string }> = {
-  default:  { label: "EXPLORING", color: Colors.game.gold },
-  storm:    { label: "EXPLORING", color: Colors.game.gold },
+  default: { label: "EXPLORING", color: Colors.game.gold },
+  storm: { label: "EXPLORING", color: Colors.game.gold },
   treasure: { label: "EXPLORING", color: Colors.game.gold },
-  ruins:    { label: "EXPLORING", color: Colors.game.gold },
-  night:    { label: "EXPLORING", color: Colors.game.gold },
-  forest:   { label: "GATHERING", color: Colors.game.green },
-  snow:     { label: "GATHERING", color: Colors.game.green },
-  combat:   { label: "COMBAT",    color: Colors.game.red },
-  dungeon:  { label: "COMBAT",    color: Colors.game.red },
-  volcanic: { label: "COMBAT",    color: Colors.game.red },
+  ruins: { label: "EXPLORING", color: Colors.game.gold },
+  night: { label: "EXPLORING", color: Colors.game.gold },
+  forest: { label: "GATHERING", color: Colors.game.green },
+  snow: { label: "GATHERING", color: Colors.game.green },
+  combat: { label: "COMBAT", color: Colors.game.red },
+  dungeon: { label: "COMBAT", color: Colors.game.red },
+  volcanic: { label: "COMBAT", color: Colors.game.red },
 };
 
 // ─── Event log stack (above scene image) ─────────────────────────────────────
@@ -183,7 +206,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               <View style={logStackStyles.inlineRow}>
                 <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
                 {entry.goldBonus && entry.goldBonus > 0 && (
-                  <Text style={logStackStyles.bonus}>+{entry.goldBonus} potion</Text>
+                  <Text style={logStackStyles.bonus}>
+                    +{entry.goldBonus} potion
+                  </Text>
                 )}
               </View>
             )}
@@ -191,7 +216,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               <View style={logStackStyles.inlineRow}>
                 <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
                 {entry.xpBonus && entry.xpBonus > 0 && (
-                  <Text style={logStackStyles.bonus}>+{entry.xpBonus} potion</Text>
+                  <Text style={logStackStyles.bonus}>
+                    +{entry.xpBonus} potion
+                  </Text>
                 )}
               </View>
             )}
@@ -203,14 +230,23 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
           <View style={logStackStyles.battleBlock}>
             <View style={logStackStyles.inlineRow}>
               <Text style={logStackStyles.dimLabel}>Found</Text>
-              <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[chest.rarity] }]}>
+              <Text
+                style={[
+                  logStackStyles.matName,
+                  { color: ITEM_RARITY_COLORS[chest.rarity] },
+                ]}
+              >
                 {chest.rarity} Chest
               </Text>
               <View style={[logStackStyles.tierBadge, { borderColor: "#555" }]}>
-                <Text style={[logStackStyles.tierTxt, { color: "#aaa" }]}>T{chest.tier}</Text>
+                <Text style={[logStackStyles.tierTxt, { color: "#aaa" }]}>
+                  T{chest.tier}
+                </Text>
               </View>
             </View>
-            <Text style={logStackStyles.dimLabel}>Added to bag — open from ITEMS tab</Text>
+            <Text style={logStackStyles.dimLabel}>
+              Added to bag — open from ITEMS tab
+            </Text>
           </View>
         )}
 
@@ -219,11 +255,21 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
           <View style={logStackStyles.battleBlock}>
             <View style={logStackStyles.inlineRow}>
               <Text style={logStackStyles.dimLabel}>Opened</Text>
-              <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[chest!.rarity] }]}>
+              <Text
+                style={[
+                  logStackStyles.matName,
+                  { color: ITEM_RARITY_COLORS[chest!.rarity] },
+                ]}
+              >
                 {formatChestName(chest!)}
               </Text>
               <Text style={logStackStyles.dimLabel}>Got</Text>
-              <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[itemDrop.rarity] }]}>
+              <Text
+                style={[
+                  logStackStyles.matName,
+                  { color: ITEM_RARITY_COLORS[itemDrop.rarity] },
+                ]}
+              >
                 {formatItemName(itemDrop)}
               </Text>
             </View>
@@ -231,55 +277,109 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
         )}
 
         {/* Gather event */}
-        {entry.type === "gather" && mat && (() => {
-          const countMatch = entry.summary.match(/×(\d+)/);
-          const count = countMatch ? parseInt(countMatch[1]) : 1;
-          return (
-            <View style={logStackStyles.battleBlock}>
-              <View style={logStackStyles.inlineRow}>
-                <Text style={logStackStyles.dimLabel}>Gathered</Text>
-                <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
-                  {mat.type}
-                </Text>
-                {mat.version > 0 && (
-                  <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[mat.version] ?? Colors.game.border }]}>
-                    <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[mat.version] ?? Colors.game.text }]}>
-                      T{mat.version}
-                    </Text>
-                  </View>
-                )}
-                <Text style={[logStackStyles.rarityLabel, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
-                  {mat.rarity}
-                </Text>
-                {count > 1 && <Text style={logStackStyles.dimLabel}>×{count}</Text>}
-              </View>
-              {entry.xpGained > 0 && (
+        {entry.type === "gather" &&
+          mat &&
+          (() => {
+            const countMatch = entry.summary.match(/×(\d+)/);
+            const count = countMatch ? parseInt(countMatch[1]) : 1;
+            return (
+              <View style={logStackStyles.battleBlock}>
                 <View style={logStackStyles.inlineRow}>
-                  <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
-                  {entry.xpBonus && entry.xpBonus > 0 && (
-                    <Text style={logStackStyles.bonus}>+{entry.xpBonus} potion</Text>
+                  <Text style={logStackStyles.dimLabel}>Gathered</Text>
+                  <Text
+                    style={[
+                      logStackStyles.matName,
+                      { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text },
+                    ]}
+                  >
+                    {mat.type}
+                  </Text>
+                  {mat.version > 0 && (
+                    <View
+                      style={[
+                        logStackStyles.tierBadge,
+                        {
+                          borderColor:
+                            TIER_COLORS[mat.version] ?? Colors.game.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          logStackStyles.tierTxt,
+                          {
+                            color: TIER_COLORS[mat.version] ?? Colors.game.text,
+                          },
+                        ]}
+                      >
+                        T{mat.version}
+                      </Text>
+                    </View>
+                  )}
+                  <Text
+                    style={[
+                      logStackStyles.rarityLabel,
+                      { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text },
+                    ]}
+                  >
+                    {mat.rarity}
+                  </Text>
+                  {count > 1 && (
+                    <Text style={logStackStyles.dimLabel}>×{count}</Text>
                   )}
                 </View>
-              )}
-            </View>
-          );
-        })()}
+                {entry.xpGained > 0 && (
+                  <View style={logStackStyles.inlineRow}>
+                    <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
+                    {entry.xpBonus && entry.xpBonus > 0 && (
+                      <Text style={logStackStyles.bonus}>
+                        +{entry.xpBonus} potion
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })()}
 
         {/* Battle event */}
         {entry.type === "battle" && (
           <View style={logStackStyles.battleBlock}>
             {/* Row 1: verb + NPC name (colored by rarity) + tier */}
             <View style={logStackStyles.inlineRow}>
-              <Text style={logStackStyles.dimLabel}>{isVictory ? "Defeated" : "Fled from"}</Text>
+              <Text style={logStackStyles.dimLabel}>
+                {isVictory ? "Defeated" : "Fled from"}
+              </Text>
               <Text
-                style={[logStackStyles.npcName, entry.npcRarity ? { color: RARITY_COLORS[entry.npcRarity] } : null]}
+                style={[
+                  logStackStyles.npcName,
+                  entry.npcRarity
+                    ? { color: RARITY_COLORS[entry.npcRarity] }
+                    : null,
+                ]}
                 numberOfLines={1}
               >
                 {npcName}
               </Text>
               {entry.npcVersion !== undefined && entry.npcVersion > 0 && (
-                <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[entry.npcVersion] ?? Colors.game.border }]}>
-                  <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[entry.npcVersion] ?? Colors.game.text }]}>
+                <View
+                  style={[
+                    logStackStyles.tierBadge,
+                    {
+                      borderColor:
+                        TIER_COLORS[entry.npcVersion] ?? Colors.game.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      logStackStyles.tierTxt,
+                      {
+                        color:
+                          TIER_COLORS[entry.npcVersion] ?? Colors.game.text,
+                      },
+                    ]}
+                  >
                     T{entry.npcVersion}
                   </Text>
                 </View>
@@ -291,9 +391,13 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
               <View style={logStackStyles.inlineRow}>
                 {entry.goldGained > 0 && (
                   <View style={logStackStyles.inlineRow}>
-                    <Text style={logStackStyles.gold}>+{entry.goldGained}g</Text>
+                    <Text style={logStackStyles.gold}>
+                      +{entry.goldGained}g
+                    </Text>
                     {entry.goldBonus && entry.goldBonus > 0 && (
-                      <Text style={logStackStyles.bonus}>+{entry.goldBonus} potion</Text>
+                      <Text style={logStackStyles.bonus}>
+                        +{entry.goldBonus} potion
+                      </Text>
                     )}
                   </View>
                 )}
@@ -301,7 +405,9 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
                   <View style={logStackStyles.inlineRow}>
                     <Text style={logStackStyles.xp}>+{entry.xpGained} xp</Text>
                     {entry.xpBonus && entry.xpBonus > 0 && (
-                      <Text style={logStackStyles.bonus}>+{entry.xpBonus} potion</Text>
+                      <Text style={logStackStyles.bonus}>
+                        +{entry.xpBonus} potion
+                      </Text>
                     )}
                   </View>
                 )}
@@ -311,12 +417,30 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
             {/* Row 3: drop — material OR item OR chest */}
             {mat && (
               <View style={logStackStyles.inlineRow}>
-                <Text style={[logStackStyles.matName, { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text }]}>
+                <Text
+                  style={[
+                    logStackStyles.matName,
+                    { color: RARITY_COLORS[mat.rarity] ?? Colors.game.text },
+                  ]}
+                >
                   {mat.type}
                 </Text>
                 {mat.version > 0 && (
-                  <View style={[logStackStyles.tierBadge, { borderColor: TIER_COLORS[mat.version] ?? Colors.game.border }]}>
-                    <Text style={[logStackStyles.tierTxt, { color: TIER_COLORS[mat.version] ?? Colors.game.text }]}>
+                  <View
+                    style={[
+                      logStackStyles.tierBadge,
+                      {
+                        borderColor:
+                          TIER_COLORS[mat.version] ?? Colors.game.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        logStackStyles.tierTxt,
+                        { color: TIER_COLORS[mat.version] ?? Colors.game.text },
+                      ]}
+                    >
                       T{mat.version}
                     </Text>
                   </View>
@@ -326,7 +450,12 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
             {itemDrop && (
               <View style={logStackStyles.inlineRow}>
                 <Text style={logStackStyles.dimLabel}>drop:</Text>
-                <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[itemDrop.rarity] }]}>
+                <Text
+                  style={[
+                    logStackStyles.matName,
+                    { color: ITEM_RARITY_COLORS[itemDrop.rarity] },
+                  ]}
+                >
                   {itemDrop.name}
                 </Text>
                 <Text style={[logStackStyles.dimLabel]}>({itemDrop.slot})</Text>
@@ -335,14 +464,24 @@ function LogEntryRow({ entry }: { entry: LogEntry }) {
             {chest && (
               <View style={logStackStyles.inlineRow}>
                 <Text style={logStackStyles.dimLabel}>drop:</Text>
-                <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[chest.rarity] }]}>
+                <Text
+                  style={[
+                    logStackStyles.matName,
+                    { color: ITEM_RARITY_COLORS[chest.rarity] },
+                  ]}
+                >
                   📦 {chest.rarity} Chest
                 </Text>
               </View>
             )}
             {entry.potionDrop && (
               <View style={logStackStyles.inlineRow}>
-                <Text style={[logStackStyles.matName, { color: ITEM_RARITY_COLORS[entry.potionDrop.rarity] }]}>
+                <Text
+                  style={[
+                    logStackStyles.matName,
+                    { color: ITEM_RARITY_COLORS[entry.potionDrop.rarity] },
+                  ]}
+                >
                   {entry.potionDrop.type} Potion
                 </Text>
               </View>
@@ -371,7 +510,11 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
       if (!map.has(entry.id)) {
         const anim = new Animated.Value(0);
         map.set(entry.id, anim);
-        Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
         changed = true;
       }
     }
@@ -393,7 +536,10 @@ function EventLogStack({ logs }: { logs: LogEntry[] }) {
       {recent.map((entry) => {
         const anim = map.get(entry.id);
         if (!anim) return null;
-        const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] });
+        const translateY = anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [14, 0],
+        });
         return (
           <Animated.View
             key={entry.id}
@@ -419,10 +565,18 @@ function FloatingGoldXpToasts({ logs }: { logs: LogEntry[] }) {
       if (!map.has(entry.id)) {
         const anim = new Animated.Value(0);
         map.set(entry.id, anim);
-        Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
         changed = true;
         setTimeout(() => {
-          Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }).start();
         }, 3000);
       }
     }
@@ -444,7 +598,10 @@ function FloatingGoldXpToasts({ logs }: { logs: LogEntry[] }) {
         const anim = map.get(entry.id);
         if (!anim) return null;
         return (
-          <Animated.View key={entry.id} style={[floatStyles.toast, { opacity: anim }]}>
+          <Animated.View
+            key={entry.id}
+            style={[floatStyles.toast, { opacity: anim }]}
+          >
             {entry.goldGained > 0 && (
               <Text style={floatStyles.goldText}>+{entry.goldGained}g</Text>
             )}
@@ -478,27 +635,55 @@ const logStackStyles = StyleSheet.create({
     paddingTop: 1,
   },
   gCoin: {
-    width: 18, height: 18, borderRadius: 9,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: Colors.game.gold,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: "#a07820",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#a07820",
   },
   gCoinTxt: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#3d2e00" },
   xpStar: { fontSize: 13, color: Colors.game.purpleLight },
   emoji: { fontSize: 11 },
   content: { flex: 1, gap: 2 },
   battleBlock: { gap: 2 },
-  inlineRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 },
-  dimLabel: { fontSize: 10, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  inlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  dimLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+  },
   matName: { fontSize: 10, fontFamily: "Inter_700Bold" },
   rarityLabel: { fontSize: 10, fontFamily: "Inter_500Medium", opacity: 0.85 },
-  npcName: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.text },
+  npcName: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.game.text,
+  },
   gold: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.gold },
-  xp: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.purpleLight },
-  bonus: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.blueLight, opacity: 0.8 },
+  xp: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.game.purpleLight,
+  },
+  bonus: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.blueLight,
+    opacity: 0.8,
+  },
   tierBadge: {
-    borderWidth: 1, borderRadius: 4,
-    paddingHorizontal: 3, paddingVertical: 1,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
   },
   tierTxt: { fontSize: 9, fontFamily: "Inter_700Bold" },
 });
@@ -506,11 +691,13 @@ const logStackStyles = StyleSheet.create({
 // ─── Active buff countdown pills ──────────────────────────────────────────────
 
 const BUFF_ICONS: Record<string, string> = {
-  Gold: "💰", XP: "⭐", Exploration: "⚡",
+  Gold: "💰",
+  XP: "⭐",
+  Exploration: "⚡",
 };
 const BUFF_PILL_COLORS: Record<string, string> = {
-  Gold:        Colors.game.gold,
-  XP:          Colors.game.purpleLight,
+  Gold: Colors.game.gold,
+  XP: Colors.game.purpleLight,
   Exploration: Colors.game.blueLight,
 };
 
@@ -531,15 +718,27 @@ function ActiveBuffPills({ buffs }: { buffs: ActiveBuff[] }) {
   return (
     <View style={pillStyles.row}>
       {active.map((buff) => {
-        const remaining = Math.max(0, Math.ceil((buff.expiresAt - Date.now()) / 1000));
+        const remaining = Math.max(
+          0,
+          Math.ceil((buff.expiresAt - Date.now()) / 1000),
+        );
         if (remaining <= 0) return null;
         const color = BUFF_PILL_COLORS[buff.type] ?? Colors.game.gold;
         const pct = Math.round((buff.multiplier - 1) * 100);
         return (
-          <View key={buff.type} style={[pillStyles.pill, { borderColor: color + "55" }]}>
-            <Text style={pillStyles.pillIcon}>{BUFF_ICONS[buff.type] ?? "✨"}</Text>
-            <Text style={[pillStyles.pillLabel, { color }]}>{buff.type} +{pct}%</Text>
-            <View style={[pillStyles.pillTimer, { backgroundColor: color + "22" }]}>
+          <View
+            key={buff.type}
+            style={[pillStyles.pill, { borderColor: color + "55" }]}
+          >
+            <Text style={pillStyles.pillIcon}>
+              {BUFF_ICONS[buff.type] ?? "✨"}
+            </Text>
+            <Text style={[pillStyles.pillLabel, { color }]}>
+              {buff.type} +{pct}%
+            </Text>
+            <View
+              style={[pillStyles.pillTimer, { backgroundColor: color + "22" }]}
+            >
               <Text style={[pillStyles.pillTime, { color }]}>{remaining}s</Text>
             </View>
           </View>
@@ -551,19 +750,31 @@ function ActiveBuffPills({ buffs }: { buffs: ActiveBuff[] }) {
 
 const pillStyles = StyleSheet.create({
   row: {
-    flexDirection: "row", flexWrap: "wrap", gap: 4,
-    paddingHorizontal: 16, paddingTop: 4,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   pill: {
-    flexDirection: "row", alignItems: "center", gap: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     backgroundColor: Colors.game.surface,
-    borderRadius: 12, borderWidth: 1,
-    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   pillIcon: { fontSize: 10 },
   pillLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold" },
-  pillTimer: { borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, marginLeft: 1 },
-  pillTime:  { fontSize: 9, fontFamily: "Inter_700Bold" },
+  pillTimer: {
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 1,
+  },
+  pillTime: { fontSize: 9, fontFamily: "Inter_700Bold" },
 });
 
 // ─── Bottom tab bar ───────────────────────────────────────────────────────────
@@ -579,7 +790,13 @@ interface BottomTabBarProps {
 }
 
 function TabButton({
-  icon, label, color, active, badge, badgeColor, onPress,
+  icon,
+  label,
+  color,
+  active,
+  badge,
+  badgeColor,
+  onPress,
 }: {
   icon: keyof typeof Feather.glyphMap;
   label: string;
@@ -600,11 +817,15 @@ function TabButton({
     lift.value = withTiming(-3, { duration: 90 });
   };
   const handleOut = () => {
-    scale.value = withSequence(withTiming(1.08, { duration: 110 }), withTiming(1, { duration: 90 }));
+    scale.value = withSequence(
+      withTiming(1.08, { duration: 110 }),
+      withTiming(1, { duration: 90 }),
+    );
     lift.value = withTiming(0, { duration: 140 });
   };
   const handlePress = () => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (Platform.OS !== "web")
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onPress?.();
   };
 
@@ -617,23 +838,47 @@ function TabButton({
         onPressOut={onPress ? handleOut : undefined}
         hitSlop={8}
       >
-        <View style={[tabBarStyles.iconBubble, active && { borderColor: color, backgroundColor: color + "22" }]}>
+        <View
+          style={[
+            tabBarStyles.iconBubble,
+            active && { borderColor: color, backgroundColor: color + "22" },
+          ]}
+        >
           <Feather name={icon} size={20} color={color} />
           {badge != null && badge > 0 && (
-            <View style={[tabBarStyles.badge, { backgroundColor: badgeColor ?? Colors.game.purple }]}>
-              <Text style={tabBarStyles.badgeText}>{badge > 9 ? "9+" : String(badge)}</Text>
+            <View
+              style={[
+                tabBarStyles.badge,
+                { backgroundColor: badgeColor ?? Colors.game.purple },
+              ]}
+            >
+              <Text style={tabBarStyles.badgeText}>
+                {badge > 9 ? "9+" : String(badge)}
+              </Text>
             </View>
           )}
         </View>
-        <Text style={[tabBarStyles.label, { color: active ? color : Colors.game.textDim }]}>{label}</Text>
+        <Text
+          style={[
+            tabBarStyles.label,
+            { color: active ? color : Colors.game.textDim },
+          ]}
+        >
+          {label}
+        </Text>
       </Pressable>
     </ReanimatedNS.View>
   );
 }
 
 function BottomTabBar({
-  onPressAH, onPressInventory, onPressChat, onPressCraft,
-  unreadCount, pendingStatPoints, bottomPad,
+  onPressAH,
+  onPressInventory,
+  onPressChat,
+  onPressCraft,
+  unreadCount,
+  pendingStatPoints,
+  bottomPad,
 }: BottomTabBarProps) {
   return (
     <LinearGradient
@@ -648,16 +893,39 @@ function BottomTabBar({
         end={{ x: 1, y: 0 }}
         style={tabBarStyles.topTrim}
       />
-      <TabButton icon="map-pin" label="Mountain" color={Colors.game.gold} active />
-      <TabButton icon="shopping-bag" label="Market" color={Colors.game.goldLight} onPress={onPressAH} />
-      <TabButton icon="filter" label="Craft" color={Colors.game.blueLight} onPress={onPressCraft} />
       <TabButton
-        icon="package" label="Inventory" color={Colors.game.purpleLight}
-        onPress={onPressInventory} badge={pendingStatPoints} badgeColor={Colors.game.purple}
+        icon="map-pin"
+        label="Mountain"
+        color={Colors.game.gold}
+        active
       />
       <TabButton
-        icon="message-circle" label="Chat" color={Colors.game.greenLight}
-        onPress={onPressChat} badge={unreadCount} badgeColor={Colors.game.red}
+        icon="shopping-bag"
+        label="Market"
+        color={Colors.game.goldLight}
+        onPress={onPressAH}
+      />
+      <TabButton
+        icon="filter"
+        label="Craft"
+        color={Colors.game.blueLight}
+        onPress={onPressCraft}
+      />
+      <TabButton
+        icon="package"
+        label="Inventory"
+        color={Colors.game.purpleLight}
+        onPress={onPressInventory}
+        badge={pendingStatPoints}
+        badgeColor={Colors.game.purple}
+      />
+      <TabButton
+        icon="message-circle"
+        label="Chat"
+        color={Colors.game.greenLight}
+        onPress={onPressChat}
+        badge={unreadCount}
+        badgeColor={Colors.game.red}
       />
     </LinearGradient>
   );
@@ -666,43 +934,96 @@ function BottomTabBar({
 const tabBarStyles = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    borderTopWidth: 1, borderTopColor: Colors.game.gold + "55",
-    paddingTop: 10, paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.game.gold + "55",
+    paddingTop: 10,
+    paddingHorizontal: 8,
     position: "relative",
   },
-  topTrim: { position: "absolute", top: 0, left: 0, right: 0, height: 1.5, opacity: 0.6 },
+  topTrim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+    opacity: 0.6,
+  },
   tabWrap: { flex: 1 },
   tab: { alignItems: "center", justifyContent: "center", gap: 4 },
   iconBubble: {
-    width: 42, height: 42, borderRadius: 12,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: "transparent",
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
     position: "relative",
   },
-  label: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.textDim, letterSpacing: 0.3 },
+  label: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.game.textDim,
+    letterSpacing: 0.3,
+  },
   badge: {
-    position: "absolute", top: -4, right: -4,
-    borderRadius: 9, minWidth: 16, height: 16, paddingHorizontal: 3,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: Colors.game.background,
+    position: "absolute",
+    top: -4,
+    right: -4,
+    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.game.background,
   },
   badgeText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
 });
 
 export default function GameScreen() {
   const {
-    gameState, setScene, applyGoldXp, addMaterials, addLogEntry,
-    incrementEvents, incrementEnemiesDefeated, loadState, resetGameState,
-    addItemToBag, addChestToBag, addPotionToBag, getActiveBuffMultiplier,
-    addToolToBag, consumePotion, equipItem, removeItemFromBag, salvageItem, sellItemToNpc,
-    useSweepCharge, purchaseEnergyWithRubies, purchaseEnergyLimitExtender, regenCraftingEnergy, checkCraftingJobs,
+    gameState,
+    setScene,
+    applyGoldXp,
+    addMaterials,
+    addLogEntry,
+    incrementEvents,
+    incrementEnemiesDefeated,
+    loadState,
+    resetGameState,
+    addItemToBag,
+    addChestToBag,
+    addPotionToBag,
+    getActiveBuffMultiplier,
+    addToolToBag,
+    consumePotion,
+    equipItem,
+    removeItemFromBag,
+    salvageItem,
+    sellItemToNpc,
+    useSweepCharge,
+    purchaseEnergyWithRubies,
+    purchaseEnergyLimitExtender,
+    regenCraftingEnergy,
+    checkCraftingJobs,
   } = useGame();
   const {
-    ahEvents, consumeAhEvent,
-    isAuthenticated, authUsername, serverGameState, clearServerGameState,
-    saveGameState, accountSwitched, consumeAccountSwitch,
-    sessionExpired, kicked, clearKicked,
-    status, isOnline,
+    ahEvents,
+    consumeAhEvent,
+    isAuthenticated,
+    authUsername,
+    serverGameState,
+    clearServerGameState,
+    saveGameState,
+    accountSwitched,
+    consumeAccountSwitch,
+    sessionExpired,
+    kicked,
+    clearKicked,
+    status,
+    isOnline,
     unreadCount,
     logout,
   } = useMultiplayer();
@@ -712,7 +1033,6 @@ export default function GameScreen() {
   const [cooldownDuration, setCooldownDuration] = useState(2500);
   const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-
   const gatherXpRef = useRef(0);
   const gatherXpBonusRef = useRef(0);
 
@@ -721,7 +1041,9 @@ export default function GameScreen() {
   const artThresholdRef = useRef(Math.floor(10 + Math.random() * 11));
 
   const [showStats, setShowStats] = useState(false);
-  const [statsDefaultTab, setStatsDefaultTab] = useState<"inventory" | "equipment" | "tools" | "profile">("inventory");
+  const [statsDefaultTab, setStatsDefaultTab] = useState<
+    "inventory" | "equipment" | "tools" | "profile"
+  >("inventory");
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -732,12 +1054,20 @@ export default function GameScreen() {
   const [battleNpc, setBattleNpc] = useState<NpcBattleStats | null>(null);
   const battleNpcRef = useRef<NpcBattleStats | null>(null);
   const [showBattle, setShowBattle] = useState(false);
-  const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(null);
-  const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(null);
-  const [preSelectChestForAh, setPreSelectChestForAh] = useState<ItemChest | null>(null);
+  const [preSelectForAh, setPreSelectForAh] = useState<MaterialEntry | null>(
+    null,
+  );
+  const [preSelectItemForAh, setPreSelectItemForAh] = useState<GameItem | null>(
+    null,
+  );
+  const [preSelectChestForAh, setPreSelectChestForAh] =
+    useState<ItemChest | null>(null);
   const [preSelectPotionForAh, setPreSelectPotionForAh] = useState<any>(null);
-  const [preSelectToolForAh, setPreSelectToolForAh] = useState<GatheringTool | null>(null);
-  const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(null);
+  const [preSelectToolForAh, setPreSelectToolForAh] =
+    useState<GatheringTool | null>(null);
+  const [pendingDropChest, setPendingDropChest] = useState<ItemChest | null>(
+    null,
+  );
   const pendingDropCooldownRef = useRef<number>(500);
   const [autoOpenChest, setAutoOpenChest] = useState<ItemChest | null>(null);
   const [battleDrops, setBattleDrops] = useState<BattleDrop[]>([]);
@@ -776,7 +1106,9 @@ export default function GameScreen() {
         timestamp: Date.now(),
         type: "system",
         summary: "You were logged out: account opened in another location.",
-        goldGained: 0, xpGained: 0, material: null,
+        goldGained: 0,
+        xpGained: 0,
+        material: null,
       });
       clearKicked();
     }
@@ -790,7 +1122,13 @@ export default function GameScreen() {
       loadState(serverGameState as any);
       clearServerGameState();
     }
-  }, [serverGameState, resetGameState, consumeAccountSwitch, loadState, clearServerGameState]);
+  }, [
+    serverGameState,
+    resetGameState,
+    consumeAccountSwitch,
+    loadState,
+    clearServerGameState,
+  ]);
 
   // ── Auto-save game state when authenticated and connected ────────────────
   // Fires ~1 s after any gameState change (combat, gather, AH event, stat
@@ -804,7 +1142,9 @@ export default function GameScreen() {
     saveTimer.current = setTimeout(() => {
       saveGameState(gameState);
     }, 1000);
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
   }, [gameState, isAuthenticated, status, saveGameState]);
 
   // ── Energy regen timer (runs on main screen, not just crafting tab) ────
@@ -821,7 +1161,10 @@ export default function GameScreen() {
     if (!msg || !msg.trim()) return;
     const id = `t-${Date.now()}-${Math.random()}`;
     setAhToasts((prev) => [...prev, { id, msg, isGold }]);
-    setTimeout(() => setAhToasts((prev) => prev.filter((t) => t.id !== id)), 3600);
+    setTimeout(
+      () => setAhToasts((prev) => prev.filter((t) => t.id !== id)),
+      3600,
+    );
   }, []);
 
   // ── Process AH + buy order events ────────────────────────────────────────
@@ -837,10 +1180,10 @@ export default function GameScreen() {
           isSaleEquip
             ? `${(ev.listing!.item as any)?.slot ?? "Equipment"} sold! +${ev.listing!.price.toLocaleString()}G`
             : isSaleChest
-            ? `Chest sold! +${ev.listing!.price.toLocaleString()}G`
-            : isSalePotion
-            ? `Potion sold! +${ev.listing!.price.toLocaleString()}G`
-            : `Listing sold! +${ev.listing!.price.toLocaleString()}G`,
+              ? `Chest sold! +${ev.listing!.price.toLocaleString()}G`
+              : isSalePotion
+                ? `Potion sold! +${ev.listing!.price.toLocaleString()}G`
+                : `Listing sold! +${ev.listing!.price.toLocaleString()}G`,
           true,
         );
         consumeAhEvent(ev.id);
@@ -854,11 +1197,20 @@ export default function GameScreen() {
           pushToast(`Received ${ev.listing!.material.rarity} Potion!`, false);
         } else if (!isBoughtEquip && !isBoughtChest) {
           addMaterials(Array(ev.listing!.count).fill(ev.listing!.material));
-          pushToast(`Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`, false);
+          pushToast(
+            `Received ×${ev.listing!.count} ${ev.listing!.material.rarity} ${ev.listing!.material.type}`,
+            false,
+          );
         } else if (isBoughtEquip) {
-          pushToast(`Received ${ev.listing!.material.rarity} ${(ev.listing!.item as any)?.slot ?? "Equipment"}!`, false);
+          pushToast(
+            `Received ${ev.listing!.material.rarity} ${(ev.listing!.item as any)?.slot ?? "Equipment"}!`,
+            false,
+          );
         } else {
-          pushToast(`Received T${ev.listing!.material.version ?? 0} ${ev.listing!.material.rarity} Chest!`, false);
+          pushToast(
+            `Received T${ev.listing!.material.version ?? 0} ${ev.listing!.material.rarity} Chest!`,
+            false,
+          );
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "cancelled") {
@@ -875,7 +1227,10 @@ export default function GameScreen() {
       } else if (ev.kind === "bo_sold") {
         if (ev.boGoldEarned && ev.boGoldEarned > 0) {
           applyGoldXp(ev.boGoldEarned, 0);
-          pushToast(`Buy order filled! +${ev.boGoldEarned.toLocaleString()}G`, true);
+          pushToast(
+            `Buy order filled! +${ev.boGoldEarned.toLocaleString()}G`,
+            true,
+          );
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_received") {
@@ -885,14 +1240,17 @@ export default function GameScreen() {
             isPotion
               ? `Received ${ev.boMaterial.rarity} Potion from order`
               : `Received ×${ev.boCount} ${ev.boMaterial.rarity} ${ev.boMaterial.type} from order`,
-            false
+            false,
           );
         }
         consumeAhEvent(ev.id);
       } else if (ev.kind === "bo_cancelled") {
         if (ev.boGoldReturn && ev.boGoldReturn > 0) {
           applyGoldXp(ev.boGoldReturn, 0);
-          pushToast(`Order cancelled — +${ev.boGoldReturn.toLocaleString()}G refunded`, true);
+          pushToast(
+            `Order cancelled — +${ev.boGoldReturn.toLocaleString()}G refunded`,
+            true,
+          );
         }
         consumeAhEvent(ev.id);
       }
@@ -905,7 +1263,10 @@ export default function GameScreen() {
 
     const baseDuration = Math.floor(2500 + Math.random() * 1500);
     const cooldownReduction = getActiveBuffMultiplier("Exploration");
-    const duration = Math.max(800, Math.floor(baseDuration / cooldownReduction));
+    const duration = Math.max(
+      800,
+      Math.floor(baseDuration / cooldownReduction),
+    );
     setCooldownDuration(duration);
     setIsInteracting(true);
 
@@ -927,12 +1288,14 @@ export default function GameScreen() {
       const baseGold = roll.goldGained;
       const baseXp = roll.xpGained;
       if (baseGold > 0 || baseXp > 0) {
-        const goldStr = baseGold > 0
-          ? `+${baseGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
-          : "";
-        const xpStr = baseXp > 0
-          ? ` +${baseXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
-          : "";
+        const goldStr =
+          baseGold > 0
+            ? `+${baseGold}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
+            : "";
+        const xpStr =
+          baseXp > 0
+            ? ` +${baseXp}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
+            : "";
         addLogEntry({
           id: roll.id,
           timestamp: roll.timestamp,
@@ -946,18 +1309,25 @@ export default function GameScreen() {
         });
       }
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-      cooldownTimer.current = setTimeout(() => setIsInteracting(false), duration);
+      cooldownTimer.current = setTimeout(
+        () => setIsInteracting(false),
+        duration,
+      );
     } else if (roll.type === "gather" && roll.material) {
       gatherXpRef.current = 0;
       gatherXpBonusRef.current = 0;
       setGatherMaterial(roll.material);
       // Tool determines node count for this event
-      const matchedTool = char.equippedTools[MATERIAL_TO_TOOL[roll.material.type]];
+      const matchedTool =
+        char.equippedTools[MATERIAL_TO_TOOL[roll.material.type]];
       let computedAttempts: number;
       if (matchedTool) {
         const base =
           matchedTool.effectMinBonus +
-          Math.floor(Math.random() * (matchedTool.effectMaxBonus - matchedTool.effectMinBonus + 1));
+          Math.floor(
+            Math.random() *
+              (matchedTool.effectMaxBonus - matchedTool.effectMinBonus + 1),
+          );
         const bonus = Math.random() * 100 < matchedTool.effectChance ? 1 : 0;
         computedAttempts = base + bonus;
       } else {
@@ -992,7 +1362,17 @@ export default function GameScreen() {
         });
       }
     }
-  }, [isInteracting, char, applyGoldXp, addMaterials, addItemToBag, addLogEntry, incrementEvents, setScene, getActiveBuffMultiplier]);
+  }, [
+    isInteracting,
+    char,
+    applyGoldXp,
+    addMaterials,
+    addItemToBag,
+    addLogEntry,
+    incrementEvents,
+    setScene,
+    getActiveBuffMultiplier,
+  ]);
 
   const handleGatherComplete = useCallback(
     (gathered: Material[]) => {
@@ -1016,7 +1396,7 @@ export default function GameScreen() {
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
       cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
     },
-    [addMaterials, addLogEntry]
+    [addMaterials, addLogEntry],
   );
 
   const handleBattleComplete = useCallback(
@@ -1032,16 +1412,26 @@ export default function GameScreen() {
         let drops: BattleDrop[] = [];
         let droppedMat: Material | null = null;
         let dropCount = 0;
-        let droppedItem = undefined as typeof undefined | NonNullable<LogEntry["itemDrop"]>;
-        let droppedChest = undefined as typeof undefined | NonNullable<LogEntry["chest"]>;
-        let droppedPotion = undefined as typeof undefined | NonNullable<LogEntry["potionDrop"]>;
+        let droppedItem = undefined as
+          | typeof undefined
+          | NonNullable<LogEntry["itemDrop"]>;
+        let droppedChest = undefined as
+          | typeof undefined
+          | NonNullable<LogEntry["chest"]>;
+        let droppedPotion = undefined as
+          | typeof undefined
+          | NonNullable<LogEntry["potionDrop"]>;
 
         if (victory) {
           const drop: NpcDropResult = rollNpcDrop(npc);
           if (drop?.type === "material") {
             droppedMat = drop.material;
             dropCount = drop.count;
-            drops.push({ type: "material", material: drop.material, count: drop.count });
+            drops.push({
+              type: "material",
+              material: drop.material,
+              count: drop.count,
+            });
           } else if (drop?.type === "item") {
             droppedItem = drop.item;
             drops.push({ type: "item", item: drop.item });
@@ -1057,19 +1447,24 @@ export default function GameScreen() {
         }
 
         let dropSuffix = "";
-        if (droppedMat) dropSuffix = ` \u00b7 ${droppedMat.type}${dropCount > 1 ? ` \u00d7${dropCount}` : ""}`;
+        if (droppedMat)
+          dropSuffix = ` \u00b7 ${droppedMat.type}${dropCount > 1 ? ` \u00d7${dropCount}` : ""}`;
         else if (droppedItem) dropSuffix = ` \u00b7 ${droppedItem.name}`;
-        else if (droppedPotion) dropSuffix = ` \u00b7 ${droppedPotion.type} Potion`;
-        else if (droppedChest) dropSuffix = ` \u00b7 \ud83d\udce6 ${droppedChest.rarity} Chest`;
+        else if (droppedPotion)
+          dropSuffix = ` \u00b7 ${droppedPotion.type} Potion`;
+        else if (droppedChest)
+          dropSuffix = ` \u00b7 \ud83d\udce6 ${droppedChest.rarity} Chest`;
 
         const goldBonus = battleResult ? battleResult.goldBonus : 0;
         const xpBonus = battleResult ? battleResult.xpBonus : 0;
-        const goldStr = goldReward > 0
-          ? `+${goldReward}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
-          : "";
-        const xpStr = xpReward > 0
-          ? ` +${xpReward}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
-          : "";
+        const goldStr =
+          goldReward > 0
+            ? `+${goldReward}g${goldBonus > 0 ? ` (+${goldBonus} potion)` : ""}`
+            : "";
+        const xpStr =
+          xpReward > 0
+            ? ` +${xpReward}xp${xpBonus > 0 ? ` (+${xpBonus} potion)` : ""}`
+            : "";
 
         addLogEntry({
           id: `b-${Date.now()}`,
@@ -1097,38 +1492,46 @@ export default function GameScreen() {
           setBattleDropNpcName(npc.name);
           setShowBattleDrops(true);
         } else {
-          cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+          cooldownTimer.current = setTimeout(
+            () => setIsInteracting(false),
+            500,
+          );
         }
       } else {
         cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
       }
     },
-    [applyGoldXp, addLogEntry]
+    [applyGoldXp, addLogEntry],
   );
 
-  const handleCollectBattleDrops = useCallback((handledIndices: Set<number> = new Set()) => {
-    battleDrops.forEach((drop, idx) => {
-      if (handledIndices.has(idx)) return;
-      if (drop.type === "material") {
-        const mats = Array.from({ length: drop.count }, () => ({ ...drop.material }));
-        addMaterials(mats);
-      } else if (drop.type === "item") {
-        addItemToBag(drop.item);
-      } else if (drop.type === "potion") {
-        addPotionToBag(drop.potion);
-      } else if (drop.type === "chest") {
-        setPendingDropChest(drop.chest);
-        pendingDropCooldownRef.current = 400;
-      } else if (drop.type === "tool") {
-        addToolToBag(drop.tool);
+  const handleCollectBattleDrops = useCallback(
+    (handledIndices: Set<number> = new Set()) => {
+      battleDrops.forEach((drop, idx) => {
+        if (handledIndices.has(idx)) return;
+        if (drop.type === "material") {
+          const mats = Array.from({ length: drop.count }, () => ({
+            ...drop.material,
+          }));
+          addMaterials(mats);
+        } else if (drop.type === "item") {
+          addItemToBag(drop.item);
+        } else if (drop.type === "potion") {
+          addPotionToBag(drop.potion);
+        } else if (drop.type === "chest") {
+          setPendingDropChest(drop.chest);
+          pendingDropCooldownRef.current = 400;
+        } else if (drop.type === "tool") {
+          addToolToBag(drop.tool);
+        }
+      });
+      setShowBattleDrops(false);
+      setBattleDrops([]);
+      if (!battleDrops.some((d) => d.type === "chest")) {
+        cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
       }
-    });
-    setShowBattleDrops(false);
-    setBattleDrops([]);
-    if (!battleDrops.some((d) => d.type === "chest")) {
-      cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
-    }
-  }, [battleDrops, addMaterials, addItemToBag, addPotionToBag, addToolToBag]);
+    },
+    [battleDrops, addMaterials, addItemToBag, addPotionToBag, addToolToBag],
+  );
 
   const handleCloseBattleDrops = useCallback(() => {
     setShowBattleDrops(false);
@@ -1209,12 +1612,15 @@ export default function GameScreen() {
     setShowAuction(true);
   }, []);
 
-  const handleChestDropCollect = useCallback((chest: ItemChest) => {
-    addChestToBag(chest);
-    setPendingDropChest(null);
-    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-    cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
-  }, [addChestToBag]);
+  const handleChestDropCollect = useCallback(
+    (chest: ItemChest) => {
+      addChestToBag(chest);
+      setPendingDropChest(null);
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+      cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+    },
+    [addChestToBag],
+  );
 
   // ── Inactivity auto-logout (5 minutes) ────────────────────────────────────────
   // Any press anywhere on the screen resets the 5-minute timer.  If the
@@ -1232,14 +1638,18 @@ export default function GameScreen() {
       }, INACTIVITY_MS);
     }
     reset();
-    return () => { if (inactivityTimer.current) clearTimeout(inactivityTimer.current); };
+    return () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
   }, [isAuthenticated, logout]);
 
   return (
     <Pressable
       style={styles.root}
       onPress={() => {
-        if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); }
+        if (inactivityTimer.current) {
+          clearTimeout(inactivityTimer.current);
+        }
         inactivityTimer.current = setTimeout(() => {
           logout();
           setShowAuth(true);
@@ -1248,7 +1658,10 @@ export default function GameScreen() {
     >
       {/* ── Character header card ─────────────────────────────────────────── */}
       <LinearGradient
-        colors={[Colors.game.surfaceHi, Colors.game.backgroundDeep ?? Colors.game.background]}
+        colors={[
+          Colors.game.surfaceHi,
+          Colors.game.backgroundDeep ?? Colors.game.background,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.characterCard, { paddingTop: topPad + 10 }]}
@@ -1257,7 +1670,10 @@ export default function GameScreen() {
           {/* Avatar circle — tap to open profile */}
           <Pressable
             style={styles.avatarWrap}
-            onPress={() => { setStatsDefaultTab("profile"); setShowStats(true); }}
+            onPress={() => {
+              setStatsDefaultTab("profile");
+              setShowStats(true);
+            }}
             hitSlop={6}
           >
             <View style={styles.avatar}>
@@ -1270,7 +1686,9 @@ export default function GameScreen() {
             </View>
             {char.pendingStatPoints > 0 && (
               <View style={styles.statBubble}>
-                <Text style={styles.statBubbleText}>{char.pendingStatPoints > 9 ? "9+" : char.pendingStatPoints}</Text>
+                <Text style={styles.statBubbleText}>
+                  {char.pendingStatPoints > 9 ? "9+" : char.pendingStatPoints}
+                </Text>
               </View>
             )}
           </Pressable>
@@ -1291,18 +1709,26 @@ export default function GameScreen() {
                 framed={false}
                 style={styles.xpBar}
               />
-              <Text style={styles.xpText}>{char.xp}/{char.xpToNext} XP</Text>
+              <Text style={styles.xpText}>
+                {char.xp}/{char.xpToNext} XP
+              </Text>
             </View>
           </View>
 
           {/* Gold + activity badge + notification bell */}
           <View style={styles.charRight}>
             <View style={styles.charRightTop}>
-              <Pressable style={styles.notifBtn} onPress={() => setShowNotifications(true)} hitSlop={4}>
+              <Pressable
+                style={styles.notifBtn}
+                onPress={() => setShowNotifications(true)}
+                hitSlop={4}
+              >
                 <Feather
                   name="bell"
                   size={16}
-                  color={unreadCount > 0 ? Colors.game.gold : Colors.game.textDim}
+                  color={
+                    unreadCount > 0 ? Colors.game.gold : Colors.game.textDim
+                  }
                 />
                 {unreadCount > 0 && (
                   <View style={styles.notifBadge}>
@@ -1315,16 +1741,34 @@ export default function GameScreen() {
               <Text style={styles.goldIcon}>🪙</Text>
               <Text style={styles.goldValue}>{char.gold.toLocaleString()}</Text>
             </View>
-            <Pressable style={styles.rubyRow} onPress={() => setShowRubyShop(true)} hitSlop={6}>
+            <Pressable
+              style={styles.rubyRow}
+              onPress={() => setShowRubyShop(true)}
+              hitSlop={6}
+            >
               <Text style={[styles.rubyIcon, { color: "#8B0000" }]}>◆</Text>
-              <Text style={styles.rubyValue}>{char.rubies.toLocaleString()}</Text>
+              <Text style={styles.rubyValue}>
+                {char.rubies.toLocaleString()}
+              </Text>
               <Text style={styles.rubyPlus}>+</Text>
             </Pressable>
             {(() => {
-              const act = SCENE_ACTIVITY_MAP[gameState.currentScene] ?? SCENE_ACTIVITY_MAP.default;
+              const act =
+                SCENE_ACTIVITY_MAP[gameState.currentScene] ??
+                SCENE_ACTIVITY_MAP.default;
               return (
-                <View style={[styles.activityBadge, { backgroundColor: act.color + "22", borderColor: act.color + "88" }]}>
-                  <Text style={[styles.activityText, { color: act.color }]}>{act.label}</Text>
+                <View
+                  style={[
+                    styles.activityBadge,
+                    {
+                      backgroundColor: act.color + "22",
+                      borderColor: act.color + "88",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.activityText, { color: act.color }]}>
+                    {act.label}
+                  </Text>
                 </View>
               );
             })()}
@@ -1334,18 +1778,29 @@ export default function GameScreen() {
         <View style={styles.energyBarRow}>
           <Ionicons name="flash" size={13} color={Colors.game.blueLight} />
           <GemBar
-            progress={Math.min(1, char.craftingEnergy / (CRAFTING_MAX_ENERGY + char.energyLimitExtender))}
+            progress={Math.min(
+              1,
+              char.craftingEnergy /
+                (CRAFTING_MAX_ENERGY + char.energyLimitExtender),
+            )}
             gem="sapphire"
             height={6}
             framed={false}
             style={styles.energyBar}
           />
-          <Text style={styles.energyText}>{char.craftingEnergy}/{CRAFTING_MAX_ENERGY + char.energyLimitExtender}</Text>
-          {char.craftingEnergy < (CRAFTING_MAX_ENERGY + char.energyLimitExtender) && (
+          <Text style={styles.energyText}>
+            {char.craftingEnergy}/
+            {CRAFTING_MAX_ENERGY + char.energyLimitExtender}
+          </Text>
+          {char.craftingEnergy <
+            CRAFTING_MAX_ENERGY + char.energyLimitExtender && (
             <Text style={styles.energyTimer}>
               {(() => {
                 const now = Date.now();
-                const ms = Math.max(0, char.energyLastRegen + CRAFTING_ENERGY_REGEN_MS - now);
+                const ms = Math.max(
+                  0,
+                  char.energyLastRegen + CRAFTING_ENERGY_REGEN_MS - now,
+                );
                 const s = Math.ceil(ms / 1000);
                 const m = Math.floor(s / 60);
                 const ss = String(s % 60).padStart(2, "0");
@@ -1362,7 +1817,9 @@ export default function GameScreen() {
       {/* ── AH toasts ────────────────────────────────────────────────────── */}
       {ahToasts.length > 0 && (
         <View style={styles.toastsWrap}>
-          {ahToasts.map((t) => <AhToast key={t.id} toast={t} />)}
+          {ahToasts.map((t) => (
+            <AhToast key={t.id} toast={t} />
+          ))}
         </View>
       )}
 
@@ -1376,14 +1833,8 @@ export default function GameScreen() {
 
       {/* ── Scene — fills remaining space ────────────────────────────────── */}
       <View style={styles.sceneWrap}>
-        <SceneView
-          scene={gameState.currentScene}
-          artIndex={artIndex}
-        />
-        <QuickPotionPicker
-          potionBag={char.potionBag}
-          onUse={consumePotion}
-        />
+        <SceneView scene={gameState.currentScene} artIndex={artIndex} />
+        <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
       </View>
 
       {/* ── Explore button at bottom ─────────────────────────────────────── */}
@@ -1401,36 +1852,43 @@ export default function GameScreen() {
             disabled={isInteracting}
             testID="scene-press-button"
           >
-          <LinearGradient
-            colors={isInteracting
-              ? [Colors.game.surfaceAlt, Colors.game.surface]
-              : [Colors.game.gold, Colors.game.goldDeep]
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.exploreBtnGrad}
-          >
-            <Text style={styles.exploreBtnLabel}>
-              {isInteracting ? "EXPLORING..." : "EXPLORE"}
-            </Text>
-          </LinearGradient>
-          <ExploreParticles />
-        </Pressable>
-        <ExploreButtonParticles isInteracting={isInteracting} pressed={explorePressed} />
-      </View>
+            <LinearGradient
+              colors={
+                isInteracting
+                  ? [Colors.game.surfaceAlt, Colors.game.surface]
+                  : [Colors.game.gold, Colors.game.goldDeep]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.exploreBtnGrad}
+            >
+              <Text style={styles.exploreBtnLabel}>
+                {isInteracting ? "EXPLORING..." : "EXPLORE"}
+              </Text>
+            </LinearGradient>
+            <ExploreParticles />
+          </Pressable>
+        </View>
       </View>
 
       {/* ── Timer bar ────────────────────────────────────────────────────── */}
       <TimerBar
         isActive={isInteracting}
         duration={cooldownDuration}
-        color={getActiveBuffMultiplier("Exploration") > 1 ? Colors.game.blueLight : undefined}
+        color={
+          getActiveBuffMultiplier("Exploration") > 1
+            ? Colors.game.blueLight
+            : undefined
+        }
       />
 
       {/* ── Bottom tab bar ───────────────────────────────────────────────── */}
       <BottomTabBar
         onPressAH={() => setShowAuction(true)}
-        onPressInventory={() => { setStatsDefaultTab("inventory"); setShowStats(true); }}
+        onPressInventory={() => {
+          setStatsDefaultTab("inventory");
+          setShowStats(true);
+        }}
         onPressChat={() => setShowChat(true)}
         onPressCraft={() => setShowCrafting(true)}
         unreadCount={unreadCount}
@@ -1466,7 +1924,10 @@ export default function GameScreen() {
           addToolToBag(tool);
         }}
       />
-      <ChestDropModal chest={pendingDropChest} onCollect={handleChestDropCollect} />
+      <ChestDropModal
+        chest={pendingDropChest}
+        onCollect={handleChestDropCollect}
+      />
       {autoOpenChest && (
         <ChestOpenModal
           key={autoOpenChest.id}
@@ -1502,54 +1963,115 @@ export default function GameScreen() {
             });
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+            cooldownTimer.current = setTimeout(
+              () => setIsInteracting(false),
+              500,
+            );
           }}
           onEquipItem={(item) => {
             addItemToBag(item);
             equipItem(item);
             removeItemFromBag(item.id);
             pushToast(`Equipped ${formatItemName(item)}`, false);
-            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and equipped ${formatItemName(item)}`, goldGained: 0, xpGained: 0, material: null, itemDrop: item, chest: autoOpenChest });
+            addLogEntry({
+              id: `c-${Date.now()}`,
+              timestamp: Date.now(),
+              type: "item_chest",
+              summary: `You opened ${formatChestName(autoOpenChest!)} and equipped ${formatItemName(item)}`,
+              goldGained: 0,
+              xpGained: 0,
+              material: null,
+              itemDrop: item,
+              chest: autoOpenChest,
+            });
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+            cooldownTimer.current = setTimeout(
+              () => setIsInteracting(false),
+              500,
+            );
           }}
           onSalvageItem={(item) => {
             addItemToBag(item);
             salvageItem(item.id);
             pushToast(`Salvaged ${formatItemName(item)}`, false);
-            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and salvaged ${formatItemName(item)}`, goldGained: 0, xpGained: 0, material: null, chest: autoOpenChest });
+            addLogEntry({
+              id: `c-${Date.now()}`,
+              timestamp: Date.now(),
+              type: "item_chest",
+              summary: `You opened ${formatChestName(autoOpenChest!)} and salvaged ${formatItemName(item)}`,
+              goldGained: 0,
+              xpGained: 0,
+              material: null,
+              chest: autoOpenChest,
+            });
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+            cooldownTimer.current = setTimeout(
+              () => setIsInteracting(false),
+              500,
+            );
           }}
           onSellItemToNpc={(item) => {
             addItemToBag(item);
             sellItemToNpc(item.id);
             pushToast(`Sold ${formatItemName(item)} to NPC`, false);
-            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and sold ${formatItemName(item)} to NPC`, goldGained: 0, xpGained: 0, material: null, chest: autoOpenChest });
+            addLogEntry({
+              id: `c-${Date.now()}`,
+              timestamp: Date.now(),
+              type: "item_chest",
+              summary: `You opened ${formatChestName(autoOpenChest!)} and sold ${formatItemName(item)} to NPC`,
+              goldGained: 0,
+              xpGained: 0,
+              material: null,
+              chest: autoOpenChest,
+            });
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+            cooldownTimer.current = setTimeout(
+              () => setIsInteracting(false),
+              500,
+            );
           }}
           onConsumePotion={(potion) => {
             addPotionToBag(potion as any);
             consumePotion(potion as any);
             pushToast(`Consumed ${formatPotionName(potion as any)}`, false);
-            addLogEntry({ id: `c-${Date.now()}`, timestamp: Date.now(), type: "item_chest", summary: `You opened ${formatChestName(autoOpenChest!)} and consumed ${formatPotionName(potion as any)}`, goldGained: 0, xpGained: 0, material: null, chest: autoOpenChest });
+            addLogEntry({
+              id: `c-${Date.now()}`,
+              timestamp: Date.now(),
+              type: "item_chest",
+              summary: `You opened ${formatChestName(autoOpenChest!)} and consumed ${formatPotionName(potion as any)}`,
+              goldGained: 0,
+              xpGained: 0,
+              material: null,
+              chest: autoOpenChest,
+            });
             setAutoOpenChest(null);
             if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
-            cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+            cooldownTimer.current = setTimeout(
+              () => setIsInteracting(false),
+              500,
+            );
           }}
         />
       )}
-      <AuthModal visible={showAuth || !isAuthenticated} onClose={() => setShowAuth(false)} />
-      <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
+      <AuthModal
+        visible={showAuth || !isAuthenticated}
+        onClose={() => setShowAuth(false)}
+      />
+      <NotificationsModal
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
       <RubyShopModal
         visible={showRubyShop}
         onClose={() => setShowRubyShop(false)}
         username={authUsername}
-        onRequireLogin={() => { setShowRubyShop(false); setShowAuth(true); }}
+        onRequireLogin={() => {
+          setShowRubyShop(false);
+          setShowAuth(true);
+        }}
         rubies={char.rubies}
         currentEnergy={char.craftingEnergy}
         maxEnergy={CRAFTING_MAX_ENERGY + char.energyLimitExtender}
@@ -1561,7 +2083,9 @@ export default function GameScreen() {
       <StatsModal
         visible={showStats}
         onClose={() => setShowStats(false)}
-        defaultTab={statsDefaultTab as "inventory" | "equipment" | "tools" | "profile"}
+        defaultTab={
+          statsDefaultTab as "inventory" | "equipment" | "tools" | "profile"
+        }
         onListOnAh={handleListOnAh}
         onListItemOnAh={handleListItemOnAh}
         onListChestOnAh={handleListChestOnAh}
@@ -1573,10 +2097,19 @@ export default function GameScreen() {
         material={gatherMaterial}
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
-        equippedTool={gatherMaterial ? (char.equippedTools[MATERIAL_TO_TOOL[gatherMaterial.type]] ?? null) : null}
+        equippedTool={
+          gatherMaterial
+            ? (char.equippedTools[MATERIAL_TO_TOOL[gatherMaterial.type]] ??
+              null)
+            : null
+        }
         sweepCharges={char.craftingEnergy}
         onComplete={handleGatherComplete}
-        onAttemptXp={(xp) => { const result = applyGoldXp(0, xp); gatherXpRef.current += xp; gatherXpBonusRef.current += result.xpBonus; }}
+        onAttemptXp={(xp) => {
+          const result = applyGoldXp(0, xp);
+          gatherXpRef.current += xp;
+          gatherXpBonusRef.current += result.xpBonus;
+        }}
         onSweep={() => useSweepCharge()}
       />
       <BattleModal
@@ -1602,7 +2135,8 @@ export default function GameScreen() {
           Show immediately when the device has no network (cold-start included).
           Use hasEverConnectedRef to gate WS-only disconnects so we don't flash
           the overlay on the initial connect attempt at boot. */}
-      {(!isOnline || (hasEverConnectedRef.current && status !== "connected")) && (
+      {(!isOnline ||
+        (hasEverConnectedRef.current && status !== "connected")) && (
         <OfflineOverlay />
       )}
     </Pressable>
@@ -1610,71 +2144,144 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.game.background, justifyContent: "space-between" },
+  root: {
+    flex: 1,
+    backgroundColor: Colors.game.background,
+    justifyContent: "space-between",
+  },
 
   // ── Character header ──────────────────────────────────────────────────────
   characterCard: {
-    paddingHorizontal: 16, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.game.gold + "55",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.game.gold + "55",
   },
   charRow: { flexDirection: "row", alignItems: "center", gap: 12 },
 
   avatarWrap: { alignItems: "center", gap: 5 },
   avatar: {
-    width: 52, height: 52, borderRadius: 26,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: Colors.game.surfaceAlt,
-    borderWidth: 2, borderColor: Colors.game.gold + "88",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.game.gold + "88",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarInitial: { fontSize: 22, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  avatarInitial: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
+  },
   levelBadge: {
     backgroundColor: Colors.game.gold + "22",
-    borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2,
-    borderWidth: 1, borderColor: Colors.game.gold + "55",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.game.gold + "55",
   },
-  levelBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  levelBadgeText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
+  },
   statBubble: {
-    position: "absolute", top: -2, right: -6,
+    position: "absolute",
+    top: -2,
+    right: -6,
     backgroundColor: Colors.game.purple,
-    borderRadius: 8, minWidth: 16, height: 16, paddingHorizontal: 3,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1.5, borderColor: Colors.game.background,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.game.background,
   },
   statBubbleText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
 
   charMeta: { flex: 1, gap: 2 },
-  charName: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.text, letterSpacing: 0.2 },
-  charScene: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.game.textDim },
+  charName: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.text,
+    letterSpacing: 0.2,
+  },
+  charScene: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+  },
   xpRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   xpBar: { flex: 1 },
-  xpText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
+  xpText: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
+  },
 
   charRight: { alignItems: "flex-end", gap: 5 },
   charRightTop: { flexDirection: "row", justifyContent: "flex-end" },
   notifBtn: { position: "relative", padding: 2 },
   notifBadge: {
-    position: "absolute", top: -3, right: -5,
+    position: "absolute",
+    top: -3,
+    right: -5,
     backgroundColor: Colors.game.red,
-    borderRadius: 7, minWidth: 14, height: 14, paddingHorizontal: 2,
-    alignItems: "center", justifyContent: "center",
+    borderRadius: 7,
+    minWidth: 14,
+    height: 14,
+    paddingHorizontal: 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   notifBadgeText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
   goldRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   goldIcon: { fontSize: 14 },
-  goldValue: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.gold },
+  goldValue: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.gold,
+  },
   rubyRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   rubyIcon: { fontSize: 13 },
   rubyValue: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#E91E8C" },
   rubyPlus: { fontSize: 12, fontFamily: "Inter_700Bold", color: "#E91E8C88" },
   energyBarRow: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    marginTop: 8, paddingHorizontal: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 2,
   },
   energyBar: { flex: 1 },
-  energyText: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.textMuted, minWidth: 28, textAlign: "right" },
-  energyTimer: { fontSize: 9, fontFamily: "Inter_500Medium", color: Colors.game.blueLight },
-  activityBadge: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
-  activityText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },
+  energyText: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted,
+    minWidth: 28,
+    textAlign: "right",
+  },
+  energyTimer: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    color: Colors.game.blueLight,
+  },
+  activityBadge: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  activityText: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.8,
+  },
 
   // ── Content areas ─────────────────────────────────────────────────────────
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
@@ -1683,7 +2290,11 @@ const styles = StyleSheet.create({
 
   // ── Explore button at bottom ─────────────────────────────────────────────
   exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
-  exploreBtnWrap: { position: "relative", alignItems: "center", justifyContent: "center" },
+  exploreBtnWrap: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   exploreBtn: { borderRadius: 16 },
   exploreBtnPressed: { opacity: 0.85 },
   exploreBtnDisabled: { opacity: 0.5 },
@@ -1704,7 +2315,13 @@ const styles = StyleSheet.create({
   },
 });
 
-function ExploreButtonParticles({ isInteracting, pressed }: { isInteracting: boolean; pressed: boolean }) {
+function ExploreButtonParticles({
+  isInteracting,
+  pressed,
+}: {
+  isInteracting: boolean;
+  pressed: boolean;
+}) {
   const particles = useRef(
     Array.from({ length: 8 }).map((_, i) => ({
       id: i,
@@ -1712,7 +2329,7 @@ function ExploreButtonParticles({ isInteracting, pressed }: { isInteracting: boo
       baseY: new Animated.Value(0),
       opacity: new Animated.Value(0.6),
       scale: new Animated.Value(0.5),
-    }))
+    })),
   ).current;
 
   useEffect(() => {
@@ -1726,14 +2343,24 @@ function ExploreButtonParticles({ isInteracting, pressed }: { isInteracting: boo
       p.baseY.setValue(offsetY);
       const floatAnim = Animated.loop(
         Animated.sequence([
-          Animated.timing(p.opacity, { toValue: 0.9, duration: 800 + i * 120, useNativeDriver: true }),
-          Animated.timing(p.opacity, { toValue: 0.4, duration: 800 + i * 120, useNativeDriver: true }),
-        ])
+          Animated.timing(p.opacity, {
+            toValue: 0.9,
+            duration: 800 + i * 120,
+            useNativeDriver: true,
+          }),
+          Animated.timing(p.opacity, {
+            toValue: 0.4,
+            duration: 800 + i * 120,
+            useNativeDriver: true,
+          }),
+        ]),
       );
       floatAnim.start();
       anims.push(floatAnim);
     });
-    return () => { anims.forEach(a => a.stop()); };
+    return () => {
+      anims.forEach((a) => a.stop());
+    };
   }, []);
 
   useEffect(() => {
@@ -1742,15 +2369,39 @@ function ExploreButtonParticles({ isInteracting, pressed }: { isInteracting: boo
         const angle = (i / 8) * Math.PI * 2;
         const burstDist = 60;
         Animated.parallel([
-          Animated.timing(p.baseX, { toValue: Math.cos(angle) * burstDist, duration: 200, useNativeDriver: true }),
-          Animated.timing(p.baseY, { toValue: Math.sin(angle) * burstDist, duration: 200, useNativeDriver: true }),
-          Animated.timing(p.scale, { toValue: 1.2, duration: 200, useNativeDriver: true }),
+          Animated.timing(p.baseX, {
+            toValue: Math.cos(angle) * burstDist,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(p.baseY, {
+            toValue: Math.sin(angle) * burstDist,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(p.scale, {
+            toValue: 1.2,
+            duration: 200,
+            useNativeDriver: true,
+          }),
         ]).start(() => {
           const radius = 42;
           Animated.parallel([
-            Animated.timing(p.baseX, { toValue: Math.cos(angle) * radius, duration: 400, useNativeDriver: true }),
-            Animated.timing(p.baseY, { toValue: Math.sin(angle) * radius, duration: 400, useNativeDriver: true }),
-            Animated.timing(p.scale, { toValue: 0.5, duration: 400, useNativeDriver: true }),
+            Animated.timing(p.baseX, {
+              toValue: Math.cos(angle) * radius,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(p.baseY, {
+              toValue: Math.sin(angle) * radius,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(p.scale, {
+              toValue: 0.5,
+              duration: 400,
+              useNativeDriver: true,
+            }),
           ]).start();
         });
       });
