@@ -648,10 +648,10 @@ const s = StyleSheet.create({
 
   // Cost panel
   costPanelWrap: { marginTop: 12 },
-  costPanel: { gap: 6 },
-  costRow: { flexDirection: "row", justifyContent: "space-between" },
-  costLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim },
-  costVal: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.text },
+  costPanel: { gap: 8, padding: 8 },
+  costRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  costLabel: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textDim, flexShrink: 0, marginRight: 8 },
+  costVal: { fontSize: 11, fontFamily: "Inter_700Bold", color: Colors.game.text, flexShrink: 1, textAlign: "right", flexWrap: "wrap" },
 
   // Locked / hint notices
   lockedNotice: {

@@ -154,6 +154,8 @@ export function FantasyButton({
               {label != null && (
                 <Text
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
                   style={[
                     styles.label,
                     { fontSize: sz.font, color: txtColor },

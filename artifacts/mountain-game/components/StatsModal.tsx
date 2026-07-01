@@ -182,6 +182,127 @@ function ItemDetailModal({
   );
 }
 
+// ─── Batch result modal ──────────────────────────────────────────────────────
+
+function BatchResultModal({
+  result,
+  onClose,
+}: {
+  result: {
+    open: boolean;
+    action: "salvage" | "sell";
+    count: number;
+    totalGold: number;
+    items: { name: string; rarity: string; slot: string; gold?: number; mats?: string }[];
+  };
+  onClose: () => void;
+}) {
+  const title = result.action === "salvage" ? "Salvage Results" : "Sell Results";
+  const accent = result.action === "salvage" ? Colors.game.blue : Colors.game.ember;
+
+  return (
+    <Modal transparent visible animationType="none" onRequestClose={onClose}>
+      <View style={brm.overlay}>
+        <OrnatePanel accent={accent} glow corners style={{ width: "90%", maxWidth: 380 }}>
+          <View style={brm.card}>
+            <Text style={[brm.title, { color: accent }]}>{title}</Text>
+            <Text style={brm.summary}>
+              {result.action === "salvage"
+                ? `${result.count} item${result.count !== 1 ? "s" : ""} salvaged`
+                : `${result.count} item${result.count !== 1 ? "s" : ""} sold for ${result.totalGold.toLocaleString()}g`}
+            </Text>
+
+            <ScrollView style={brm.list} showsVerticalScrollIndicator={false}>
+              {result.items.map((it, idx) => (
+                <View key={idx} style={brm.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={brm.itemName}>{it.name}</Text>
+                    <Text style={brm.itemMeta}>
+                      {it.rarity} {it.slot}
+                    </Text>
+                  </View>
+                  {result.action === "sell" && it.gold != null && (
+                    <Text style={[brm.itemGold, { color: Colors.game.goldLight }]}>+{it.gold.toLocaleString()}g</Text>
+                  )}
+                  {result.action === "salvage" && it.mats && (
+                    <Text style={[brm.itemMats, { color: Colors.game.blueLight }]}>{it.mats}</Text>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+
+            <FantasyButton
+              fullWidth
+              variant="dark"
+              icon="close"
+              label="CLOSE"
+              onPress={onClose}
+            />
+          </View>
+        </OrnatePanel>
+      </View>
+    </Modal>
+  );
+}
+
+const brm = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    padding: 16,
+    gap: 10,
+  },
+  title: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    letterSpacing: 1,
+  },
+  summary: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  list: {
+    maxHeight: 280,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.game.border,
+  },
+  itemName: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.text,
+  },
+  itemMeta: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    color: Colors.game.textDim,
+  },
+  itemGold: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  itemMats: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    flexShrink: 1,
+    textAlign: "right",
+  },
+});
+
 // ─── Profile tab sub-component ───────────────────────────────────────────────
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
@@ -221,21 +342,42 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
     });
   };
 
-  const [batchMsg, setBatchMsg] = useState<string | null>(null);
+  const [batchResult, setBatchResult] = useState<{
+    open: boolean;
+    action: "salvage" | "sell";
+    count: number;
+    totalGold: number;
+    items: { name: string; rarity: string; slot: string; gold?: number; mats?: string }[];
+  } | null>(null);
 
   const handleBatchSalvage = () => {
+    const items: { name: string; rarity: string; slot: string; mats?: string }[] = [];
     let count = 0;
-    selectedItemIds.forEach(id => { salvageItem(id); count++; });
+    selectedItemIds.forEach(id => {
+      const item = char.itemBag.find(i => i.id === id);
+      if (!item) return;
+      const result = salvageItem(id);
+      count++;
+      const matSummary = result?.materials.map(m => `${m.count} ${m.rarity} ${m.type}`).join(", ") ?? "none";
+      items.push({ name: item.name, rarity: item.rarity, slot: item.slot, mats: matSummary });
+    });
     exitMultiSelect();
-    setBatchMsg(`${count} item${count !== 1 ? 's' : ''} salvaged`);
-    setTimeout(() => setBatchMsg(null), 2500);
+    setBatchResult({ open: true, action: "salvage", count, totalGold: 0, items });
   };
   const handleBatchSellNpc = () => {
+    const items: { name: string; rarity: string; slot: string; gold: number }[] = [];
     let total = 0;
-    selectedItemIds.forEach(id => { const g = sellItemToNpc(id); if (g) total += g; });
+    selectedItemIds.forEach(id => {
+      const item = char.itemBag.find(i => i.id === id);
+      if (!item) return;
+      const g = sellItemToNpc(id);
+      if (g) {
+        total += g;
+        items.push({ name: item.name, rarity: item.rarity, slot: item.slot, gold: g });
+      }
+    });
     exitMultiSelect();
-    setBatchMsg(`${selectedItemIds.size} item${selectedItemIds.size !== 1 ? 's' : ''} sold for ${total.toLocaleString()}g`);
-    setTimeout(() => setBatchMsg(null), 2500);
+    setBatchResult({ open: true, action: "sell", count: items.length, totalGold: total, items });
   };
 
   const selectAll = () => {
@@ -371,10 +513,12 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
               </View>
             )}
 
-            {batchMsg && (
-              <View style={styles.batchMsgBar}>
-                <Text style={styles.batchMsgText}>{batchMsg}</Text>
-              </View>
+            {/* ── Batch result modal ── */}
+            {batchResult?.open && (
+              <BatchResultModal
+                result={batchResult}
+                onClose={() => setBatchResult(null)}
+              />
             )}
 
             <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>

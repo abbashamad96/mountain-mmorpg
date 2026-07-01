@@ -69,7 +69,7 @@ export function ChestImage({ rarity, size = 80, compact: _compact = false }: Che
         <Image
           source={CHEST_SPLASH[rarity]}
           style={{ width: "100%", height: "100%", borderRadius: imgSize * 0.16 }}
-          resizeMode="cover"
+          resizeMode="stretch"
         />
         {/* Rarity tint overlay */}
         <View style={[ss.tint, { borderRadius: imgSize * 0.16, backgroundColor: rc + "1A" }]} />

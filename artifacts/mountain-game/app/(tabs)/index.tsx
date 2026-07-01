@@ -1827,17 +1827,17 @@ export default function GameScreen() {
       {/* ── Floating gold/xp toasts ─────────────────────────────────────── */}
       <FloatingGoldXpToasts logs={gameState.eventLog} />
 
-      {/* ── Scrollable content below sticky header ────────────────────────────────────────────────────── */}
+      {/* ── Fixed scene art + potion picker ─────────────────────────────── */}
+      <View style={styles.sceneWrapFixed}>
+        <SceneView scene={gameState.currentScene} artIndex={artIndex} />
+        <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
+      </View>
+
+      {/* ── Scrollable event log ─────────────────────────────────────────── */}
       <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.logWrap}>
           <EventLogStack logs={gameState.eventLog} />
         </View>
-
-        {/* ── Scene — fills remaining space ────────────────────────────────── */}
-      <View style={styles.sceneWrap}>
-        <SceneView scene={gameState.currentScene} artIndex={artIndex} />
-        <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
-      </View>
       </ScrollView>
 
       {/* ── Explore button at bottom ─────────────────────────────────────── */}
@@ -2295,7 +2295,7 @@ const styles = StyleSheet.create({
   // ── Content areas ─────────────────────────────────────────────────────────
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
-  sceneWrap: { paddingHorizontal: 16, paddingTop: 6, height: 200 },
+  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 6, height: 200, flexShrink: 0 },
   scrollBody: { flex: 1 },
   scrollContent: { paddingBottom: 12 },
 
@@ -2460,10 +2460,14 @@ const particleStyles = StyleSheet.create({
 
 const floatStyles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    gap: 4,
+    position: "absolute",
+    top: 6,
+    left: 0,
+    right: 0,
     alignItems: "center",
+    gap: 4,
+    zIndex: 50,
+    pointerEvents: "none",
   },
   toast: {
     backgroundColor: "rgba(20,14,0,0.88)",
