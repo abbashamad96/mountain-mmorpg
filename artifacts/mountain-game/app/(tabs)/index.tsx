@@ -1342,19 +1342,11 @@ export default function GameScreen() {
       setBattleNpc(roll.npc);
       setShowBattle(true);
     } else if (roll.type === "item_chest" && roll.chest) {
-      const autoOpen = Math.random() < 0.9;
-      if (autoOpen) {
-        // 90%: auto-open chest — player must tap OPEN CHEST to interact
-        pendingDropCooldownRef.current = duration;
-        setAutoOpenChest(roll.chest);
-        // No separate log entry here — combined entry added when chest is opened
-      } else {
-        // 10%: chest shown as a drop in BattleDropModal
-        pendingDropCooldownRef.current = duration;
-        setBattleDrops([{ type: "chest", chest: roll.chest }]);
-        setBattleDropNpcName("");
-        setShowBattleDrops(true);
-      }
+      // All chest drops go through BattleDropModal — player taps OPEN CHEST
+      pendingDropCooldownRef.current = duration;
+      setBattleDrops([{ type: "chest", chest: roll.chest }]);
+      setBattleDropNpcName("");
+      setShowBattleDrops(true);
     }
   }, [
     isInteracting,
