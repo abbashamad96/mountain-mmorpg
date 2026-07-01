@@ -616,29 +616,31 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
                         <Ionicons name={expandedSlots.has("Potions") ? "chevron-down" : "chevron-forward"} size={13} color={Colors.game.textDim} style={styles.chevronIcon} />
                       </Pressable>
                       {expandedSlots.has("Potions") && (
-                      <View style={styles.inventoryGrid}>
-                        {potionStacks.map(({ rep, count }) => {
-                          const rc = ITEM_RARITY_COLORS[rep.rarity];
-                          return (
-                            <Pressable key={`${rep.type}|${rep.rarity}|${rep.tier}`} style={styles.invSlotWrap} onPress={() => setSelectedPotion(rep)}>
-                              <RivetFrame color={rc}>
-                                <PotionImage type={rep.type} rarity={rep.rarity} tier={rep.tier} size={68} compact />
-                              </RivetFrame>
-                              <View style={[styles.countBadge, { backgroundColor: rc }]}>
-                                <Text style={styles.countText} numberOfLines={1}>×{count}</Text>
-                              </View>
-                              <View style={styles.typeLabel}>
-                                <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.7}>
-                                  {rep.type}
-                                </Text>
-                                <Text style={[styles.typeLabelText, { color: Colors.game.textDim }]} adjustsFontSizeToFit minimumFontScale={0.7}>
-                                  {rep.rarity} · T{rep.tier}
-                                </Text>
-                              </View>
-                            </Pressable>
-                          );
-                        })}
-                      </View>)}
+                      <ScrollView style={styles.potionGridScroll} showsVerticalScrollIndicator={false}>
+                        <View style={styles.inventoryGrid}>
+                          {potionStacks.map(({ rep, count }) => {
+                            const rc = ITEM_RARITY_COLORS[rep.rarity];
+                            return (
+                              <Pressable key={`${rep.type}|${rep.rarity}|${rep.tier}`} style={styles.invSlotWrap} onPress={() => setSelectedPotion(rep)}>
+                                <RivetFrame color={rc}>
+                                  <PotionImage type={rep.type} rarity={rep.rarity} tier={rep.tier} size={68} compact />
+                                </RivetFrame>
+                                <View style={[styles.countBadge, { backgroundColor: rc }]}>
+                                  <Text style={styles.countText} numberOfLines={1}>×{count}</Text>
+                                </View>
+                                <View style={styles.typeLabel}>
+                                  <Text style={[styles.typeLabelText, { color: rc }]} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                    {rep.type}
+                                  </Text>
+                                  <Text style={[styles.typeLabelText, { color: Colors.game.textDim }]} adjustsFontSizeToFit minimumFontScale={0.7}>
+                                    {rep.rarity} · T{rep.tier}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>)}
                     </View>
                   )}
 
@@ -1108,6 +1110,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: "#000",
   },
+  potionGridScroll: { maxHeight: 260 },
   inventoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   invSlotWrap: { alignItems: "center", gap: 4 },
   countBadge: {

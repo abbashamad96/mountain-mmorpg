@@ -1349,19 +1349,11 @@ export default function GameScreen() {
         setAutoOpenChest(roll.chest);
         // No separate log entry here — combined entry added when chest is opened
       } else {
-        // 10%: collectable chest goes to bag
+        // 10%: chest shown as a drop in BattleDropModal
         pendingDropCooldownRef.current = duration;
-        setPendingDropChest(roll.chest);
-        addLogEntry({
-          id: roll.id,
-          timestamp: roll.timestamp,
-          type: "item_chest",
-          summary: `Found a ${roll.chest.rarity} Chest!`,
-          goldGained: 0,
-          xpGained: 0,
-          material: null,
-          chest: roll.chest,
-        });
+        setBattleDrops([{ type: "chest", chest: roll.chest }]);
+        setBattleDropNpcName("");
+        setShowBattleDrops(true);
       }
     }
   }, [
@@ -1827,11 +1819,6 @@ export default function GameScreen() {
       {/* ── Floating gold/xp toasts ─────────────────────────────────────── */}
       <FloatingGoldXpToasts logs={gameState.eventLog} />
 
-      {/* ── Fixed scene art ─────────────────────────────── */}
-      <View style={styles.sceneWrapFixed}>
-        <SceneView scene={gameState.currentScene} artIndex={artIndex} />
-      </View>
-
       {/* ── Scrollable event log ─────────────────────────────────────────── */}
       <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.logWrap}>
@@ -1839,38 +1826,43 @@ export default function GameScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Explore button + potion picker at bottom ─────────────────────── */}
-      <View style={styles.exploreRow}>
-        <View style={styles.exploreBtnWrap}>
-          <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
-          <Pressable
-            style={({ pressed }) => [
-              styles.exploreBtn,
-              pressed && styles.exploreBtnPressed,
-              isInteracting && styles.exploreBtnDisabled,
-            ]}
-            onPress={handleScenePress}
-            onPressIn={() => setExplorePressed(true)}
-            onPressOut={() => setExplorePressed(false)}
-            disabled={isInteracting}
-            testID="scene-press-button"
-          >
-            <LinearGradient
-              colors={
-                isInteracting
-                  ? [Colors.game.surfaceAlt, Colors.game.surface]
-                  : [Colors.game.gold, Colors.game.goldDeep]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.exploreBtnGrad}
+      {/* ── Fixed scene art + explore + potion picker ─────────────────────── */}
+      <View style={styles.bottomFixed}>
+        <View style={styles.sceneWrapFixed}>
+          <SceneView scene={gameState.currentScene} artIndex={artIndex} />
+        </View>
+        <View style={styles.exploreRow}>
+          <View style={styles.exploreBtnWrap}>
+            <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
+            <Pressable
+              style={({ pressed }) => [
+                styles.exploreBtn,
+                pressed && styles.exploreBtnPressed,
+                isInteracting && styles.exploreBtnDisabled,
+              ]}
+              onPress={handleScenePress}
+              onPressIn={() => setExplorePressed(true)}
+              onPressOut={() => setExplorePressed(false)}
+              disabled={isInteracting}
+              testID="scene-press-button"
             >
-              <Text style={styles.exploreBtnLabel}>
-                {isInteracting ? "EXPLORING..." : "EXPLORE"}
-              </Text>
-            </LinearGradient>
-            <ExploreParticles pressed={explorePressed} />
-          </Pressable>
+              <LinearGradient
+                colors={
+                  isInteracting
+                    ? [Colors.game.surfaceAlt, Colors.game.surface]
+                    : [Colors.game.gold, Colors.game.goldDeep]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.exploreBtnGrad}
+              >
+                <Text style={styles.exploreBtnLabel}>
+                  {isInteracting ? "EXPLORING..." : "EXPLORE"}
+                </Text>
+              </LinearGradient>
+              <ExploreParticles pressed={explorePressed} />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -2146,6 +2138,11 @@ export default function GameScreen() {
         onListItemOnAh={handleBattleDropListItemOnAh}
         onListPotionOnAh={handleBattleDropListPotionOnAh}
         onListToolOnAh={handleBattleDropListToolOnAh}
+        onOpenChest={(chest) => {
+          setShowBattleDrops(false);
+          setBattleDrops([]);
+          setAutoOpenChest(chest);
+        }}
       />
 
       {/* Offline / disconnected overlay — Modal so it renders above all RN modals.
@@ -2303,7 +2300,8 @@ const styles = StyleSheet.create({
   // ── Content areas ─────────────────────────────────────────────────────────
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
-  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 6, height: 200, flexShrink: 0 },
+  bottomFixed: { flexShrink: 0, alignItems: "center" },
+  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 6, height: 180, flexShrink: 0, alignSelf: "stretch" },
   scrollBody: { flex: 1 },
   scrollContent: { paddingBottom: 12 },
 

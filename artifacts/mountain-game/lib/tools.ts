@@ -66,7 +66,7 @@ export const MATERIAL_TO_TOOL: Record<ToolMaterialType, ToolType> = {
 export const TOOL_ICONS: Record<ToolType, string> = {
   Axe:           "🪓",
   Pickaxe:       "⛏",
-  SkinningKnife: "🗡",
+  SkinningKnife: "🔪",
   Sickle:        "🌿",
 };
 

@@ -26,6 +26,8 @@ export default function Root({ children }: { children: React.ReactNode }) {
             width: 100%;
             max-width: 480px;
             height: 100%;
+            transform: scale(0.7);
+            transform-origin: center top;
           }
         `}</style>
         <ScrollViewStyleReset />

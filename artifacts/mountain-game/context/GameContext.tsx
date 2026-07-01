@@ -9,7 +9,7 @@ import {
 import { GatheringTool, ToolType, rollToolDrop } from "@/lib/tools";
 import {
   CraftingSkill, CraftResult, rollCraftResult,
-  CRAFTING_MATERIALS_NEEDED, CRAFTING_XP_REWARDS, applyXpToCraftingSkill,
+  CRAFTING_MATERIALS_NEEDED, CRAFTING_XP_REWARDS, getCraftingXpReward, applyXpToCraftingSkill,
   CRAFTING_ENERGY_COST, CRAFTING_DURATION_MS, CRAFTING_MAX_ENERGY, CRAFTING_ENERGY_REGEN_MS,
   CraftingJob, PendingCraftBatch,
 } from "@/lib/crafting";
@@ -967,7 +967,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     for (let i = 0; i < batch.count; i++) {
       results.push(rollCraftResult(batch.rarity, batch.tier, char.craftingSkill.level));
     }
-    const xpGained = CRAFTING_XP_REWARDS[batch.rarity] * batch.count;
+    const xpGained = getCraftingXpReward(batch.rarity, batch.tier, batch.count);
     setGameState((prev) => {
       const pendingCraftBatches = prev.character.pendingCraftBatches.filter(b => b.id !== batchId);
       const newSkill = applyXpToCraftingSkill(prev.character.craftingSkill, xpGained);

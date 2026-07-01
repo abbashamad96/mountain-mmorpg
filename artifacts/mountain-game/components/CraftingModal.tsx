@@ -9,7 +9,7 @@ import { FantasyButton, OrnatePanel, GemBar } from "@/components/ui";
 import { ITEM_RARITIES } from "@/lib/items";
 import {
   CraftResult, CRAFTING_MATERIALS_NEEDED, CRAFTING_UNLOCK_LEVELS,
-  CRAFTING_XP_REWARDS, getXpToNextCraftingLevel, CRAFTING_MAX_LEVEL,
+  CRAFTING_XP_REWARDS, getCraftingXpReward, getXpToNextCraftingLevel, CRAFTING_MAX_LEVEL,
   CRAFTING_ENERGY_COST, CRAFTING_DURATION_MS, CRAFTING_MAX_ENERGY,
   CRAFTING_ENERGY_REGEN_MS,
 } from "@/lib/crafting";
@@ -456,7 +456,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                 <View style={s.costRow}>
                   <Text style={s.costLabel}>XP reward</Text>
                   <Text style={[s.costVal, { color: Colors.game.blueLight }]}>
-                    +{CRAFTING_XP_REWARDS[selectedRarity] * quantity} crafting XP
+                    +{getCraftingXpReward(selectedRarity, selectedTier, quantity)} crafting XP
                     {quantity > 1 ? ` (×${quantity})` : ""}
                   </Text>
                 </View>

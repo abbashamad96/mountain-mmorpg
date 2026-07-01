@@ -32,6 +32,17 @@ export const CRAFTING_XP_REWARDS: Record<ItemRarity, number> = {
   Elite: 350, Legendary: 800, Superior: 1800, Cosmic: 4000,
 };
 
+// Tier multipliers: T0=base, T1=120%, T2=140%, T3=160%
+const CRAFTING_XP_TIER_MULTIPLIERS: Record<number, number> = {
+  0: 1.0, 1: 1.2, 2: 1.4, 3: 1.6,
+};
+
+export function getCraftingXpReward(rarity: ItemRarity, tier: number, quantity = 1): number {
+  const base = CRAFTING_XP_REWARDS[rarity] ?? 0;
+  const mult = CRAFTING_XP_TIER_MULTIPLIERS[tier] ?? 1.0;
+  return Math.floor(base * mult * quantity);
+}
+
 export const CRAFTING_UNLOCK_LEVELS: Record<ItemRarity, number> = {
   Common: 1, Uncommon: 5, Rare: 8, Epic: 12,
   Elite: 20, Legendary: 27, Superior: 34, Cosmic: 44,

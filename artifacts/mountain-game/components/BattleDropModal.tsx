@@ -50,7 +50,7 @@ export type BattleDrop =
 
 interface BattleDropModalProps {
   visible: boolean;
-  npcName: string;
+  npcName?: string;
   drops: BattleDrop[];
   onCollectAll: (handledIndices: Set<number>) => void;
   onClose: () => void;
@@ -58,6 +58,7 @@ interface BattleDropModalProps {
   onListItemOnAh?: (item: GameItem) => void;
   onListPotionOnAh?: (potion: Potion) => void;
   onListToolOnAh?: (tool: GatheringTool) => void;
+  onOpenChest?: (chest: ItemChest) => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ export function BattleDropModal({
   onListItemOnAh,
   onListPotionOnAh,
   onListToolOnAh,
+  onOpenChest,
 }: BattleDropModalProps) {
   const {
     addItemToBag,
@@ -130,9 +132,18 @@ export function BattleDropModal({
             <View style={{ flex: 1, minHeight: 320 }}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.victoryLabel}>VICTORY</Text>
-              <Text style={styles.npcName}>Defeated {npcName}</Text>
-              <Text style={styles.lootLabel}>LOOT DROPPED</Text>
+              {npcName ? (
+                <>
+                  <Text style={styles.victoryLabel}>VICTORY</Text>
+                  <Text style={styles.npcName}>Defeated {npcName}</Text>
+                  <Text style={styles.lootLabel}>LOOT DROPPED</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.victoryLabel}>CHEST FOUND</Text>
+                  <Text style={styles.lootLabel}>TAP TO MANAGE</Text>
+                </>
+              )}
             </View>
 
           {/* Drops list */}
@@ -164,6 +175,10 @@ export function BattleDropModal({
                     key={idx}
                     drop={drop}
                     claimed={claimed}
+                    onPress={onOpenChest ? () => {
+                      onCollectAll(handledRef.current);
+                      onOpenChest(drop.chest);
+                    } : undefined}
                     onListOnAh={onListOnAh ? () => {
                       onCollectAll(handledRef.current);
                       onListOnAh(drop);
@@ -490,9 +505,14 @@ function DropCard({
             <Text style={[styles.dropName, { color: rc }]} numberOfLines={1}>
               {formatChestName(drop.chest)}
             </Text>
-            <Text style={styles.dropMeta}>T{drop.chest.tier}  ·  Added to bag</Text>
+            <Text style={styles.dropMeta}>T{drop.chest.tier}</Text>
           </View>
         </View>
+        {onPress && (
+          <Pressable style={[styles.ahCardBtn, { borderColor: rc, backgroundColor: rc + "18" }]} onPress={onPress}>
+            <Text style={[styles.ahCardBtnTxt, { color: rc }]}>🔓 OPEN CHEST</Text>
+          </Pressable>
+        )}
         {onListOnAh && (
           <Pressable style={styles.ahCardBtn} onPress={onListOnAh}>
             <Text style={styles.ahCardBtnTxt}>🛒  LIST ON AH</Text>
