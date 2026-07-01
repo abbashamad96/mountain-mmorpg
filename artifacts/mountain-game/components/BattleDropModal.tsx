@@ -124,10 +124,10 @@ export function BattleDropModal({
   return (
     <Modal transparent visible animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-        <View style={{ width: "100%", maxWidth: 420, alignSelf: "center" }}>
-          <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }], flex: 1 }]}>
-            <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%", flex: 1 }} contentStyle={{ overflow: "hidden", flex: 1 }}>
-            <View style={{ flex: 1 }}>
+        <View style={{ width: "100%", maxWidth: 420, alignSelf: "center", maxHeight: "92%" }}>
+          <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
+            <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%" }} contentStyle={{ flex: 1 }}>
+            <View style={{ flex: 1, minHeight: 320 }}>
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.victoryLabel}>VICTORY</Text>
@@ -553,7 +553,6 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 420,
-    maxHeight: "80%",
     backgroundColor: Colors.game.surfaceAlt,
     borderRadius: 22,
     borderWidth: 1,

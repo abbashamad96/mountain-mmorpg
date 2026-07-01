@@ -1929,6 +1929,11 @@ export default function GameScreen() {
       <ChestDropModal
         chest={pendingDropChest}
         onCollect={handleChestDropCollect}
+        onClose={() => {
+          setPendingDropChest(null);
+          if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+          cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+        }}
       />
       {autoOpenChest && (
         <ChestOpenModal
@@ -2082,7 +2087,6 @@ export default function GameScreen() {
         currentEnergy={char.craftingEnergy}
         maxEnergy={CRAFTING_MAX_ENERGY + char.energyLimitExtender}
         energyLimitExtender={char.energyLimitExtender}
-        onBuyEnergy={purchaseEnergyWithRubies}
         onBuyMaxEnergy={purchaseEnergyLimitExtender}
       />
       <ChatModal visible={showChat} onClose={() => setShowChat(false)} />
@@ -2456,14 +2460,10 @@ const particleStyles = StyleSheet.create({
 
 const floatStyles = StyleSheet.create({
   container: {
-    position: "absolute",
-    top: 80,
-    left: 0,
-    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    gap: 4,
     alignItems: "center",
-    gap: 6,
-    zIndex: 100,
-    pointerEvents: "none",
   },
   toast: {
     backgroundColor: "rgba(20,14,0,0.88)",

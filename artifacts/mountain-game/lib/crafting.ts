@@ -135,7 +135,7 @@ export function rollCraftResultKind(rarity: ItemRarity): CraftResultKind {
 
 export function getXpToNextCraftingLevel(level: number): number {
   if (level >= CRAFTING_MAX_LEVEL) return 0;
-  return CRAFTING_LEVEL_XP[level - 1] ?? 0;
+  return Math.floor((CRAFTING_LEVEL_XP[level - 1] ?? 0) / 4);
 }
 
 export function applyXpToCraftingSkill(skill: CraftingSkill, xpGained: number): CraftingSkill {

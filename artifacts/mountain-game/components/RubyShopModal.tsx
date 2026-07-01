@@ -30,7 +30,6 @@ interface Props {
   currentEnergy: number;
   maxEnergy: number;
   energyLimitExtender: number;
-  onBuyEnergy: () => void;
   onBuyMaxEnergy: () => void;
 }
 
@@ -85,12 +84,11 @@ function RubyPackCard({
   );
 }
 
-export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubies, currentEnergy, maxEnergy, energyLimitExtender, onBuyEnergy, onBuyMaxEnergy }: Props) {
+export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubies, currentEnergy, maxEnergy, energyLimitExtender, onBuyMaxEnergy }: Props) {
   const [packs, setPacks] = useState<RubyPack[]>([]);
   const [loadingPacks, setLoadingPacks] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [energyMsg, setEnergyMsg] = useState<string | null>(null);
   const [maxEnergyMsg, setMaxEnergyMsg] = useState<string | null>(null);
 
   const fetchPacks = useCallback(async () => {
@@ -141,20 +139,6 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubi
     },
     [username, onRequireLogin, onClose],
   );
-
-  const handleBuyEnergy = useCallback(() => {
-    setEnergyMsg(null);
-    if (currentEnergy >= maxEnergy) {
-      setEnergyMsg("Energy is already at maximum!");
-      return;
-    }
-    if (rubies < 6) {
-      setEnergyMsg("Not enough rubies. Need 6 to buy 1 energy.");
-      return;
-    }
-    onBuyEnergy();
-    setEnergyMsg("Energy purchased! +1");
-  }, [rubies, currentEnergy, maxEnergy, onBuyEnergy]);
 
   const handleBuyMaxEnergy = useCallback(() => {
     setMaxEnergyMsg(null);
@@ -207,22 +191,6 @@ export function RubyShopModal({ visible, onClose, username, onRequireLogin, rubi
           <View style={styles.energySection}>
             <Text style={styles.energyTitle}>Energy</Text>
             <Text style={styles.energySubtitle}>Current: {currentEnergy}/{maxEnergy} (base {maxEnergy - energyLimitExtender} + {energyLimitExtender} extended)</Text>
-            <Text style={styles.energyCost}>◆ 6 rubies = +1 Energy</Text>
-            <Pressable
-              style={({ pressed }) => [
-                styles.energyBtn,
-                pressed && styles.energyBtnPressed,
-                (currentEnergy >= maxEnergy || rubies < 6) && styles.energyBtnDisabled,
-              ]}
-              onPress={handleBuyEnergy}
-              disabled={currentEnergy >= maxEnergy || rubies < 6}
-            >
-              <Text style={styles.energyBtnText}>BUY ENERGY</Text>
-            </Pressable>
-            {energyMsg && (
-              <Text style={styles.energyMsg}>{energyMsg}</Text>
-            )}
-            <View style={styles.divider} />
             <Text style={styles.energyCost}>◆ 8 rubies = +1 Max Energy (permanent)</Text>
             <Pressable
               style={({ pressed }) => [

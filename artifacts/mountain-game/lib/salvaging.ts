@@ -84,7 +84,7 @@ export function getSalvageYieldRange(level: number): [number, number] {
  */
 export function getXpToNextSalvagingLevel(level: number): number {
   if (level >= SALVAGE_MAX_LEVEL) return Infinity;
-  return SALVAGING_LEVEL_XP[level - 1] ?? Infinity;
+  return Math.floor((SALVAGING_LEVEL_XP[level - 1] ?? Infinity) / 4);
 }
 
 /**

@@ -211,7 +211,7 @@ const ss = StyleSheet.create({
   // Picker panel
   panel: {
     width: PANEL_WIDTH,
-    maxHeight: 320,
+    maxHeight: 260,
     marginBottom: 8,
   },
   scroll: { flex: 1 },

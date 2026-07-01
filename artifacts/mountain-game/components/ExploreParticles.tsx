@@ -88,19 +88,14 @@ export function ExploreParticles() {
     <View
       style={{
         position: "absolute",
-        top: -20,
-        left: -80,
-        right: -80,
-        bottom: -20,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        overflow: "visible",
+        top: -6,
+        left: -6,
+        right: -6,
+        bottom: -6,
+        overflow: "hidden",
         pointerEvents: "none",
       } as any}
     >
-      <ParticleCanvas />
-      <ParticleCanvas />
-      <ParticleCanvas />
       <ParticleCanvas />
     </View>
   );

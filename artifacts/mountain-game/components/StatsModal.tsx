@@ -221,8 +221,22 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
     });
   };
 
-  const handleBatchSalvage = () => { selectedItemIds.forEach(id => salvageItem(id)); exitMultiSelect(); };
-  const handleBatchSellNpc = () => { selectedItemIds.forEach(id => sellItemToNpc(id)); exitMultiSelect(); };
+  const [batchMsg, setBatchMsg] = useState<string | null>(null);
+
+  const handleBatchSalvage = () => {
+    let count = 0;
+    selectedItemIds.forEach(id => { salvageItem(id); count++; });
+    exitMultiSelect();
+    setBatchMsg(`${count} item${count !== 1 ? 's' : ''} salvaged`);
+    setTimeout(() => setBatchMsg(null), 2500);
+  };
+  const handleBatchSellNpc = () => {
+    let total = 0;
+    selectedItemIds.forEach(id => { const g = sellItemToNpc(id); if (g) total += g; });
+    exitMultiSelect();
+    setBatchMsg(`${selectedItemIds.size} item${selectedItemIds.size !== 1 ? 's' : ''} sold for ${total.toLocaleString()}g`);
+    setTimeout(() => setBatchMsg(null), 2500);
+  };
 
   const selectAll = () => {
     setSelectedItemIds(new Set((char.itemBag ?? []).map(i => i.id)));
@@ -354,6 +368,12 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
                   icon="close"
                   onPress={exitMultiSelect}
                 />
+              </View>
+            )}
+
+            {batchMsg && (
+              <View style={styles.batchMsgBar}>
+                <Text style={styles.batchMsgText}>{batchMsg}</Text>
               </View>
             )}
 
@@ -893,6 +913,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   selectToggleTxt: { fontSize: 10, letterSpacing: 0.8 },
+  batchMsgBar: {
+    backgroundColor: "rgba(34,197,94,0.12)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(34,197,94,0.25)",
+    alignItems: "center",
+  },
+  batchMsgText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.green,
+  },
   invSlotWrapSelected: { opacity: 0.9 },
   checkOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
