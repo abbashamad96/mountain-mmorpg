@@ -14,20 +14,17 @@ export default function Root({ children }: { children: React.ReactNode }) {
           content="An online RPG where you explore a mountain road, gather rare materials, battle fearsome creatures, and trade on a global auction house. Create your account and start your journey."
         />
         <style>{`
+          html { zoom: 0.7; }
           html, body { width: 100%; height: 100%; }
           body {
             display: flex;
             justify-content: center;
-            align-items: center;
             background-color: #111;
             margin: 0;
           }
           #root {
             width: 100%;
-            max-width: 480px;
             height: 100%;
-            transform: scale(0.7);
-            transform-origin: center top;
           }
         `}</style>
         <ScrollViewStyleReset />
