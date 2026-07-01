@@ -182,7 +182,6 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
                     version={m.tier as VersionNum}
                     size={46}
                     compact
-                    animateParticles={false}
                   />
                   <View style={ss.salvageResultInfo}>
                     <Text style={[ss.salvageResultMat, { color: RARITY_COLORS[item.rarity as RarityName] }]}>

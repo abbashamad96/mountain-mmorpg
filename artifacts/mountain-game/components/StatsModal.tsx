@@ -125,7 +125,6 @@ function ItemDetailModal({
               version={entry.material.version}
               size={96}
               compact={false}
-              animateParticles={false}
             />
           </View>
           <View style={styles.detailInfo}>
@@ -551,7 +550,7 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
                             return (
                               <Pressable key={entry.key} style={styles.invSlotWrap} onPress={() => setSelectedEntry(entry)}>
                                 <RivetFrame color={rc}>
-                                  <MaterialImage type={entry.material.type} rarity={entry.material.rarity} version={entry.material.version} size={68} compact animateParticles={false} />
+                                  <MaterialImage type={entry.material.type} rarity={entry.material.rarity} version={entry.material.version} size={68} compact />
                                 </RivetFrame>
                                 <View style={[styles.countBadge, { backgroundColor: rc }]}>
                                   <Text style={styles.countText} numberOfLines={1}>×{entry.count}</Text>

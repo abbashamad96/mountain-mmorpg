@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, Image, StyleSheet, View } from "react-native";
+import React from "react";
+import { Image, StyleSheet, View } from "react-native";
 import { ITEM_QUALITY_COLORS, ITEM_RARITY_COLORS, ItemQuality, ItemRarity, ItemSlot, ItemTier } from "@/lib/items";
+import { TierBorderGlow } from "@/components/TierBorderGlow";
 
 // ─── Static require map (Metro bundler needs literal require calls) ────────────
 // 6 slots × 8 rarities = 48 images
@@ -80,23 +81,6 @@ const RARITY_GLOW_OPACITY: Record<ItemRarity, number> = {
   Elite: 0.42, Legendary: 0.52, Superior: 0.62, Cosmic: 0.78,
 };
 
-// ─── Tier sparkle positions (as [left_frac, top_frac] of total size) ──────────
-
-const SPARKLE_POSITIONS: [number, number][][] = [
-  [],
-  [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]],
-  [[0.05, 0.05], [0.50, 0.04], [0.95, 0.05],
-   [0.96, 0.50],
-   [0.95, 0.95], [0.50, 0.96], [0.05, 0.95],
-   [0.04, 0.50]],
-  [[0.05, 0.05], [0.38, 0.04], [0.62, 0.04], [0.95, 0.05],
-   [0.96, 0.35], [0.96, 0.65],
-   [0.95, 0.95], [0.62, 0.96], [0.38, 0.96], [0.05, 0.95],
-   [0.04, 0.65], [0.04, 0.35]],
-];
-
-const SPARKLE_SIZES: number[] = [0, 3.5, 4.5, 6];
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface ItemImageProps {
@@ -123,22 +107,6 @@ export function ItemImage({
     ? ITEM_QUALITY_COLORS.Good
     : rc;
   const innerBorderWidth = (isGood || isExcellent) ? 2 : 1.5;
-
-  const sparkleAnim = useRef(new Animated.Value(0.55)).current;
-  useEffect(() => {
-    if (compact || tier === 0) { sparkleAnim.setValue(0.55); return; }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkleAnim, { toValue: 1.0, duration: 800 + tier * 150, useNativeDriver: true }),
-        Animated.timing(sparkleAnim, { toValue: 0.15, duration: 800 + tier * 150, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [compact, tier, sparkleAnim]);
-
-  const sparklePts  = SPARKLE_POSITIONS[tier] ?? [];
-  const sparkleSize = SPARKLE_SIZES[tier] ?? 0;
 
   const imgSize = size * 0.90;
   const imgOffset = (size - imgSize) / 2;
@@ -210,18 +178,8 @@ export function ItemImage({
         )}
       </View>
 
-      {/* Tier sparkle dots */}
-      {sparklePts.map(([lf, tf], i) => (
-        <Animated.View key={i} style={[ss.sparkle, {
-          width: sparkleSize, height: sparkleSize,
-          backgroundColor: rc,
-          left: lf * size - sparkleSize / 2,
-          top: tf * size - sparkleSize / 2,
-          opacity: compact ? (0.3 + tier * 0.15) : sparkleAnim,
-          shadowColor: rc, shadowOpacity: 0.85,
-          shadowRadius: sparkleSize * 1.2, elevation: 3,
-        }]} />
-      ))}
+      {/* Tier border glow (replaces sparkles) */}
+      <TierBorderGlow tier={tier} size={size} />
     </View>
   );
 }
@@ -235,5 +193,4 @@ const ss = StyleSheet.create({
   bg:       { position: "absolute", overflow: "hidden" },
   tint:     { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   shimmer:  { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  sparkle:  { position: "absolute", transform: [{ rotate: "45deg" }] },
 });

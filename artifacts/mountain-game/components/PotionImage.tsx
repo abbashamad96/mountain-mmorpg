@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, Image, StyleSheet, View } from "react-native";
+import React from "react";
+import { Image, StyleSheet, View } from "react-native";
 import { ITEM_RARITY_COLORS, PotionType, PotionRarity, ItemTier } from "@/lib/items";
+import { TierBorderGlow } from "@/components/TierBorderGlow";
 
 // ─── Static require map (Metro bundler needs literal require calls) ─────────────────
 
@@ -43,23 +44,6 @@ const RARITY_GLOW_OPACITY: Record<PotionRarity, number> = {
   Elite: 0.42, Legendary: 0.52,
 };
 
-// ─── Tier sparkle positions ────────────────────────────────────────────
-
-const SPARKLE_POSITIONS: [number, number][][] = [
-  [],
-  [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]],
-  [[0.05, 0.05], [0.50, 0.04], [0.95, 0.05],
-   [0.96, 0.50],
-   [0.95, 0.95], [0.50, 0.96], [0.05, 0.95],
-   [0.04, 0.50]],
-  [[0.05, 0.05], [0.38, 0.04], [0.62, 0.04], [0.95, 0.05],
-   [0.96, 0.35], [0.96, 0.65],
-   [0.95, 0.95], [0.62, 0.96], [0.38, 0.96], [0.05, 0.95],
-   [0.04, 0.65], [0.04, 0.35]],
-];
-
-const SPARKLE_SIZES: number[] = [0, 3.5, 4.5, 6];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface PotionImageProps {
@@ -76,22 +60,6 @@ export function PotionImage({
   const rc = ITEM_RARITY_COLORS[rarity];
   const rings = RARITY_GLOW_RINGS[rarity];
   const baseOpacity = RARITY_GLOW_OPACITY[rarity];
-
-  const sparkleAnim = useRef(new Animated.Value(0.55)).current;
-  useEffect(() => {
-    if (compact || tier === 0) { sparkleAnim.setValue(0.55); return; }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkleAnim, { toValue: 1.0, duration: 800 + tier * 150, useNativeDriver: true }),
-        Animated.timing(sparkleAnim, { toValue: 0.15, duration: 800 + tier * 150, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [compact, tier, sparkleAnim]);
-
-  const sparklePts  = SPARKLE_POSITIONS[tier] ?? [];
-  const sparkleSize = SPARKLE_SIZES[tier] ?? 0;
 
   const imgSize = size * 0.90;
   const imgOffset = (size - imgSize) / 2;
@@ -129,25 +97,8 @@ export function PotionImage({
         }}
       />
 
-      {/* Sparkle dots */}
-      {sparklePts.map(([lf, tf], i) => (
-        <Animated.View
-          key={i}
-          style={{
-            position: "absolute",
-            left: lf * size - sparkleSize / 2,
-            top: tf * size - sparkleSize / 2,
-            width: sparkleSize,
-            height: sparkleSize,
-            borderRadius: sparkleSize / 2,
-            backgroundColor: rc,
-            opacity: sparkleAnim,
-            shadowColor: rc,
-            shadowRadius: 4,
-            shadowOpacity: 0.8,
-          }}
-        />
-      ))}
+      {/* Tier border glow (replaces sparkles) */}
+      <TierBorderGlow tier={tier} size={size} />
 
       {/* Image */}
       <Image

@@ -374,7 +374,6 @@ function DropCard({
             version={drop.material.version}
             size={56}
             compact
-            animateParticles={false}
           />
           <View style={styles.dropInfo}>
             <Text style={[styles.dropName, { color: rc }]}>
