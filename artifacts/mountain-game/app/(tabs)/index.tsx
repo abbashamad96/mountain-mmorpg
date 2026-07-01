@@ -1869,7 +1869,7 @@ export default function GameScreen() {
                 {isInteracting ? "EXPLORING..." : "EXPLORE"}
               </Text>
             </LinearGradient>
-            <ExploreParticles />
+            <ExploreParticles pressed={explorePressed} />
           </Pressable>
         </View>
       </View>
@@ -1933,6 +1933,14 @@ export default function GameScreen() {
           setPendingDropChest(null);
           if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
           cooldownTimer.current = setTimeout(() => setIsInteracting(false), 500);
+        }}
+        onListOnAh={(chest) => {
+          setPreSelectChestForAh(chest);
+          setShowAuction(true);
+        }}
+        onOpenChest={(chest) => {
+          setPendingDropChest(null);
+          setAutoOpenChest(chest);
         }}
       />
       {autoOpenChest && (

@@ -1,15 +1,22 @@
 import React, { useEffect, useRef } from "react";
 import { Platform, View } from "react-native";
 
-function ParticleCanvas() {
+function ParticleCanvas({ pressed }: { pressed: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const pressedRef = useRef(pressed);
+  const speedMult = useRef(1);
+
+  useEffect(() => {
+    pressedRef.current = pressed;
+  }, [pressed]);
+
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const W = canvas.width, H = canvas.height;
 
-    const particles = Array.from({ length: 60 }, () => ({
+    const particles = Array.from({ length: 120 }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
       vy: -(0.08 + Math.random() * 0.2),
@@ -24,6 +31,9 @@ function ParticleCanvas() {
 
     let raf: number;
     function draw() {
+      const target = pressedRef.current ? 1.6 : 1.0;
+      speedMult.current += (target - speedMult.current) * 0.05;
+
       ctx.clearRect(0, 0, W, H);
       for (const p of particles) {
         const fade = Math.max(0, Math.min(1, (H - p.y) / (H * 0.6)));
@@ -58,8 +68,8 @@ function ParticleCanvas() {
           ctx.fill();
         }
 
-        p.x += p.vx;
-        p.y += p.vy;
+        p.x += p.vx * speedMult.current;
+        p.y += p.vy * speedMult.current;
         if (p.y < -20) {
           p.y = H + 5;
           p.x = Math.random() * W;
@@ -82,7 +92,7 @@ function ParticleCanvas() {
   );
 }
 
-export function ExploreParticles() {
+export function ExploreParticles({ pressed = false }: { pressed?: boolean }) {
   if (Platform.OS !== "web") return null;
   return (
     <View
@@ -98,10 +108,10 @@ export function ExploreParticles() {
         pointerEvents: "none",
       } as any}
     >
-      <ParticleCanvas />
-      <ParticleCanvas />
-      <ParticleCanvas />
-      <ParticleCanvas />
+      <ParticleCanvas pressed={pressed} />
+      <ParticleCanvas pressed={pressed} />
+      <ParticleCanvas pressed={pressed} />
+      <ParticleCanvas pressed={pressed} />
     </View>
   );
 }

@@ -151,6 +151,7 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
           <Text style={ss.tradable}>{item.tradable ? "⚖  Tradable" : "🔒  Account Bound"}</Text>
 
           {/* ── Action buttons ───────────────────────────────────────── */}
+          {!salvageResult && (
           <View style={ss.actions}>
             {onEquip && (
               <Pressable
@@ -163,12 +164,8 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
                 </Text>
               </Pressable>
             )}
-            {onSellOnAh && item.tradable && (
-              <Pressable style={[ss.actionBtn, ss.ahBtn]} onPress={onSellOnAh}>
-                <Text style={ss.ahBtnTxt}>SELL ON AH</Text>
-              </Pressable>
-            )}
           </View>
+          )}
 
           {/* ── Salvage result ───────────────────────────────────────── */}
           {salvageResult && (
@@ -196,8 +193,8 @@ export function ItemBagModal({ item, onClose, onEquip, onSellOnAh, onSalvage, on
                 {salvageResult.totalCount} material{salvageResult.totalCount !== 1 ? "s" : ""} recovered ·{" "}
                 +{SALVAGE_XP_REWARDS[item.rarity as keyof typeof SALVAGE_XP_REWARDS] ?? 5} salvage XP
               </Text>
-              <Pressable style={ss.salvageDoneBtn} onPress={() => { onSalvage?.(); onClose(); }}>
-                <Text style={ss.salvageDoneBtnTxt}>DONE</Text>
+              <Pressable style={ss.salvageDoneBtn} onPress={onClose}>
+                <Text style={ss.salvageDoneBtnTxt}>CLOSE</Text>
               </Pressable>
             </View>
           )}
