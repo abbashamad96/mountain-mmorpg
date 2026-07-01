@@ -125,8 +125,9 @@ export function BattleDropModal({
     <Modal transparent visible animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <View style={{ width: "100%", maxWidth: 420, alignSelf: "center" }}>
-          <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }] }]}>
-            <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%" }} contentStyle={{ overflow: "hidden" }}>
+          <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }], flex: 1 }]}>
+            <OrnatePanel accent={Colors.game.gold} glow padding={0} style={{ width: "100%", flex: 1 }} contentStyle={{ overflow: "hidden", flex: 1 }}>
+            <View style={{ flex: 1 }}>
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.victoryLabel}>VICTORY</Text>
@@ -136,7 +137,7 @@ export function BattleDropModal({
 
           {/* Drops list */}
           <ScrollView
-            style={styles.scroll}
+            style={{ flex: 1 }}
             contentContainerStyle={{ gap: 10, paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}
           >
@@ -231,6 +232,7 @@ export function BattleDropModal({
             <Pressable style={styles.closeBtn} onPress={() => onCollectAll(handledRef.current)}>
               <Text style={styles.closeBtnText}>CLOSE</Text>
             </Pressable>
+          </View>
           </View>
           </OrnatePanel>
           </Animated.View>

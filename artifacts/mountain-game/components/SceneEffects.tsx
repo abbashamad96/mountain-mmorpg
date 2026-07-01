@@ -434,56 +434,8 @@ function DungeonEffect() {
 
 // ─── Ruins / Dust Effect ──────────────────────────────────────────────────────
 
-function RuinsEffect() 
-{
+function RuinsEffect() {
   return null;
-}
-  ).current;
-
-  useEffect(() => {
-    motes.forEach((m) => {
-      const loop = () => {
-        const sx = 0.1 + Math.random() * 0.8;
-        const sy = 0.3 + Math.random() * 0.5;
-        m.xAnim.setValue(sx);
-        m.yAnim.setValue(sy);
-        m.opacity.setValue(0);
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(m.opacity, { toValue: 0.5, duration: 500, useNativeDriver: false }),
-            Animated.timing(m.opacity, { toValue: 0, duration: m.duration - 500, useNativeDriver: false }),
-          ]),
-          Animated.timing(m.xAnim, { toValue: sx + (Math.random() * 0.2 - 0.1), duration: m.duration, useNativeDriver: false }),
-          Animated.timing(m.yAnim, { toValue: sy - 0.15, duration: m.duration, useNativeDriver: false }),
-        ]).start(({ finished }) => { if (finished) loop(); });
-      };
-      setTimeout(loop, m.delay);
-    });
-  }, []);
-
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {motes.map((m, i) => {
-        const left = m.xAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
-        const top = m.yAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
-        return (
-          <Animated.View
-            key={i}
-            style={{
-              position: "absolute",
-              left,
-              top,
-              width: m.size,
-              height: m.size,
-              borderRadius: m.size / 2,
-              backgroundColor: "#C9A84C",
-              opacity: m.opacity,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
 }
 
 // ─── Treasure / Sparkle Effect ────────────────────────────────────────────────
