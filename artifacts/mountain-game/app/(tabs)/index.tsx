@@ -1827,10 +1827,9 @@ export default function GameScreen() {
       {/* ── Floating gold/xp toasts ─────────────────────────────────────── */}
       <FloatingGoldXpToasts logs={gameState.eventLog} />
 
-      {/* ── Fixed scene art + potion picker ─────────────────────────────── */}
+      {/* ── Fixed scene art ─────────────────────────────── */}
       <View style={styles.sceneWrapFixed}>
         <SceneView scene={gameState.currentScene} artIndex={artIndex} />
-        <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
       </View>
 
       {/* ── Scrollable event log ─────────────────────────────────────────── */}
@@ -1840,9 +1839,10 @@ export default function GameScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Explore button at bottom ─────────────────────────────────────── */}
+      {/* ── Explore button + potion picker at bottom ─────────────────────── */}
       <View style={styles.exploreRow}>
         <View style={styles.exploreBtnWrap}>
+          <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
           <Pressable
             style={({ pressed }) => [
               styles.exploreBtn,
@@ -2313,6 +2313,7 @@ const styles = StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   exploreBtn: { borderRadius: 16, alignSelf: "stretch" },
   exploreBtnPressed: { opacity: 0.85 },

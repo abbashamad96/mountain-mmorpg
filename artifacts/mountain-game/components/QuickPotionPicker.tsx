@@ -172,25 +172,27 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const PANEL_WIDTH = 240;
+const PANEL_WIDTH = 260;
 
 const ss = StyleSheet.create({
   // Anchor — absolutely positioned in parent
   anchor: {
     position: "absolute",
-    bottom: 8,
-    right: 0,
-    alignItems: "flex-end",
+    bottom: 4,
+    left: 8,
+    alignItems: "flex-start",
     zIndex: 20,
   },
 
   // Floating trigger button
   triggerBtn: {
-    width: 40, height: 40,
-    borderRadius: 20,
+    width: 44, height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.game.surface,
-    borderWidth: 1, borderColor: Colors.game.gold + "55",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.game.gold + "55",
+    alignItems: "center",
+    justifyContent: "center",
   },
   triggerActive: {
     borderColor: Colors.game.gold,
@@ -199,20 +201,28 @@ const ss = StyleSheet.create({
   triggerDisabled: {
     opacity: 0.35,
   },
-  triggerIcon: { fontSize: 20, lineHeight: 24 },
+  triggerIcon: { fontSize: 22, lineHeight: 26 },
   badge: {
-    position: "absolute", top: -4, right: -4,
+    position: "absolute",
+    top: -4,
+    right: -4,
     backgroundColor: Colors.game.purple,
-    borderRadius: 8, minWidth: 16, height: 16, paddingHorizontal: 3,
-    alignItems: "center", justifyContent: "center",
+    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.game.purple + "88",
   },
-  badgeText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
+  badgeText: { fontSize: 9, fontFamily: "Inter_700Bold", color: "#fff" },
 
   // Picker panel
   panel: {
     width: PANEL_WIDTH,
-    maxHeight: 260,
-    marginBottom: 8,
+    maxHeight: 320,
+    marginBottom: 10,
   },
   scroll: { flex: 1 },
   scrollContent: { gap: 8 },
