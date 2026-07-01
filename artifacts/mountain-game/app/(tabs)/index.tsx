@@ -787,7 +787,6 @@ interface BottomTabBarProps {
   onPressChat: () => void;
   onPressCraft: () => void;
   unreadCount: number;
-  pendingStatPoints: number;
   bottomPad: number;
 }
 
@@ -879,7 +878,6 @@ function BottomTabBar({
   onPressChat,
   onPressCraft,
   unreadCount,
-  pendingStatPoints,
   bottomPad,
 }: BottomTabBarProps) {
   return (
@@ -918,7 +916,6 @@ function BottomTabBar({
         label="Inventory"
         color={Colors.game.purpleLight}
         onPress={onPressInventory}
-        badge={pendingStatPoints}
         badgeColor={Colors.game.purple}
       />
       <TabButton
@@ -1669,7 +1666,7 @@ export default function GameScreen() {
         ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={[styles.characterCard, { paddingTop: topPad + 10 }]}
+        style={[styles.characterCard, { paddingTop: topPad }]}
       >
         <View style={styles.charRow}>
           {/* Avatar circle — tap to open profile */}
@@ -1898,7 +1895,6 @@ export default function GameScreen() {
         onPressChat={() => setShowChat(true)}
         onPressCraft={() => setShowCrafting(true)}
         unreadCount={unreadCount}
-        pendingStatPoints={char.pendingStatPoints}
         bottomPad={bottomPad}
       />
 

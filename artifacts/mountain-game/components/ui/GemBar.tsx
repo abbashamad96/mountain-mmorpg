@@ -41,9 +41,7 @@ interface Props {
 }
 
 /**
- * Gem-cut progress bar in a gold setting: a molten gradient fill with a glossy
- * top highlight, framed by a gold bevel with faceted gem studs at each end —
- * echoing the ruby/sapphire status bars from the reference art.
+ * Thin contrast progress bar. No gem shapes at ends by default.
  */
 export function GemBar({
   progress,
@@ -51,7 +49,7 @@ export function GemBar({
   height = 10,
   style,
   animated = true,
-  framed = true,
+  framed = false,
 }: Props) {
   const pct = Math.max(0, Math.min(1, progress));
   const w = useSharedValue(pct);
@@ -142,9 +140,9 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   track: {
-    backgroundColor: "#0A0610",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.55)",
+    borderColor: "rgba(255,255,255,0.12)",
     overflow: "hidden",
     flex: 1,
   },

@@ -873,7 +873,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState((prev) => {
       const char = prev.character;
       const maxEnergy = CRAFTING_MAX_ENERGY + char.energyLimitExtender;
-      if (char.craftingEnergy >= maxEnergy) return prev;
       const lastRegen = char.energyLastRegen > 0 ? char.energyLastRegen : now;
       const steps = Math.floor((now - lastRegen) / CRAFTING_ENERGY_REGEN_MS);
       if (steps <= 0) return prev;

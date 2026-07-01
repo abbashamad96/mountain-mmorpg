@@ -9,9 +9,10 @@ import { ChestImage } from "./ChestImage";
 interface ChestDropModalProps {
   chest: ItemChest | null;
   onCollect: (chest: ItemChest) => void;
+  onClose?: () => void;
 }
 
-export function ChestDropModal({ chest, onCollect }: ChestDropModalProps) {
+export function ChestDropModal({ chest, onCollect, onClose }: ChestDropModalProps) {
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -60,6 +61,11 @@ export function ChestDropModal({ chest, onCollect }: ChestDropModalProps) {
               >
                 <Text style={[styles.collectBtnText, { color: rc }]}>COLLECT</Text>
               </Pressable>
+              {onClose && (
+                <Pressable style={styles.closeBtn} onPress={onClose}>
+                  <Text style={styles.closeBtnText}>CLOSE</Text>
+                </Pressable>
+              )}
             </View>
           </OrnatePanel>
         </Animated.View>
@@ -127,5 +133,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_700Bold",
     letterSpacing: 4,
+  },
+  closeBtn: {
+    width: "100%",
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: Colors.game.surface,
+    borderWidth: 1,
+    borderColor: Colors.game.border,
+    marginTop: 8,
+  },
+  closeBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted,
+    letterSpacing: 3,
   },
 });
