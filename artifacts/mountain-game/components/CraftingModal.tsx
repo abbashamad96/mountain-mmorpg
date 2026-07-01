@@ -5,7 +5,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
-import { FantasyButton, OrnatePanel, GemBar, BannerLabel } from "@/components/ui";
+import { FantasyButton, OrnatePanel, GemBar } from "@/components/ui";
 import { ITEM_RARITIES } from "@/lib/items";
 import {
   CraftResult, CRAFTING_MATERIALS_NEEDED, CRAFTING_UNLOCK_LEVELS,
@@ -214,7 +214,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
 
           {/* ── Header ── */}
           <View style={s.header}>
-            <BannerLabel title="Crafting" icon="flask" size="md" align="left" style={s.titleBanner} />
+            <Text style={s.titleText}>Crafting</Text>
             <View style={s.levelBadge}>
               <Text style={s.levelText}>Lv {skill.level}</Text>
             </View>
@@ -224,7 +224,6 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
           {/* ── XP + Energy ── */}
           <View style={s.topSection}>
             <XpBar current={skill.xp} total={xpToNext} level={skill.level} />
-            <EnergyBar energy={char.craftingEnergy} lastRegen={char.energyLastRegen} now={now} maxEnergy={CRAFTING_MAX_ENERGY + char.energyLimitExtender} />
           </View>
 
           <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
@@ -232,7 +231,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {/* ── Active Jobs ── */}
             {activeJobs.length > 0 && (
               <>
-                <BannerLabel title="Crafting" icon="hammer" size="sm" align="left" style={s.sectionHeading} />
+                <Text style={[s.sectionLabel, { marginTop: 0 }]}>Crafting</Text>
                 {activeJobs.map((job) => {
                   const msLeft = job.completesAt - now;
                   const prog = Math.min(1, Math.max(0, 1 - msLeft / (job.completesAt - job.startedAt)));
@@ -260,13 +259,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {/* ── Ready to Collect ── */}
             {pendingBatches.length > 0 && (
               <>
-                <BannerLabel
-                  title="Ready to Collect"
-                  icon="checkmark-done"
-                  size="sm"
-                  align="left"
-                  style={StyleSheet.flatten([s.sectionHeading, { marginTop: activeJobs.length > 0 ? 14 : 0 }])}
-                />
+                <Text style={[s.sectionLabel, { marginTop: activeJobs.length > 0 ? 14 : 0 }]}>Ready to Collect</Text>
                 {pendingBatches.map((batch) => {
                   const brc = RARITY_COLORS[batch.rarity as RarityName];
                   return (
@@ -295,7 +288,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             )}
 
             {/* ── Rarity selector ── */}
-            <BannerLabel title="Rarity" icon="diamond" size="sm" align="left" style={s.sectionHeading} />
+            <Text style={[s.sectionLabel, { marginTop: 6 }]}>Rarity</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rarityRow}>
               {(ITEM_RARITIES as RarityName[]).map((r) => {
                 const unlocked = skill.level >= CRAFTING_UNLOCK_LEVELS[r];
@@ -322,7 +315,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             </ScrollView>
 
             {/* ── Tier selector ── */}
-            <BannerLabel title="Tier" icon="layers" size="sm" align="left" style={StyleSheet.flatten([s.sectionHeading, { marginTop: 10 }])} />
+            <Text style={[s.sectionLabel, { marginTop: 10 }]}>Tier</Text>
             <View style={s.tierRow}>
               {TIERS.map((t) => (
                 <Pressable
@@ -342,7 +335,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {/* ── Quantity selector ── */}
             {isRarityUnlocked && !hasActiveJob && (
               <>
-                <BannerLabel title="Quantity" icon="apps" size="sm" align="left" style={StyleSheet.flatten([s.sectionHeading, { marginTop: 10 }])} />
+                <Text style={[s.sectionLabel, { marginTop: 10 }]}>Quantity</Text>
                 <View style={s.tierRow}>
                   {[1, 2, 3, 4, 5].map((q) => {
                     const maxForEnergy = Math.floor(char.craftingEnergy / baseEnergyCost);
@@ -379,7 +372,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
             {isRarityUnlocked && !hasActiveJob && (
               <>
                 <View style={s.allocHeader}>
-                  <BannerLabel title="Materials" icon="cube" size="sm" align="left" />
+                  <Text style={s.sectionLabel}>Materials</Text>
                   <View style={[s.allocProgress, totalAllocated === needed && s.allocProgressFull]}>
                     <Text style={[s.allocProgressTxt, { color: totalAllocated === needed ? Colors.game.green : rc }]}>
                       {totalAllocated} / {needed}
@@ -543,7 +536,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: Colors.game.gold + "22",
   },
-  titleBanner: { flex: 1 },
+  titleText: { flex: 1, fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.gold, letterSpacing: 0.5 },
   levelBadge: {
     backgroundColor: Colors.game.blue + "22",
     borderRadius: 8, borderWidth: 1, borderColor: Colors.game.blue + "55",
@@ -561,6 +554,15 @@ const s = StyleSheet.create({
   scrollContent: { padding: 18, paddingBottom: 40 },
 
   sectionHeading: { marginBottom: 8, alignSelf: "flex-start" },
+  sectionLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    color: Colors.game.textDim,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+    alignSelf: "flex-start",
+  },
   divider: { height: 1, backgroundColor: Colors.game.gold + "22", marginVertical: 16 },
 
   // Active job cards

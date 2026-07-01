@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import Colors from "@/constants/colors";
 import { Material, RARITY_COLORS } from "@/context/GameContext";
+import { CRAFTING_MAX_ENERGY } from "@/lib/crafting";
 import { GatheringTool, TOOL_RARITY_COLORS, TOOL_NAMES, TOOL_ICONS, MATERIAL_TO_TOOL } from "@/lib/tools";
 import { MaterialImage } from "./MaterialImage";
 import { RarityText } from "./RarityText";
@@ -22,6 +23,7 @@ interface GatheringModalProps {
   xpToNext: number;
   equippedTool?: GatheringTool | null;
   sweepCharges?: number;
+  maxEnergy?: number;
   onComplete: (gathered: Material[]) => void;
   onAttemptXp: (xp: number) => void;
   onSweep?: () => void;
@@ -34,6 +36,7 @@ export function GatheringModal({
   xpToNext,
   equippedTool,
   sweepCharges = 0,
+  maxEnergy = CRAFTING_MAX_ENERGY,
   onComplete,
   onAttemptXp,
   onSweep,
@@ -225,8 +228,8 @@ export function GatheringModal({
             <View style={{ width: "100%", gap: 12 }}>
               {/* Energy indicator (shared pool — sweep costs 1 energy) */}
               <View style={styles.sweepChargesRow}>
-                <Text style={styles.sweepChargesLabel}>⚡ Energy: {sweepCharges}/5</Text>
-                <GemBar progress={Math.min(1, sweepCharges / 5)} gem="sapphire" height={7} style={styles.energyBar} />
+                <Text style={styles.sweepChargesLabel}>⚡ Energy: {sweepCharges}/{maxEnergy}</Text>
+                <GemBar progress={Math.min(1, sweepCharges / maxEnergy)} gem="sapphire" height={7} style={styles.energyBar} />
               </View>
 
               <View style={styles.btnRow}>

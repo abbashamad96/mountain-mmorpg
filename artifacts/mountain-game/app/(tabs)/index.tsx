@@ -5,6 +5,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -32,6 +33,7 @@ import { GatheringModal } from "@/components/GatheringModal";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
 import { StatsModal } from "@/components/StatsModal";
+import { ProfileModal } from "@/components/ProfileModal";
 import { ToolShopModal } from "@/components/ToolShopModal";
 import { RubyShopModal } from "@/components/RubyShopModal";
 import { QuickPotionPicker } from "@/components/QuickPotionPicker";
@@ -1042,8 +1044,9 @@ export default function GameScreen() {
 
   const [showStats, setShowStats] = useState(false);
   const [statsDefaultTab, setStatsDefaultTab] = useState<
-    "inventory" | "equipment" | "tools" | "profile"
+    "inventory" | "equipment" | "tools"
   >("inventory");
+  const [showProfile, setShowProfile] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAuction, setShowAuction] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -1147,11 +1150,13 @@ export default function GameScreen() {
     };
   }, [gameState, isAuthenticated, status, saveGameState]);
 
-  // ── Energy regen timer (runs on main screen, not just crafting tab) ────
+  // ── Energy regen + UI tick timer (forces re-render every second for countdown) ────
+  const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => {
       regenCraftingEnergy();
       checkCraftingJobs();
+      setTick((t) => t + 1);
     }, 1000);
     return () => clearInterval(id);
   }, [regenCraftingEnergy, checkCraftingJobs]);
@@ -1671,8 +1676,7 @@ export default function GameScreen() {
           <Pressable
             style={styles.avatarWrap}
             onPress={() => {
-              setStatsDefaultTab("profile");
-              setShowStats(true);
+              setShowProfile(true);
             }}
             hitSlop={6}
           >
@@ -1826,16 +1830,18 @@ export default function GameScreen() {
       {/* ── Floating gold/xp toasts ─────────────────────────────────────── */}
       <FloatingGoldXpToasts logs={gameState.eventLog} />
 
-      {/* ── Event log ────────────────────────────────────────────────────── */}
-      <View style={styles.logWrap}>
-        <EventLogStack logs={gameState.eventLog} />
-      </View>
+      {/* ── Scrollable content below sticky header ────────────────────────────────────────────────────── */}
+      <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.logWrap}>
+          <EventLogStack logs={gameState.eventLog} />
+        </View>
 
-      {/* ── Scene — fills remaining space ────────────────────────────────── */}
+        {/* ── Scene — fills remaining space ────────────────────────────────── */}
       <View style={styles.sceneWrap}>
         <SceneView scene={gameState.currentScene} artIndex={artIndex} />
         <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
       </View>
+      </ScrollView>
 
       {/* ── Explore button at bottom ─────────────────────────────────────── */}
       <View style={styles.exploreRow}>
@@ -2064,6 +2070,10 @@ export default function GameScreen() {
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
       />
+      <ProfileModal
+        visible={showProfile}
+        onClose={() => setShowProfile(false)}
+      />
       <RubyShopModal
         visible={showRubyShop}
         onClose={() => setShowRubyShop(false)}
@@ -2083,9 +2093,7 @@ export default function GameScreen() {
       <StatsModal
         visible={showStats}
         onClose={() => setShowStats(false)}
-        defaultTab={
-          statsDefaultTab as "inventory" | "equipment" | "tools" | "profile"
-        }
+        defaultTab={statsDefaultTab}
         onListOnAh={handleListOnAh}
         onListItemOnAh={handleListItemOnAh}
         onListChestOnAh={handleListChestOnAh}
@@ -2104,6 +2112,7 @@ export default function GameScreen() {
             : null
         }
         sweepCharges={char.craftingEnergy}
+        maxEnergy={CRAFTING_MAX_ENERGY + char.energyLimitExtender}
         onComplete={handleGatherComplete}
         onAttemptXp={(xp) => {
           const result = applyGoldXp(0, xp);
@@ -2287,6 +2296,8 @@ const styles = StyleSheet.create({
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
   sceneWrap: { paddingHorizontal: 16, paddingTop: 6, height: 200 },
+  scrollBody: { flex: 1 },
+  scrollContent: { paddingBottom: 12 },
 
   // ── Explore button at bottom ─────────────────────────────────────────────
   exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },

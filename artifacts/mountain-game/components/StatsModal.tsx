@@ -11,8 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 import { FantasyButton, OrnatePanel, RivetFrame, GemBar } from "@/components/ui";
-import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest, SWEEP_MAX_CHARGES, SWEEP_REGEN_MS, getEffectiveStats, CharacterStats, Character } from "@/context/GameContext";
-import { CRAFTING_MAX_ENERGY, CRAFTING_ENERGY_REGEN_MS } from "@/lib/crafting";
+import { MaterialEntry, RARITY_COLORS, RARITIES, useGame, MaterialType, ItemChest } from "@/context/GameContext";
 import { useMultiplayer } from "@/context/MultiplayerContext";
 import { Potion, GameItem, ITEM_RARITIES, ITEM_RARITY_COLORS, ITEM_QUALITY_COLORS } from "@/lib/items";
 import { GatheringTool } from "@/lib/tools";
@@ -32,7 +31,7 @@ import { ToolsTab } from "./ToolsTab";
 interface StatsModalProps {
   visible: boolean;
   onClose: () => void;
-  defaultTab?: "inventory" | "equipment" | "tools" | "profile";
+  defaultTab?: "inventory" | "equipment" | "tools";
   onListOnAh?: (entry: MaterialEntry) => void;
   onListItemOnAh?: (item: GameItem) => void;
   onListChestOnAh?: (chest: ItemChest) => void;
@@ -184,100 +183,20 @@ function ItemDetailModal({
 }
 
 // ─── Profile tab sub-component ───────────────────────────────────────────────
-
-function ProfileTab({ char }: { char: Character }) {
-  const effective = getEffectiveStats(char);
-  const maxEnergy = CRAFTING_MAX_ENERGY + char.energyLimitExtender;
-  const xpPct = char.xpToNext > 0 ? Math.min(1, char.xp / char.xpToNext) : 1;
-  const msUntil = char.energyLastRegen + CRAFTING_ENERGY_REGEN_MS - Date.now();
-  const secs = Math.max(0, Math.ceil(msUntil / 1000));
-  const m = Math.floor(secs / 60);
-  const ss = String(secs % 60).padStart(2, "0");
-  const energyRegenLabel = char.craftingEnergy >= maxEnergy ? "Full" : `+1 in ${m}:${ss}`;
-
-  return (
-    <View style={{ gap: 14 }}>
-      {/* Level & Name */}
-      <View style={{ alignItems: "center", gap: 4 }}>
-        <Text style={styles.nameLabel}>WANDERER</Text>
-        <View style={styles.levelRow}>
-          <Text style={styles.lvLabel}>LV </Text>
-          <Text style={styles.lvValue}>{char.level}</Text>
-        </View>
-      </View>
-
-      {/* XP Bar */}
-      <View style={styles.xpRow}>
-        <View style={styles.xpGem}>
-          <Text style={styles.xpGemText}>XP</Text>
-        </View>
-        <View style={styles.xpTrack}>
-          <GemBar progress={xpPct} gem="sapphire" height={8} />
-        </View>
-        <Text style={styles.xpNums}>{char.xp}/{char.xpToNext}</Text>
-      </View>
-
-      {/* Gold & Rubies */}
-      <View style={styles.goldBlock}>
-        <View style={styles.goldCoin}>
-          <Text style={styles.goldCoinText}>G</Text>
-        </View>
-        <Text style={styles.goldVal}>{char.gold.toLocaleString()} Gold</Text>
-        <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: "#E91E8C" }}>
-          ◆ {char.rubies} Rubies
-        </Text>
-      </View>
-
-      {/* Energy */}
-      <View style={styles.onlineRow}>
-        <Text style={{ fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.ember }}>
-          ⚡ {char.craftingEnergy}/{maxEnergy} Energy
-        </Text>
-        <Text style={styles.onlineStatus}>{energyRegenLabel}</Text>
-      </View>
-
-      {/* Stat Points */}
-      {char.pendingStatPoints > 0 && (
-        <View style={styles.pendingBanner}>
-          <Text style={styles.pendingText}>{char.pendingStatPoints} stat points available</Text>
-        </View>
-      )}
-
-      {/* Stats Grid */}
-      <View style={styles.statGrid}>
-        {STAT_CONFIG.map((s) => (
-          <View key={s.key} style={styles.statCard}>
-            <View style={styles.statCardTop}>
-              <Text style={styles.statIcon}>{s.icon}</Text>
-              <View style={styles.statInfo}>
-                <Text style={[styles.statName, { color: s.color }]}>{s.label}</Text>
-                <Text style={styles.statDesc}>{s.desc}</Text>
-              </View>
-              <Text style={[styles.statVal, { color: s.color }]}>
-                {effective[s.key].toFixed(1)}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
 export function StatsModal({ visible, onClose, defaultTab = "inventory", onListOnAh, onListItemOnAh, onListChestOnAh, onListPotionOnAh, onListToolOnAh }: StatsModalProps) {
-  const { gameState, allocateStat, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag, salvageItem, sellItemToNpc } = useGame();
+  const { gameState, addItemToBag, addPotionToBag, removeChestFromBag, equipItem, removeItemFromBag, consumePotion, removePotionFromBag, addToolToBag, salvageItem, sellItemToNpc } = useGame();
   const char = gameState.character;
   const [selectedEntry, setSelectedEntry] = useState<MaterialEntry | null>(null);
   const [selectedChest, setSelectedChest] = useState<ItemChest | null>(null);
   const [selectedBagItem, setSelectedBagItem] = useState<GameItem | null>(null);
   const [selectedPotion, setSelectedPotion] = useState<Potion | null>(null);
-  const [activeTab, setActiveTab] = useState<"inventory" | "equipment" | "tools" | "profile">(defaultTab);
+  const [activeTab, setActiveTab] = useState<"inventory" | "equipment" | "tools">("inventory");
 
   // Sync tab when modal opens with a new defaultTab
   useEffect(() => {
-    if (visible) setActiveTab(defaultTab);
+    if (visible && defaultTab) setActiveTab(defaultTab);
   }, [visible, defaultTab]);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set(["Wood", "Ore", "Herb", "Leather", "Chests", "Potions", "Weapon", "Armor", "Boots", "Helmet", "Amulet", "Ring"]));
   const [multiSelectMode, setMultiSelectMode] = useState(false);
@@ -371,14 +290,6 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
               style={styles.tabFlex}
               textStyle={styles.tabTxt}
               size="sm"
-              variant={activeTab === "profile" ? "gold" : "dark"}
-              label="PROFILE"
-              onPress={() => setActiveTab("profile")}
-            />
-            <FantasyButton
-              style={styles.tabFlex}
-              textStyle={styles.tabTxt}
-              size="sm"
               variant={activeTab === "inventory" ? "gold" : "dark"}
               label={`ITEMS ${totalItems > 0 ? `(${totalItems})` : ""}`}
               onPress={() => setActiveTab("inventory")}
@@ -400,13 +311,6 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
               onPress={() => setActiveTab("tools")}
             />
           </View>
-
-          {/* ── Profile tab ───────────────────────────────────────────── */}
-          {activeTab === "profile" && (
-            <ScrollView style={styles.tabContent} contentContainerStyle={styles.profileContent}>
-              <ProfileTab char={char} />
-            </ScrollView>
-          )}
 
           {/* ── Equipment tab ───────────────────────────────────────────── */}
           {activeTab === "equipment" && (
