@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import {
   Animated,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -151,42 +152,52 @@ export function ChestOpenModal({ chest, onClaim, onClose, onSellOnAh, onEquipIte
           {/* ── Chest phase ── */}
           {phase !== "revealed" && (
             <View style={styles.chestPhase}>
-              <BannerLabel title={RARITY_LABELS[chest.rarity]} icon="cube" size="sm" />
-              <View style={styles.chestTagRow}>
-                <View style={[styles.tag, { borderColor: "#555" }]}>
-                  <Text style={[styles.tagTxt, { color: "#aaa" }]}>T{chest.tier}</Text>
-                </View>
-                <View style={[styles.tag, { borderColor: rc }]}>
-                  <Text style={[styles.tagTxt, { color: rc }]}>{chest.tradable ? "⚖ TRADABLE" : "🔒 BOUND"}</Text>
-                </View>
+              {/* Header matching BattleDropModal style */}
+              <View style={styles.header}>
+                <Text style={styles.victoryLabel}>CHEST FOUND</Text>
+                <Text style={[styles.npcName, { color: rc }]}>{formatChestName(chest)}</Text>
+                <Text style={styles.lootLabel}>TAP TO MANAGE</Text>
               </View>
 
-              <Animated.View
-                style={[styles.chestWrap, { transform: [{ translateX: shakeX }, { scale }], opacity: chestOp }]}
-              >
-                <Animated.View style={[styles.glowRing, { backgroundColor: rc + "44", opacity: glowOp }]} />
-                <View style={[styles.chestBox, { borderColor: rc, shadowColor: rc }]}>
-                  <ChestImage rarity={chest.rarity} size={90} />
+              {/* Drop card matching BattleDropModal */}
+              <Animated.View style={[styles.dropCard, { borderColor: rc + "55", opacity: chestOp }]}>
+                <View style={styles.dropRow}>
+                  <ChestImage rarity={chest.rarity} size={56} />
+                  <View style={styles.dropInfo}>
+                    <Text style={[styles.dropName, { color: rc }]} numberOfLines={1}>
+                      {formatChestName(chest)}
+                    </Text>
+                    <Text style={styles.dropMeta}>T{chest.tier}  ·  {chest.tradable ? "⚖ TRADABLE" : "🔒 BOUND"}</Text>
+                  </View>
                 </View>
+
+                {phase === "idle" && (
+                  <>
+                    <Pressable
+                      style={[styles.ahCardBtn, { borderColor: rc, backgroundColor: rc + "18" }]}
+                      onPress={handleOpen}
+                    >
+                      <Text style={[styles.ahCardBtnTxt, { color: rc }]}>🔓 OPEN CHEST</Text>
+                    </Pressable>
+                    {onSellOnAh && (
+                      <Pressable style={styles.ahCardBtn} onPress={onSellOnAh}>
+                        <Text style={styles.ahCardBtnTxt}>🛒  SELL ON AH</Text>
+                      </Pressable>
+                    )}
+                  </>
+                )}
+
+                {phase === "opening" && (
+                  <Text style={[styles.openingMsg, { color: rc }]}>
+                    {OPEN_MESSAGES[chest.rarity]}
+                  </Text>
+                )}
               </Animated.View>
 
-              {phase === "idle" && (
-                <View style={styles.idleActions}>
-                  <FantasyButton label="OPEN CHEST" icon="cube" variant="gold" size="lg" glow fullWidth onPress={handleOpen} />
-                  {onSellOnAh && (
-                    <FantasyButton label="SELL ON AH" icon="pricetag" variant="ember" fullWidth onPress={onSellOnAh} />
-                  )}
-                </View>
-              )}
-
-              {phase === "opening" && (
-                <Text style={[styles.openingMsg, { color: rc }]}>
-                  {OPEN_MESSAGES[chest.rarity]}
-                </Text>
-              )}
-
               {phase === "idle" && onClose && (
-                <FantasyButton label="CLOSE" icon="close" variant="dark" fullWidth style={styles.closeBtn} onPress={onClose} />
+                <Pressable style={styles.closeBtn} onPress={onClose}>
+                  <Text style={styles.closeBtnText}>CLOSE</Text>
+                </Pressable>
               )}
             </View>
           )}
@@ -369,26 +380,65 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: "rgba(7,4,9,0.8)",
     justifyContent: "center", alignItems: "center", padding: 20,
   },
-  cardWrap: { width: "100%", maxWidth: 340 },
+  cardWrap: { width: "100%", maxWidth: 420 },
   card: { gap: 14, alignItems: "center" },
   chestPhase: { alignItems: "center", gap: 12, width: "100%" },
-  chestTagRow: { flexDirection: "row", gap: 8 },
+  header: {
+    alignItems: "center",
+    paddingTop: 14, paddingBottom: 8,
+    paddingHorizontal: 20,
+    gap: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.game.border,
+  },
+  victoryLabel: {
+    fontSize: 10, fontFamily: "Inter_700Bold",
+    color: Colors.game.gold, letterSpacing: 4,
+  },
+  npcName: { fontSize: 18, fontFamily: "Inter_700Bold", color: Colors.game.text },
+  lootLabel: {
+    fontSize: 10, fontFamily: "Inter_500Medium",
+    color: Colors.game.textMuted, letterSpacing: 2,
+  },
+  dropCard: {
+    backgroundColor: Colors.game.surface,
+    borderRadius: 12, borderWidth: 1,
+    padding: 12, gap: 8,
+    width: "100%",
+  },
+  dropRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  dropInfo: { flex: 1, gap: 3 },
+  dropName: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  dropMeta: { fontSize: 11, fontFamily: "Inter_500Medium", color: Colors.game.textMuted },
+  ahCardBtn: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: Colors.game.blue + "88",
+    borderRadius: 10,
+    paddingVertical: 7,
+    alignItems: "center",
+    backgroundColor: Colors.game.blue + "11",
+  },
+  ahCardBtnTxt: {
+    fontSize: 11, fontFamily: "Inter_700Bold",
+    color: Colors.game.blue, letterSpacing: 1,
+  },
+  closeBtn: {
+    width: "100%",
+    borderRadius: 14, paddingVertical: 13,
+    alignItems: "center",
+    borderWidth: 1, borderColor: Colors.game.border,
+  },
+  closeBtnText: {
+    fontSize: 13, fontFamily: "Inter_700Bold",
+    color: Colors.game.textMuted, letterSpacing: 2,
+  },
+  openingMsg: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", letterSpacing: 0.5 },
   tag: {
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1,
     backgroundColor: "rgba(7,4,9,0.4)",
   },
   tagTxt: { fontSize: 9, fontFamily: "Inter_700Bold", letterSpacing: 1 },
-  chestWrap: { alignItems: "center", justifyContent: "center", marginVertical: 4 },
-  glowRing: { position: "absolute", width: 130, height: 130, borderRadius: 65 },
-  chestBox: {
-    width: 110, height: 110, borderRadius: 20, borderWidth: 2,
-    backgroundColor: Colors.game.surface,
-    alignItems: "center", justifyContent: "center",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7, shadowRadius: 12, elevation: 8,
-  },
-  idleActions: { width: "100%", gap: 8 },
-  openingMsg: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center", letterSpacing: 0.5 },
   revealPhase: { alignItems: "center", gap: 12, width: "100%" },
   itemCard: {
     width: "100%", backgroundColor: Colors.game.surface,
@@ -419,5 +469,4 @@ const styles = StyleSheet.create({
   actionBlock: { width: "100%", gap: 8 },
   actionRow: { flexDirection: "row", gap: 8, width: "100%" },
   actionHalf: { flex: 1 },
-  closeBtn: { width: "100%" },
 });

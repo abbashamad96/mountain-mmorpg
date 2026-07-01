@@ -1342,11 +1342,26 @@ export default function GameScreen() {
       setBattleNpc(roll.npc);
       setShowBattle(true);
     } else if (roll.type === "item_chest" && roll.chest) {
-      // All chest drops go through BattleDropModal — player taps OPEN CHEST
-      pendingDropCooldownRef.current = duration;
-      setBattleDrops([{ type: "chest", chest: roll.chest }]);
-      setBattleDropNpcName("");
-      setShowBattleDrops(true);
+      const autoOpen = Math.random() < 0.9;
+      if (autoOpen) {
+        // 90%: auto-open chest — goes straight to ChestOpenModal
+        pendingDropCooldownRef.current = duration;
+        setAutoOpenChest(roll.chest);
+      } else {
+        // 10%: collectable chest — shown in ChestDropModal
+        pendingDropCooldownRef.current = duration;
+        setPendingDropChest(roll.chest);
+        addLogEntry({
+          id: roll.id,
+          timestamp: roll.timestamp,
+          type: "item_chest",
+          summary: `Found a ${roll.chest.rarity} Chest!`,
+          goldGained: 0,
+          xpGained: 0,
+          material: null,
+          chest: roll.chest,
+        });
+      }
     }
   }, [
     isInteracting,
