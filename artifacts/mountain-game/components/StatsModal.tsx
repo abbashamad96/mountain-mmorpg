@@ -68,7 +68,7 @@ const TYPE_ICONS: Record<MaterialType, string> = {
   Ore: "⛏",
   Wood: "🪵",
   Herb: "🌿",
-  Leather: "🛡",
+  Leather: "🔪",
 };
 
 const TYPE_COLORS: Record<MaterialType, string> = {
@@ -616,7 +616,6 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
                         <Ionicons name={expandedSlots.has("Potions") ? "chevron-down" : "chevron-forward"} size={13} color={Colors.game.textDim} style={styles.chevronIcon} />
                       </Pressable>
                       {expandedSlots.has("Potions") && (
-                      <ScrollView style={styles.potionGridScroll} showsVerticalScrollIndicator={false}>
                         <View style={styles.inventoryGrid}>
                           {potionStacks.map(({ rep, count }) => {
                             const rc = ITEM_RARITY_COLORS[rep.rarity];
@@ -640,7 +639,7 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
                             );
                           })}
                         </View>
-                      </ScrollView>)}
+                      )}
                     </View>
                   )}
 
@@ -1110,7 +1109,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     color: "#000",
   },
-  potionGridScroll: { maxHeight: 260 },
   inventoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   invSlotWrap: { alignItems: "center", gap: 4 },
   countBadge: {

@@ -1838,9 +1838,11 @@ export default function GameScreen() {
         <View style={styles.sceneWrapFixed}>
           <SceneView scene={gameState.currentScene} artIndex={artIndex} />
         </View>
-        <View style={styles.exploreRow}>
-          <View style={styles.exploreBtnWrap}>
+        <View style={[styles.exploreRow, { flexDirection: "row", alignItems: "center", gap: 10 }]}>
+          <View style={{ position: "relative", width: 52, height: 52 }}>
             <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
+          </View>
+          <View style={[styles.exploreBtnWrap, { flex: 1 }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.exploreBtn,

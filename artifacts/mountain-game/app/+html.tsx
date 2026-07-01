@@ -14,7 +14,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
           content="An online RPG where you explore a mountain road, gather rare materials, battle fearsome creatures, and trade on a global auction house. Create your account and start your journey."
         />
         <style>{`
-          html { zoom: 0.7; }
+          html { zoom: 0.8; }
           html, body { width: 100%; height: 100%; }
           body {
             display: flex;
