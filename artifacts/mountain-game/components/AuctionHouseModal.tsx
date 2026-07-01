@@ -88,7 +88,7 @@ function ListingCard({
           type={listing.material.type as MaterialType}
           rarity={listing.material.rarity as RarityName}
           version={listing.material.version as VersionNum}
-          size={54} compact
+          size={54} compact animateParticles={false}
         />
       </View>
       <View style={styles.listingInfo}>
@@ -189,7 +189,7 @@ function BuyOrderCard({
             type={order.material.type as MaterialType}
             rarity={order.material.rarity as RarityName}
             version={displayVersion}
-            size={54} compact
+            size={54} compact animateParticles={false}
           />
         )}
       </View>
@@ -1568,7 +1568,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                       type={entry.material.type}
                       rarity={entry.material.rarity}
                       version={entry.material.version}
-                      size={38} compact
+                      size={38} compact animateParticles={false}
                     />
                     <Text style={[styles.invCardRarity, { color: rc }]} numberOfLines={1}>
                       {entry.material.rarity}
@@ -1717,7 +1717,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
                 >
                   <MaterialImage
                     type={entry.material.type} rarity={entry.material.rarity}
-                    version={entry.material.version} size={56} compact
+                    version={entry.material.version} size={56} compact animateParticles={false}
                   />
                   <Text style={[styles.pickLabel, { color: rc }]}>{entry.material.type}</Text>
                   <Text style={styles.pickCount}>×{entry.count}</Text>
@@ -1748,7 +1748,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
         <View style={styles.pricePreview}>
           <MaterialImage
             type={pickedEntry.material.type} rarity={pickedEntry.material.rarity}
-            version={pickedEntry.material.version} size={64} compact
+            version={pickedEntry.material.version} size={64} compact animateParticles={false}
           />
           <View style={{ flex: 1 }}>
             <RarityText

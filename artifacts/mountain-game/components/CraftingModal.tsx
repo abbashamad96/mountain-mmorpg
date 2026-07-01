@@ -396,6 +396,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
                           version={selectedTier}
                           size={50}
                           compact
+                          animateParticles={false}
                         />
                         <View style={s.allocInfo}>
                           <Text style={[s.allocType, { color: effectiveAvail > 0 ? rc : Colors.game.textMuted }]}>

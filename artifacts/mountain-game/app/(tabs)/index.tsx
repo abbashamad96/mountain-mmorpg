@@ -24,7 +24,7 @@ import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
 import { BattleDropModal, BattleDrop } from "@/components/BattleDropModal";
-import { TierBorderGlow } from "@/components/TierBorderGlow";
+import { ExploreParticles } from "@/components/ExploreParticles";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { ChestDropModal } from "@/components/ChestDropModal";
@@ -1869,7 +1869,7 @@ export default function GameScreen() {
                 {isInteracting ? "EXPLORING..." : "EXPLORE"}
               </Text>
             </LinearGradient>
-            <TierBorderGlow tier={1} size={160} />
+            <ExploreParticles />
           </Pressable>
         </View>
       </View>

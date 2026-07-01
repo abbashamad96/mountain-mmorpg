@@ -5,8 +5,9 @@ import {
   MaterialType,
   RarityName,
   VersionNum,
+  VERSION_PARTICLE_COLORS,
 } from "@/context/GameContext";
-import { TierBorderGlow } from "@/components/TierBorderGlow";
+import { AmbientParticles } from "@/components/AmbientParticles";
 
 const SPLASH: Record<MaterialType, Record<RarityName, ImageSourcePropType>> = {
   Ore: {
@@ -130,7 +131,7 @@ interface MaterialImageProps {
   version: VersionNum;
   size?: number;
   compact?: boolean;
-  animateParticles?: boolean; // deprecated, kept for compat
+  animateParticles?: boolean;
 }
 
 export function MaterialImage({
@@ -139,8 +140,7 @@ export function MaterialImage({
   version,
   size = 140,
   compact = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  animateParticles: _deprecated = true,
+  animateParticles = true,
 }: MaterialImageProps) {
   const rarityColor = RARITY_COLORS[rarity];
   const borderW = RARITY_BORDER_W[rarity];
@@ -312,8 +312,15 @@ export function MaterialImage({
         </View>
       )}
 
-      {/* Tier border glow (replaces particles) */}
-      <TierBorderGlow tier={version} size={size} />
+      {/* Ambient particle halo for versioned materials */}
+      {version > 0 && (
+        <AmbientParticles
+          color={VERSION_PARTICLE_COLORS[version]}
+          version={version as 1 | 2 | 3}
+          size={size}
+          animated={animateParticles}
+        />
+      )}
     </View>
   );
 }

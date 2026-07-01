@@ -173,6 +173,7 @@ export function GatheringModal({
                 rarity={material.rarity}
                 version={material.version}
                 size={160}
+                animateParticles={Platform.OS === "web"}
               />
             </Animated.View>
           </View>
