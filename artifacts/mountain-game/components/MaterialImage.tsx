@@ -50,6 +50,16 @@ const SPLASH: Record<MaterialType, Record<RarityName, ImageSourcePropType>> = {
     Superior:  require("@/assets/images/materials/leather_superior.png"),
     Cosmic:    require("@/assets/images/materials/leather_cosmic.png"),
   },
+  RubyShard: {
+    Common:    require("@/assets/images/materials/ore_common.png"),
+    Uncommon:  require("@/assets/images/materials/ore_uncommon.png"),
+    Rare:      require("@/assets/images/materials/ore_rare.png"),
+    Epic:      require("@/assets/images/materials/ore_epic.png"),
+    Elite:     require("@/assets/images/materials/ore_elite.png"),
+    Legendary: require("@/assets/images/materials/ore_legendary.png"),
+    Superior:  require("@/assets/images/materials/ore_superior.png"),
+    Cosmic:    require("@/assets/images/materials/ore_cosmic.png"),
+  },
 };
 
 const RARITY_BORDER_W: Record<RarityName, number> = {

@@ -22,14 +22,21 @@ export function PotionBagModal({ potion, onClose, onConsume, onSellOnAh }: Potio
   const { getActiveBuffMultiplier } = useGame();
   const rc = ITEM_RARITY_COLORS[potion.rarity];
 
-  const typeLabel = potion.type === "Gold" ? "Gold Boost" : potion.type === "XP" ? "XP Boost" : "Cooldown Reduction";
+  const typeLabel =
+    potion.type === "Gold" ? "Gold Boost" :
+    potion.type === "XP" ? "XP Boost" :
+    potion.type === "Energy" ? "Energy Refill" :
+    "Cooldown Reduction";
   const effectDesc = potion.type === "Gold"
     ? `Increases gold gained by ${potion.effectPercent}% for ${potion.durationSeconds}s`
     : potion.type === "XP"
     ? `Increases XP gained by ${potion.effectPercent}% for ${potion.durationSeconds}s`
+    : potion.type === "Energy"
+    ? `Refills ${potion.effectPercent} crafting energy points`
     : `Reduces exploration cooldown by ${potion.effectPercent}% for ${potion.durationSeconds}s`;
 
   const activeBuff = useMemo(() => {
+    if (potion.type === "Energy") return null;
     const multiplier = getActiveBuffMultiplier(potion.type);
     if (multiplier > 1) {
       const pct = Math.round((multiplier - 1) * 100);

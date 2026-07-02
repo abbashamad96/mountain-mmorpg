@@ -13,20 +13,22 @@ import { PotionImage } from "./PotionImage";
 
 // ─── Sort helpers ─────────────────────────────────────────────────────────────
 
-const TYPE_ORDER: PotionType[] = ["Gold", "XP", "Exploration"];
+const TYPE_ORDER: PotionType[] = ["Gold", "XP", "Exploration", "Energy"];
 const RARITY_ORDER = ["Common", "Uncommon", "Rare", "Epic", "Elite", "Legendary"];
 
 const TYPE_COLORS: Record<PotionType, string> = {
   Gold:        "#C9A84C",
   XP:          "#A855F7",
   Exploration: "#22C55E",
+  Energy:      "#3B82F6",
 };
 
-type FantasyVariant = "gold" | "amethyst" | "emerald";
+type FantasyVariant = "gold" | "amethyst" | "emerald" | "sapphire";
 const TYPE_VARIANTS: Record<PotionType, FantasyVariant> = {
   Gold:        "gold",
   XP:          "amethyst",
   Exploration: "emerald",
+  Energy:      "sapphire",
 };
 
 // ─── Stacking ─────────────────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ function buildStacks(potionBag: Potion[]): Record<PotionType, PotionStack[]> {
     if (!map.has(key)) map.set(key, { rep: p, count: 0 });
     map.get(key)!.count++;
   }
-  const result: Record<PotionType, PotionStack[]> = { Gold: [], XP: [], Exploration: [] };
+  const result: Record<PotionType, PotionStack[]> = { Gold: [], XP: [], Exploration: [], Energy: [] };
   for (const stack of map.values()) {
     result[stack.rep.type as PotionType]?.push(stack);
   }

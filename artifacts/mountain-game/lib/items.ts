@@ -7,8 +7,9 @@ export type ItemRarity =
   | "Common" | "Uncommon" | "Rare" | "Epic"
   | "Elite" | "Legendary" | "Superior" | "Cosmic";
 
-export type PotionType = "Gold" | "XP" | "Exploration";
+export type PotionType = "Gold" | "XP" | "Exploration" | "Energy";
 export type PotionRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Elite" | "Legendary";
+export type EnergyStoneRarity = "Uncommon" | "Rare" | "Epic" | "Elite";
 
 export interface ItemStatBlock {
   strength: number;
@@ -292,15 +293,38 @@ export const POTION_NAMES: Record<PotionType, string> = {
   Gold: "Gold Elixir",
   XP: "Experience Elixir",
   Exploration: "Swiftstep Tonic",
+  Energy: "Energy Stone",
 };
 
 export const POTION_ICONS: Record<PotionType, string> = {
   Gold: "💰",
   XP: "⭐",
   Exploration: "⚡",
+  Energy: "🔋",
+};
+
+// Energy stone refill amounts by [rarity][tier]
+export const ENERGY_STONE_REFILL: Record<EnergyStoneRarity, number[]> = {
+  Uncommon: [1, 2, 3, 4],
+  Rare:     [3, 4, 5, 6],
+  Epic:     [5, 6, 7, 8],
+  Elite:    [7, 8, 9, 10],
 };
 
 export function generatePotion(type: PotionType, rarity: PotionRarity, tier: ItemTier): Potion {
+  if (type === "Energy") {
+    const stoneRarity = rarity as EnergyStoneRarity;
+    const refill = ENERGY_STONE_REFILL[stoneRarity]?.[tier] ?? 1;
+    return {
+      id: `potion-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      type,
+      rarity,
+      tier,
+      effectPercent: refill,
+      durationSeconds: 0,
+      tradable: true,
+    };
+  }
   const effects = type === "Exploration" ? EXPLORATION_POTION_EFFECTS[rarity][tier] : GOLD_XP_POTION_EFFECTS[rarity][tier];
   return {
     id: `potion-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -314,6 +338,9 @@ export function generatePotion(type: PotionType, rarity: PotionRarity, tier: Ite
 }
 
 export function formatPotionName(potion: Potion): string {
+  if (potion.type === "Energy") {
+    return `T${potion.tier} ${potion.rarity} Energy Stone`;
+  }
   return `T${potion.tier} ${potion.rarity} ${POTION_NAMES[potion.type]}`;
 }
 
@@ -334,6 +361,13 @@ export function rollPotionDrop(chestRarity: ItemRarity, chestTier: ItemTier): Po
   const rarity = rollPotionRarity(chestRarity, chestTier);
   const tier = rollItemTier(chestTier);
   return generatePotion(type, rarity, tier);
+}
+
+export function rollEnergyStoneDrop(chestRarity: ItemRarity, chestTier: ItemTier): Potion {
+  const rarities: EnergyStoneRarity[] = ["Uncommon", "Rare", "Epic", "Elite"];
+  const rarity = rarities[Math.floor(Math.random() * rarities.length)];
+  const tier = rollItemTier(chestTier);
+  return generatePotion("Energy", rarity as PotionRarity, tier);
 }
 
 // ─── Drop Tables ──────────────────────────────────────────────────────────────
@@ -416,12 +450,19 @@ export function rollExplorationChest(rarity: ItemRarity, tier: ItemTier): ItemCh
 }
 
 export function openChest(chest: ItemChest): ChestDrop {
+  // Tools are handled separately by ChestOpenModal (1% chance)
+  // Remaining 99%: 10% potion, 1% energy stone, 88% equipment
+  const roll = Math.random() * 99;
+  if (roll < 10) {
+    return rollPotionDrop(chest.rarity, chest.tier);
+  }
+  if (roll < 11) {
+    return rollEnergyStoneDrop(chest.rarity, chest.tier);
+  }
+  // 88% equipment
   const itemRarity = rollItemRarityFromMonster(chest.rarity, chest.tier);
   const itemTier   = rollItemTier(chest.tier);
   const quality    = rollItemQuality();
   const slot       = ITEM_SLOTS[Math.floor(Math.random() * ITEM_SLOTS.length)];
-  const item = generateItem(slot, itemRarity, itemTier, quality);
-  const potion = rollPotionDrop(chest.rarity, chest.tier);
-  // 25% chance for potion, 75% chance for equipment
-  return Math.random() < 0.25 ? potion : item;
+  return generateItem(slot, itemRarity, itemTier, quality);
 }

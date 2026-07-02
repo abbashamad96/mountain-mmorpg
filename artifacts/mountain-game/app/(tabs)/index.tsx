@@ -1321,7 +1321,9 @@ export default function GameScreen() {
       setGatherMaterial(roll.material);
       // Tool determines node count for this event
       const matchedTool =
-        char.equippedTools[MATERIAL_TO_TOOL[roll.material.type]];
+        roll.material.type === "RubyShard"
+          ? null
+          : char.equippedTools[MATERIAL_TO_TOOL[roll.material.type]];
       let computedAttempts: number;
       if (matchedTool) {
         const base =
@@ -1842,7 +1844,7 @@ export default function GameScreen() {
           <View style={{ position: "relative", width: 52, height: 52 }}>
             <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
           </View>
-          <View style={[styles.exploreBtnWrap, { flex: 1 }]}>
+          <View style={[styles.exploreBtnWrap, { width: "60%" }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.exploreBtn,
@@ -2008,8 +2010,7 @@ export default function GameScreen() {
             );
           }}
           onSalvageItem={(item) => {
-            addItemToBag(item);
-            salvageItem(item.id);
+            salvageItem(item.id, item);
             pushToast(`Salvaged ${formatItemName(item)}`, false);
             addLogEntry({
               id: `c-${Date.now()}`,
@@ -2029,8 +2030,7 @@ export default function GameScreen() {
             );
           }}
           onSellItemToNpc={(item) => {
-            addItemToBag(item);
-            sellItemToNpc(item.id);
+            sellItemToNpc(item.id, item);
             pushToast(`Sold ${formatItemName(item)} to NPC`, false);
             addLogEntry({
               id: `c-${Date.now()}`,
@@ -2115,7 +2115,7 @@ export default function GameScreen() {
         totalAttempts={gatherAttempts}
         xpToNext={char.xpToNext}
         equippedTool={
-          gatherMaterial
+          gatherMaterial && gatherMaterial.type !== "RubyShard"
             ? (char.equippedTools[MATERIAL_TO_TOOL[gatherMaterial.type]] ??
               null)
             : null
@@ -2310,7 +2310,7 @@ const styles = StyleSheet.create({
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
   bottomFixed: { flexShrink: 0, alignItems: "center" },
-  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 6, height: 180, flexShrink: 0, alignSelf: "stretch" },
+  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 0, height: 180, flexShrink: 0, alignSelf: "stretch", marginTop: -10 },
   scrollBody: { flex: 1 },
   scrollContent: { paddingBottom: 12 },
 

@@ -4,7 +4,7 @@ import {
   GameItem, ItemSlot, ItemStatBlock, ItemChest, ItemTier,
   Potion, ChestDrop,
   sumItemStats, sumPercentStats,
-  rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest, rollPotionDrop,
+  rollItemDropFromMonster, rollChestFromMonster, rollExplorationChest, rollPotionDrop, rollEnergyStoneDrop,
 } from "@/lib/items";
 import { GatheringTool, ToolType, rollToolDrop } from "@/lib/tools";
 import {
@@ -22,7 +22,7 @@ export type { GameItem, ItemSlot, ItemStatBlock, ItemChest, Potion, ChestDrop };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type MaterialType = "Ore" | "Wood" | "Herb" | "Leather";
+export type MaterialType = "Ore" | "Wood" | "Herb" | "Leather" | "RubyShard";
 export type RarityName =
   | "Common" | "Uncommon" | "Rare" | "Epic"
   | "Elite" | "Legendary" | "Superior" | "Cosmic";
@@ -307,14 +307,17 @@ export function rollNpcDrop(npc: NpcBattleStats): NpcDropResult {
   const materialChance = npc.version === 3 ? 45 : 40;
 
   if (r < 10) {
-    // 10% item/potion/tool drop — 25% potion, 74% equipment, 1% tool
+    // 10% drop: 88% equipment, 1% tool, 1% energy stone, 10% potion
     const roll = Math.random() * 100;
-    if (roll < 25) {
+    if (roll < 10) {
       const potion = rollPotionDrop(npc.rarity, npc.version as ItemTier);
       return { type: "potion", potion };
-    } else if (roll < 26) {
+    } else if (roll < 11) {
       const tool = rollToolDrop(npc.rarity, npc.version as ItemTier);
       return { type: "tool", tool };
+    } else if (roll < 12) {
+      const potion = rollEnergyStoneDrop(npc.rarity, npc.version as ItemTier);
+      return { type: "potion", potion };
     } else {
       const item = rollItemDropFromMonster(npc.rarity, npc.version as ItemTier);
       return { type: "item", item };
@@ -459,11 +462,15 @@ export function rollEvent(char: Character): EventRoll {
   }
 
   if (type === "gather") {
-    const mat: Material = {
-      type: MATERIAL_TYPES[Math.floor(Math.random() * 4)],
-      rarity: rollRarity(),
-      version: rollVersion(),
-    };
+    // 5% chance for Ruby Shard event during Ore gathering
+    const isRubyEvent = Math.random() < 0.05;
+    const mat: Material = isRubyEvent
+      ? { type: "RubyShard", rarity: "Epic", version: 0 }
+      : {
+          type: MATERIAL_TYPES[Math.floor(Math.random() * 4)],
+          rarity: rollRarity(),
+          version: rollVersion(),
+        };
     const attempts = 1 + Math.floor(Math.random() * 3);
     const scene = GATHER_SCENES[Math.floor(Math.random() * GATHER_SCENES.length)];
     return {
@@ -564,8 +571,8 @@ interface GameContextType {
   equipGatheringTool: (tool: GatheringTool) => void;
   unequipGatheringTool: (type: ToolType) => void;
   craftItem: (rarity: RarityName, tier: VersionNum) => CraftResult | null;
-  salvageItem: (itemId: string) => SalvageResult | null;
-  sellItemToNpc: (itemId: string) => number | null;
+  salvageItem: (itemId: string, directItem?: GameItem) => SalvageResult | null;
+  sellItemToNpc: (itemId: string, directItem?: GameItem) => number | null;
   startCraftingJob: (rarity: RarityName, tier: VersionNum, allocation: Record<string, number>, quantity?: number) => boolean;
   collectCraftBatch: (batchId: string) => CraftResult[];
   regenCraftingEnergy: () => void;
@@ -574,6 +581,7 @@ interface GameContextType {
   incrementEnemiesDefeated: () => void;
   purchaseEnergyWithRubies: () => boolean;
   purchaseEnergyLimitExtender: () => boolean;
+  convertRubyShards: () => { success: boolean; rubiesGained: number; shardsConsumed: number };
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -836,9 +844,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
-  const salvageItem = useCallback((itemId: string): SalvageResult | null => {
+  const salvageItem = useCallback((itemId: string, directItem?: GameItem): SalvageResult | null => {
     const char = stateRef.current.character;
-    const item = char.itemBag.find((i) => i.id === itemId);
+    const item = directItem ?? char.itemBag.find((i) => i.id === itemId);
     if (!item) return null;
 
     const result = rollSalvageYield(item.rarity as any, item.tier as any, char.salvagingSkill.level);
@@ -984,9 +992,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return results;
   }, []);
 
-  const sellItemToNpc = useCallback((itemId: string): number | null => {
+  const sellItemToNpc = useCallback((itemId: string, directItem?: GameItem): number | null => {
     const char = stateRef.current.character;
-    const item = char.itemBag.find((i) => i.id === itemId);
+    const item = directItem ?? char.itemBag.find((i) => i.id === itemId);
     if (!item) return null;
 
     const gold = SALVAGE_NPC_PRICES[item.rarity as keyof typeof SALVAGE_NPC_PRICES] ?? 1000;
@@ -1014,13 +1022,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const consumePotion = useCallback((potion: Potion) => {
     const now = Date.now();
-    const expiresAt = now + potion.durationSeconds * 1000;
-    const multiplier = 1 + potion.effectPercent / 100;
     setGameState((prev) => {
+      const newPotionBag = prev.character.potionBag.filter((p) => p.id !== potion.id);
+      // Energy stones refill crafting energy instead of applying buffs
+      if (potion.type === "Energy") {
+        const maxEnergy = CRAFTING_MAX_ENERGY + prev.character.energyLimitExtender;
+        const newEnergy = Math.min(maxEnergy, prev.character.craftingEnergy + potion.effectPercent);
+        return {
+          ...prev,
+          character: {
+            ...prev.character,
+            potionBag: newPotionBag,
+            craftingEnergy: newEnergy,
+          },
+        };
+      }
+      const expiresAt = now + potion.durationSeconds * 1000;
+      const multiplier = 1 + potion.effectPercent / 100;
       const existing = prev.character.activeBuffs.find((b) => b.type === potion.type);
       let buffs = prev.character.activeBuffs.filter((b) => b.type !== potion.type);
       if (existing && existing.expiresAt > now) {
-        // Extend existing buff duration
         buffs = [...buffs, { ...existing, expiresAt: Math.max(existing.expiresAt, expiresAt) }];
       } else {
         buffs = [...buffs, { type: potion.type, multiplier, expiresAt }];
@@ -1029,7 +1050,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         character: {
           ...prev.character,
-          potionBag: prev.character.potionBag.filter((p) => p.id !== potion.id),
+          potionBag: newPotionBag,
           activeBuffs: buffs,
         },
       };
@@ -1115,6 +1136,30 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return success;
   }, []);
 
+  const convertRubyShards = useCallback((): { success: boolean; rubiesGained: number; shardsConsumed: number } => {
+    const SHARDS_PER_RUBY = 30;
+    const char = stateRef.current.character;
+    const shardEntry = char.materials.find((e) => e.material.type === "RubyShard");
+    const available = shardEntry?.count ?? 0;
+    const rubiesGained = Math.floor(available / SHARDS_PER_RUBY);
+    if (rubiesGained <= 0) return { success: false, rubiesGained: 0, shardsConsumed: 0 };
+    const shardsConsumed = rubiesGained * SHARDS_PER_RUBY;
+    setGameState((prev) => {
+      const materials = prev.character.materials
+        .map((e) => e.material.type === "RubyShard" ? { ...e, count: e.count - shardsConsumed } : e)
+        .filter((e) => e.count > 0);
+      return {
+        ...prev,
+        character: {
+          ...prev.character,
+          materials,
+          rubies: prev.character.rubies + rubiesGained,
+        },
+      };
+    });
+    return { success: true, rubiesGained, shardsConsumed };
+  }, []);
+
   const loadState = useCallback((state: Partial<GameState>) => {
     if (!state) return;
     const saved = state as GameState;
@@ -1151,7 +1196,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge, purchaseEnergyWithRubies, purchaseEnergyLimitExtender }}
+      value={{ gameState, setScene, applyGoldXp, addMaterials, addMaterialCount, removeMaterial, allocateStat, addLogEntry, incrementEvents, incrementEnemiesDefeated, loadState, resetGameState, equipItem, unequipItem, addItemToBag, removeItemFromBag, addChestToBag, removeChestFromBag, addPotionToBag, removePotionFromBag, consumePotion, getActiveBuffMultiplier, addToolToBag, removeToolFromBag, equipGatheringTool, unequipGatheringTool, craftItem, salvageItem, sellItemToNpc, startCraftingJob, collectCraftBatch, regenCraftingEnergy, checkCraftingJobs, useSweepCharge, purchaseEnergyWithRubies, purchaseEnergyLimitExtender, convertRubyShards }}
     >
       {children}
     </GameContext.Provider>

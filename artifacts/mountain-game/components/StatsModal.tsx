@@ -69,6 +69,7 @@ const TYPE_ICONS: Record<MaterialType, string> = {
   Wood: "🪵",
   Herb: "🌿",
   Leather: "🔪",
+  RubyShard: "💎",
 };
 
 const TYPE_COLORS: Record<MaterialType, string> = {
@@ -76,6 +77,7 @@ const TYPE_COLORS: Record<MaterialType, string> = {
   Wood: "#A07B3C",
   Herb: "#22C55E",
   Leather: "#CD853F",
+  RubyShard: "#A855F7",
 };
 
 // ─── Item detail modal ────────────────────────────────────────────────────────
@@ -89,10 +91,11 @@ function ItemDetailModal({
   onClose: () => void;
   onListOnAh?: (entry: MaterialEntry) => void;
 }) {
-  const { removeMaterial } = useGame();
+  const { removeMaterial, convertRubyShards } = useGame();
   const { buyOrders, yourId, fillBuyOrder } = useMultiplayer();
   const rc = RARITY_COLORS[entry.material.rarity];
   const vInfo = VERSION_LABELS[entry.material.version] ?? VERSION_LABELS[0];
+  const [sellQty, setSellQty] = useState(1);
 
   const matchingOrders = buyOrders.filter(
     (o) =>
@@ -103,8 +106,13 @@ function ItemDetailModal({
       o.count - o.filled > 0
   );
   const bestOrder = [...matchingOrders].sort((a, b) => b.pricePerUnit - a.pricePerUnit)[0] ?? null;
-  const fillCount = bestOrder ? Math.min(entry.count, bestOrder.count - bestOrder.filled) : 0;
+  const maxFill = bestOrder ? Math.min(entry.count, bestOrder.count - bestOrder.filled) : 0;
+  const fillCount = Math.min(sellQty, maxFill);
   const quickSellGold = bestOrder ? fillCount * bestOrder.pricePerUnit : 0;
+
+  useEffect(() => {
+    setSellQty(1);
+  }, [entry.key]);
 
   const handleQuickSell = () => {
     if (!bestOrder || fillCount <= 0) return;
@@ -150,16 +158,47 @@ function ItemDetailModal({
             </View>
           </View>
 
-          {/* Quick Sell if buy orders exist */}
-          {bestOrder && (
-            <FantasyButton variant="emerald" fullWidth onPress={handleQuickSell}>
+          {/* Ruby Shard conversion */}
+          {entry.material.type === "RubyShard" && entry.count >= 30 && (
+            <FantasyButton variant="amethyst" fullWidth onPress={() => { convertRubyShards(); onClose(); }}>
               <View style={styles.detailBtnStack}>
                 <Text style={styles.quickSellTxt}>
-                  ⚡ QUICK SELL ×{fillCount}  ·  {quickSellGold.toLocaleString()}G
+                  💎 CONVERT {Math.floor(entry.count / 30) * 30} SHARDS → {Math.floor(entry.count / 30)} RUBIES
                 </Text>
-                <Text style={styles.quickSellSub}>Best buy order — {bestOrder.pricePerUnit}G each · by {bestOrder.buyerName}</Text>
+                <Text style={styles.quickSellSub}>30 shards = 1 ruby</Text>
               </View>
             </FantasyButton>
+          )}
+
+          {/* Quick Sell quantity selector */}
+          {bestOrder && (
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                <Pressable
+                  style={[styles.qtyBtn, sellQty <= 1 && styles.qtyBtnDisabled]}
+                  onPress={() => setSellQty((q) => Math.max(1, q - 1))}
+                  disabled={sellQty <= 1}
+                >
+                  <Text style={styles.qtyBtnTxt}>−</Text>
+                </Pressable>
+                <Text style={styles.qtyValue}>×{sellQty}</Text>
+                <Pressable
+                  style={[styles.qtyBtn, sellQty >= entry.count && styles.qtyBtnDisabled]}
+                  onPress={() => setSellQty((q) => Math.min(entry.count, q + 1))}
+                  disabled={sellQty >= entry.count}
+                >
+                  <Text style={styles.qtyBtnTxt}>+</Text>
+                </Pressable>
+              </View>
+              <FantasyButton variant="emerald" fullWidth onPress={handleQuickSell}>
+                <View style={styles.detailBtnStack}>
+                  <Text style={styles.quickSellTxt}>
+                    ⚡ QUICK SELL ×{fillCount}  ·  {quickSellGold.toLocaleString()}G
+                  </Text>
+                  <Text style={styles.quickSellSub}>Best buy order — {bestOrder.pricePerUnit}G each · by {bestOrder.buyerName}</Text>
+                </View>
+              </FantasyButton>
+            </View>
           )}
 
           {/* List on AH */}
@@ -387,7 +426,7 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
   // Group inventory by material type, sort each group by rarity (highest first)
   const groupedInventory = useMemo(() => {
     const groups: Record<MaterialType, MaterialEntry[]> = {
-      Ore: [], Wood: [], Herb: [], Leather: [],
+      Ore: [], Wood: [], Herb: [], Leather: [], RubyShard: [],
     };
     for (const entry of char.materials) {
       groups[entry.material.type]?.push(entry);
@@ -521,7 +560,7 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
               />
             )}
 
-            <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.tabContent} contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
               {totalItems === 0 ? (
                 <View style={styles.emptyInv}>
                   <Text style={styles.emptyInvText}>Your inventory is empty.</Text>
@@ -802,14 +841,12 @@ export function StatsModal({ visible, onClose, defaultTab = "inventory", onListO
             setSelectedChest(null);
           }}
           onSalvageItem={(item) => {
-            addItemToBag(item);
-            salvageItem(item.id);
+            salvageItem(item.id, item);
             removeChestFromBag(selectedChest!.id);
             setSelectedChest(null);
           }}
           onSellItemToNpc={(item) => {
-            addItemToBag(item);
-            sellItemToNpc(item.id);
+            sellItemToNpc(item.id, item);
             removeChestFromBag(selectedChest!.id);
             setSelectedChest(null);
           }}
@@ -1317,6 +1354,16 @@ const styles = StyleSheet.create({
     fontSize: 10, fontFamily: "Inter_400Regular",
     color: "#C8E8D2", textAlign: "center",
   },
+  qtyBtn: {
+    width: 32, height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.game.surfaceAlt,
+    borderWidth: 1, borderColor: Colors.game.border,
+    alignItems: "center", justifyContent: "center",
+  },
+  qtyBtnDisabled: { opacity: 0.35 },
+  qtyBtnTxt: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.game.text },
+  qtyValue: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.game.text, minWidth: 36, textAlign: "center" },
   listAhBtn: {
     backgroundColor: "rgba(201,168,76,0.10)", borderRadius: 12,
     paddingVertical: 11, alignItems: "center",
