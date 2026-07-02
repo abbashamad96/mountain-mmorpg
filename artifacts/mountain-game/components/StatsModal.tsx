@@ -915,6 +915,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 20,
     maxHeight: "90%",
+    flex: 1,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: Colors.game.gold + "55",

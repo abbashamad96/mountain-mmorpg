@@ -176,7 +176,9 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
       const current = prev[type] ?? 0;
       const avail = matByType[type] ?? 0;
       const effectiveMax = Math.floor(avail / quantity);
-      const remaining = needed - totalAllocated;
+      // Compute fresh total from latest state to avoid stale closure
+      const currentTotal = MATERIAL_TYPES.reduce((sum, t) => sum + (prev[t] ?? 0), 0);
+      const remaining = needed - currentTotal;
       let next = current + delta;
       if (delta > 0) {
         next = Math.min(current + delta, current + remaining, effectiveMax);
@@ -186,7 +188,7 @@ export function CraftingModal({ visible, onClose, onListItemOnAh, onListPotionOn
       if (next === current) return prev;
       return { ...prev, [type]: next };
     });
-  }, [matByType, needed, quantity, totalAllocated]);
+  }, [matByType, needed, quantity]);
 
   const handleCraft = () => {
     if (!canCraft) return;

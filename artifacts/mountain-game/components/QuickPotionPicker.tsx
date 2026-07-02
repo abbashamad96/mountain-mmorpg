@@ -139,7 +139,9 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
                         <View style={ss.rowInfo}>
                           <Text style={ss.rowRarity} numberOfLines={1}>{p.rarity}</Text>
                           <Text style={ss.rowDetail} numberOfLines={1}>
-                            T{p.tier} · +{p.effectPercent}% · {Math.floor(p.durationSeconds / 60)}m
+                            {p.type === "Energy"
+                              ? `T${p.tier} · +${p.effectPercent} energy`
+                              : `T${p.tier} · +${p.effectPercent}% · ${Math.floor(p.durationSeconds / 60)}m`}
                           </Text>
                         </View>
 
@@ -223,11 +225,12 @@ const ss = StyleSheet.create({
   // Picker panel
   panel: {
     width: PANEL_WIDTH,
-    maxHeight: 320,
+    maxHeight: 380,
     marginBottom: 10,
+    zIndex: 30,
   },
   scroll: { flex: 1 },
-  scrollContent: { gap: 8 },
+  scrollContent: { gap: 8, paddingBottom: 12 },
 
   // Section
   section: { gap: 4 },

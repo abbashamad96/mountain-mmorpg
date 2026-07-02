@@ -55,13 +55,13 @@ import { ToolImage } from "./ToolImage";
 
 type Tab = "listings" | "orders";
 type Step = "tabs" | "pick" | "price" | "item-price" | "chest-price" | "potion-price" | "tool-price" | "bo-create";
-type FilterType = "All" | MaterialType | "Equipment" | "Chest" | "Potion" | "Tool";
+type FilterType = "All" | MaterialType | "Equipment" | "Chest" | "Potion" | "Tool" | "Energy";
 type SortKey = "price" | "qty" | "time";
 type SortDir = "asc" | "desc";
 
-const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Potion", "Tool", "Ore", "Wood", "Herb", "Leather"];
+const FILTER_TYPES: FilterType[] = ["All", "Equipment", "Chest", "Potion", "Tool", "Energy", "Ore", "Wood", "Herb", "Leather"];
 const MATERIAL_TYPES: MaterialType[] = ["Ore", "Wood", "Herb", "Leather"];
-const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest", "Potion", "Tool"];
+const BO_TYPES: string[] = ["Ore", "Wood", "Herb", "Leather", "Equipment", "Chest", "Potion", "Tool", "Energy"];
 const BO_QUALITIES: ItemQuality[] = ["Basic", "Good", "Excellent"];
 const BO_STAT_PREFS: { key: "strength" | "health" | "defence" | "speed"; label: string; icon: string }[] = [
   { key: "strength", label: "Strength", icon: "⚔" },
@@ -1045,6 +1045,7 @@ export function AuctionHouseModal({ visible, onClose, preSelectedEntry, preSelec
           { key: "Gold",        label: "Gold Potion",        icon: "🪙" },
           { key: "XP",          label: "XP Potion",          icon: "📚" },
           { key: "Exploration", label: "Exploration Potion", icon: "🌟" },
+          { key: "Energy",      label: "Energy Stone",       icon: "⚡" },
         ];
         subs = potSubs.map((s) => ({ ...s, count: potionListings.filter((l) => (l.material as any).potionType === s.key).length }));
       } else if (browseCategory === "Tools") {

@@ -11,6 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
 import { FantasyButton, GemBar } from "@/components/ui";
 import { useGame, getEffectiveStats, CharacterStats, Character, GameState } from "@/context/GameContext";
+import { useMultiplayer } from "@/context/MultiplayerContext";
 import { CRAFTING_MAX_ENERGY, CRAFTING_ENERGY_REGEN_MS } from "@/lib/crafting";
 
 const STAT_CONFIG = [
@@ -27,9 +28,11 @@ interface ProfileModalProps {
 
 function ProfileContent({ char, gameState }: { char: Character; gameState: GameState }) {
   const { allocateStat } = useGame();
+  const { yourId, playerName, logout, saveGameState } = useMultiplayer();
   const effective = getEffectiveStats(char);
   const maxEnergy = CRAFTING_MAX_ENERGY + char.energyLimitExtender;
   const xpPct = char.xpToNext > 0 ? Math.min(1, char.xp / char.xpToNext) : 1;
+  const isLoggedIn = !!yourId;
 
   // Live timer that ticks every second
   const [tick, setTick] = useState(0);
@@ -96,6 +99,24 @@ function ProfileContent({ char, gameState }: { char: Character; gameState: GameS
           <Text style={styles.lifetimeVal}>{gameState.enemiesDefeated.toLocaleString()}</Text>
           <Text style={styles.lifetimeLabel}>Enemies Defeated</Text>
         </View>
+      </View>
+
+      {/* Account */}
+      <View style={styles.accountCard}>
+        <Text style={styles.accountLabel}>ACCOUNT</Text>
+        <View style={styles.accountRow}>
+          <Text style={styles.accountValue}>{isLoggedIn ? (playerName || yourId) : "Guest"}</Text>
+          <Pressable style={styles.accountActionBtn} onPress={() => {
+            saveGameState?.(gameState);
+          }}>
+            <Text style={styles.accountActionTxt}>SAVE</Text>
+          </Pressable>
+        </View>
+        {isLoggedIn && (
+          <Pressable style={[styles.accountActionBtn, styles.logoutBtn]} onPress={logout}>
+            <Text style={[styles.accountActionTxt, { color: Colors.game.red }]}>LOGOUT</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Stat Points */}
@@ -275,5 +296,21 @@ const styles = StyleSheet.create({
     borderColor: Colors.game.border,
   },
   allocBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
+  accountCard: {
+    backgroundColor: Colors.game.surface,
+    borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.game.gold + "22", gap: 8,
+    marginTop: 6,
+  },
+  accountLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.game.textMuted, letterSpacing: 2 },
+  accountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  accountValue: { fontSize: 14, fontFamily: "Inter_700Bold", color: Colors.game.text },
+  accountActionBtn: {
+    borderRadius: 8, borderWidth: 1,
+    borderColor: Colors.game.border,
+    paddingHorizontal: 12, paddingVertical: 5,
+  },
+  logoutBtn: { alignSelf: "flex-start", marginTop: 4 },
+  accountActionTxt: { fontSize: 10, fontFamily: "Inter_700Bold", color: Colors.game.textDim },
   closeBtn: { marginTop: 10 },
 });

@@ -1844,7 +1844,7 @@ export default function GameScreen() {
           <View style={{ position: "relative", width: 52, height: 52 }}>
             <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
           </View>
-          <View style={[styles.exploreBtnWrap, { width: "60%" }]}>
+          <View style={[styles.exploreBtnWrap, { width: "65%" }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.exploreBtn,
@@ -2010,8 +2010,11 @@ export default function GameScreen() {
             );
           }}
           onSalvageItem={(item) => {
-            salvageItem(item.id, item);
-            pushToast(`Salvaged ${formatItemName(item)}`, false);
+            const result = salvageItem(item.id, item);
+            const matsDesc = result && result.totalCount > 0
+              ? result.materials.map(m => `${m.count} ${m.rarity} T${m.tier} ${m.type}`).join(", ")
+              : "nothing";
+            pushToast(`Salvaged ${formatItemName(item)} — got ${matsDesc}`, false);
             addLogEntry({
               id: `c-${Date.now()}`,
               timestamp: Date.now(),
@@ -2030,8 +2033,9 @@ export default function GameScreen() {
             );
           }}
           onSellItemToNpc={(item) => {
-            sellItemToNpc(item.id, item);
-            pushToast(`Sold ${formatItemName(item)} to NPC`, false);
+            const gold = sellItemToNpc(item.id, item);
+            const goldStr = gold ? `${gold.toLocaleString()}G` : "0G";
+            pushToast(`Sold ${formatItemName(item)} to NPC for ${goldStr}`, false);
             addLogEntry({
               id: `c-${Date.now()}`,
               timestamp: Date.now(),
@@ -2310,7 +2314,7 @@ const styles = StyleSheet.create({
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
   bottomFixed: { flexShrink: 0, alignItems: "center" },
-  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 0, height: 180, flexShrink: 0, alignSelf: "stretch", marginTop: -10 },
+  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 0, height: 180, flexShrink: 0, alignSelf: "stretch", marginTop: -110 },
   scrollBody: { flex: 1 },
   scrollContent: { paddingBottom: 12 },
 
