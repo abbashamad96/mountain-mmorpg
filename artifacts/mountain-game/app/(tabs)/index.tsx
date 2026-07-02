@@ -1866,22 +1866,13 @@ export default function GameScreen() {
               <Image
                 source={require("@/assets/ui/banner.png")}
                 style={styles.exploreBtnBanner}
-                resizeMode="contain"
+                resizeMode="stretch"
               />
-              <LinearGradient
-                colors={
-                  isInteracting
-                    ? [Colors.game.surfaceAlt, Colors.game.surface]
-                    : [Colors.game.gold, Colors.game.goldDeep]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.exploreBtnGrad}
-              >
+              <View style={styles.exploreBtnGrad}>
                 <Text style={styles.exploreBtnLabel}>
                   {isInteracting ? "EXPLORING..." : "EXPLORE"}
                 </Text>
-              </LinearGradient>
+              </View>
             </Pressable>
           </View>
         </View>
@@ -2351,8 +2342,8 @@ const styles = StyleSheet.create({
   toastsWrap: { paddingHorizontal: 16, paddingTop: 6, gap: 4 },
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
   bottomFixed: { flexShrink: 0, alignItems: "center" },
-  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 0, height: 180, flexShrink: 0, alignSelf: "stretch", marginTop: -110 },
-  scrollBody: { flex: 1 },
+  sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 0, height: 180, flexShrink: 0, alignSelf: "stretch", marginTop: 0 },
+  scrollBody: { flexGrow: 0, flexShrink: 1, maxHeight: 800 },
   scrollContent: { paddingBottom: 12 },
 
   // ── Explore button at bottom ─────────────────────────────────────────────
@@ -2363,25 +2354,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "visible",
   },
-  exploreBtn: { borderRadius: 16, alignSelf: "stretch" },
+  exploreBtn: { borderRadius: 16, alignSelf: "stretch", position: "relative" },
   exploreBtnPressed: { opacity: 0.85 },
   exploreBtnDisabled: { opacity: 0.5 },
   exploreBtnGrad: {
-    paddingVertical: 16,
+    paddingVertical: 29,
     paddingHorizontal: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 16,
-    overflow: "hidden",
     zIndex: 2,
   },
   exploreBtnBanner: {
     position: "absolute",
-    top: -10,
-    left: -20,
-    right: -20,
-    bottom: -10,
-    height: undefined,
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
     zIndex: 1,
   },
   exploreBtnLabel: {
