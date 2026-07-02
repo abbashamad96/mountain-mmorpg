@@ -29,6 +29,25 @@ const STUD: Record<Gem, string> = {
   ember: Colors.game.emberLight,
 };
 
+/** Very subtle tint for the empty track so the bar shape is visible */
+const TRACK_BG: Record<Gem, string> = {
+  ruby: "rgba(197,48,44,0.18)",
+  sapphire: "rgba(62,127,208,0.18)",
+  emerald: "rgba(63,174,104,0.18)",
+  amethyst: "rgba(139,92,240,0.18)",
+  gold: "rgba(201,168,76,0.18)",
+  ember: "rgba(255,122,60,0.18)",
+};
+
+const TRACK_BORDER: Record<Gem, string> = {
+  ruby: "rgba(197,48,44,0.35)",
+  sapphire: "rgba(62,127,208,0.35)",
+  emerald: "rgba(63,174,104,0.35)",
+  amethyst: "rgba(139,92,240,0.35)",
+  gold: "rgba(201,168,76,0.35)",
+  ember: "rgba(255,122,60,0.35)",
+};
+
 interface Props {
   /** 0..1 */
   progress: number;
@@ -70,7 +89,15 @@ export function GemBar({
   const studSize = height + 4;
 
   const track = (
-    <View style={[styles.track, { height, borderRadius: r }]}>
+    <View style={[
+      styles.track,
+      {
+        height,
+        borderRadius: r,
+        backgroundColor: TRACK_BG[gem],
+        borderColor: TRACK_BORDER[gem],
+      },
+    ]}>
       <Animated.View style={[styles.fillWrap, { borderRadius: r }, fillStyle]}>
         <LinearGradient
           colors={GEM_GRAD[gem]}
@@ -140,9 +167,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   track: {
-    backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
     overflow: "hidden",
     flex: 1,
   },

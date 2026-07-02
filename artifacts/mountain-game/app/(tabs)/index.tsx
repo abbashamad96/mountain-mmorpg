@@ -24,7 +24,6 @@ import { AuctionHouseModal } from "@/components/AuctionHouseModal";
 import { AuthModal } from "@/components/AuthModal";
 import { OfflineOverlay } from "@/components/OfflineOverlay";
 import { BattleDropModal, BattleDrop } from "@/components/BattleDropModal";
-import { ExploreParticles } from "@/components/ExploreParticles";
 import { BattleModal } from "@/components/BattleModal";
 import { ChatModal } from "@/components/ChatModal";
 import { ChestDropModal } from "@/components/ChestDropModal";
@@ -1864,6 +1863,11 @@ export default function GameScreen() {
               disabled={isInteracting}
               testID="scene-press-button"
             >
+              <Image
+                source={require("@/assets/ui/banner.png")}
+                style={styles.exploreBtnBanner}
+                resizeMode="contain"
+              />
               <LinearGradient
                 colors={
                   isInteracting
@@ -1878,7 +1882,6 @@ export default function GameScreen() {
                   {isInteracting ? "EXPLORING..." : "EXPLORE"}
                 </Text>
               </LinearGradient>
-              <ExploreParticles pressed={explorePressed} />
             </Pressable>
           </View>
         </View>
@@ -2370,6 +2373,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 16,
     overflow: "hidden",
+    zIndex: 2,
+  },
+  exploreBtnBanner: {
+    position: "absolute",
+    top: -18,
+    left: -40,
+    right: -40,
+    bottom: -18,
+    zIndex: 1,
   },
   exploreBtnLabel: {
     fontSize: 16,
