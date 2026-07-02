@@ -225,10 +225,25 @@ const ss = StyleSheet.create({
   // Picker panel
   panel: {
     width: PANEL_WIDTH,
-    maxHeight: 380,
+    height: 380,
     marginBottom: 10,
     zIndex: 30,
   },
+  closeBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    zIndex: 40,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.game.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.game.gold + "55",
+  },
+  closeText: { fontSize: 11, color: Colors.game.text },
   scroll: { flex: 1 },
   scrollContent: { gap: 8, paddingBottom: 12 },
 
