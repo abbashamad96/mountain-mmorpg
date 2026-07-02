@@ -1,51 +1,36 @@
-import React, { useEffect } from "react";
-import { StyleSheet, View, ViewStyle } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
-import Colors from "@/constants/colors";
+import React from "react";
+import { View, ViewStyle } from "react-native";
 
 type Gem = "ruby" | "sapphire" | "emerald" | "amethyst" | "gold" | "ember";
 
-const GEM_GRAD: Record<Gem, readonly [string, string, ...string[]]> = {
-  ruby: Colors.grad.ruby,
-  sapphire: Colors.grad.sapphire,
-  emerald: Colors.grad.emerald,
-  amethyst: Colors.grad.amethyst,
-  gold: Colors.grad.gold,
-  ember: Colors.grad.ember,
+/** Bright solid fill colors — highly saturated for maximum visibility */
+const FILL: Record<Gem, string> = {
+  ruby: "#FF5544",
+  sapphire: "#44AAFF",
+  emerald: "#44DD77",
+  amethyst: "#AA66FF",
+  gold: "#FFCC44",
+  ember: "#FF8833",
 };
 
-const STUD: Record<Gem, string> = {
-  ruby: Colors.game.redLight,
-  sapphire: Colors.game.blueLight,
-  emerald: Colors.game.greenLight,
-  amethyst: Colors.game.purpleLight,
-  gold: Colors.game.goldBright,
-  ember: Colors.game.emberLight,
-};
-
-/** Very subtle tint for the empty track so the bar shape is visible */
+/** Light grey empty track — clearly visible on dark backgrounds */
 const TRACK_BG: Record<Gem, string> = {
-  ruby: "rgba(197,48,44,0.18)",
-  sapphire: "rgba(62,127,208,0.18)",
-  emerald: "rgba(63,174,104,0.18)",
-  amethyst: "rgba(139,92,240,0.18)",
-  gold: "rgba(201,168,76,0.18)",
-  ember: "rgba(255,122,60,0.18)",
+  ruby: "#777777",
+  sapphire: "#6A7A8A",
+  emerald: "#6A8A6A",
+  amethyst: "#7A6A8A",
+  gold: "#8A7A5A",
+  ember: "#8A6A5A",
 };
 
+/** Lighter border for bar outline */
 const TRACK_BORDER: Record<Gem, string> = {
-  ruby: "rgba(197,48,44,0.35)",
-  sapphire: "rgba(62,127,208,0.35)",
-  emerald: "rgba(63,174,104,0.35)",
-  amethyst: "rgba(139,92,240,0.35)",
-  gold: "rgba(201,168,76,0.35)",
-  ember: "rgba(255,122,60,0.35)",
+  ruby: "#999999",
+  sapphire: "#8A9AAA",
+  emerald: "#8AAA8A",
+  amethyst: "#9A8AAA",
+  gold: "#AA9A7A",
+  ember: "#AA8A7A",
 };
 
 interface Props {
@@ -55,137 +40,66 @@ interface Props {
   height?: number;
   style?: ViewStyle;
   animated?: boolean;
-  /** show the gold frame + faceted end gems (default true) */
   framed?: boolean;
 }
 
 /**
- * Thin contrast progress bar. No gem shapes at ends by default.
+ * High-contrast progress bar with solid bright fill and light grey empty track.
  */
 export function GemBar({
   progress,
   gem = "gold",
   height = 10,
   style,
-  animated = true,
-  framed = false,
 }: Props) {
   const pct = Math.max(0, Math.min(1, progress));
-  const w = useSharedValue(pct);
-
-  useEffect(() => {
-    if (animated) {
-      w.value = withTiming(pct, { duration: 480, easing: Easing.out(Easing.cubic) });
-    } else {
-      w.value = pct;
-    }
-  }, [pct, animated]);
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${w.value * 100}%`,
-  }));
-
   const r = height / 2;
-  const studSize = height + 4;
-
-  const track = (
-    <View style={[
-      styles.track,
-      {
-        height,
-        borderRadius: r,
-        backgroundColor: TRACK_BG[gem],
-        borderColor: TRACK_BORDER[gem],
-      },
-    ]}>
-      <Animated.View style={[styles.fillWrap, { borderRadius: r }, fillStyle]}>
-        <LinearGradient
-          colors={GEM_GRAD[gem]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: r }]}
-        />
-        {/* glossy top highlight */}
-        <LinearGradient
-          colors={["rgba(255,255,255,0.55)", "rgba(255,255,255,0)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={[styles.gloss, { height: r, borderRadius: r }]}
-        />
-      </Animated.View>
-    </View>
-  );
-
-  if (!framed) {
-    return <View style={[{ borderRadius: r }, style]}>{track}</View>;
-  }
 
   return (
-    <View style={[styles.outer, style]}>
-      <LinearGradient
-        colors={[Colors.game.goldLight, Colors.game.goldDark, Colors.game.goldDeep]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.frame, { borderRadius: r + 2.5 }]}
+    <View style={[{ minHeight: height }, style]}>
+      <View
+        style={{
+          height,
+          borderRadius: r,
+          backgroundColor: TRACK_BG[gem],
+          borderWidth: 1.5,
+          borderColor: TRACK_BORDER[gem],
+          overflow: "hidden",
+          width: "100%",
+        }}
       >
-        {track}
-      </LinearGradient>
-      {/* faceted end gems */}
-      <View
-        style={[
-          styles.stud,
-          {
-            width: studSize,
-            height: studSize,
-            left: -studSize / 2.6,
-            backgroundColor: STUD[gem],
-            transform: [{ translateY: -studSize / 2 }, { rotate: "45deg" }],
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.stud,
-          {
-            width: studSize,
-            height: studSize,
-            right: -studSize / 2.6,
-            backgroundColor: STUD[gem],
-            transform: [{ translateY: -studSize / 2 }, { rotate: "45deg" }],
-          },
-        ]}
-      />
+        <View
+          style={{
+            height: "100%",
+            width: `${pct * 100}%`,
+            backgroundColor: FILL[gem],
+            borderRadius: r,
+          }}
+        />
+        {/* White edge at the fill boundary for clear contrast */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: 1.5,
+            backgroundColor: "rgba(255,255,255,0.65)",
+          }}
+        />
+        {/* Top sheen for depth */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: Math.max(2, r * 0.3),
+            borderRadius: r,
+            backgroundColor: "rgba(255,255,255,0.25)",
+          }}
+        />
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  outer: {
-    justifyContent: "center",
-  },
-  frame: {
-    padding: 2,
-  },
-  track: {
-    borderWidth: 1,
-    overflow: "hidden",
-    flex: 1,
-  },
-  fillWrap: {
-    height: "100%",
-    overflow: "hidden",
-  },
-  gloss: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  stud: {
-    position: "absolute",
-    top: "50%",
-    borderRadius: 2,
-    borderWidth: 1.5,
-    borderColor: Colors.game.goldBright,
-  },
-});
