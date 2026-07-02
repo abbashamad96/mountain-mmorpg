@@ -223,7 +223,7 @@ function ItemDetailModal({
 
 // ─── Batch result modal ──────────────────────────────────────────────────────
 
-function BatchResultModal({
+export function BatchResultModal({
   result,
   onClose,
 }: {

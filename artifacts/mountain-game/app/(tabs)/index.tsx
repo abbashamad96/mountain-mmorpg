@@ -32,7 +32,7 @@ import { ChestOpenModal } from "@/components/ChestOpenModal";
 import { GatheringModal } from "@/components/GatheringModal";
 import { NotificationsModal } from "@/components/NotificationsModal";
 import { SceneView } from "@/components/SceneView";
-import { StatsModal } from "@/components/StatsModal";
+import { StatsModal, BatchResultModal } from "@/components/StatsModal";
 import { ProfileModal } from "@/components/ProfileModal";
 import { ToolShopModal } from "@/components/ToolShopModal";
 import { RubyShopModal } from "@/components/RubyShopModal";
@@ -1078,6 +1078,13 @@ export default function GameScreen() {
   const [showCrafting, setShowCrafting] = useState(false);
   const [showRubyShop, setShowRubyShop] = useState(false);
   const [explorePressed, setExplorePressed] = useState(false);
+  const [singleResult, setSingleResult] = useState<{
+    open: boolean;
+    action: "salvage" | "sell";
+    count: number;
+    totalGold: number;
+    items: { name: string; rarity: string; slot: string; gold?: number; mats?: string }[];
+  } | null>(null);
 
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -2012,9 +2019,20 @@ export default function GameScreen() {
           onSalvageItem={(item) => {
             const result = salvageItem(item.id, item);
             const matsDesc = result && result.totalCount > 0
-              ? result.materials.map(m => `${m.count} ${m.rarity} T${m.tier} ${m.type}`).join(", ")
+              ? result.materials.map(m => `${m.count} ${m.rarity} ${m.type}`).join(", ")
               : "nothing";
-            pushToast(`Salvaged ${formatItemName(item)} — got ${matsDesc}`, false);
+            setSingleResult({
+              open: true,
+              action: "salvage",
+              count: 1,
+              totalGold: 0,
+              items: [{
+                name: formatItemName(item),
+                rarity: item.rarity,
+                slot: item.slot,
+                mats: matsDesc,
+              }],
+            });
             addLogEntry({
               id: `c-${Date.now()}`,
               timestamp: Date.now(),
@@ -2033,9 +2051,19 @@ export default function GameScreen() {
             );
           }}
           onSellItemToNpc={(item) => {
-            const gold = sellItemToNpc(item.id, item);
-            const goldStr = gold ? `${gold.toLocaleString()}G` : "0G";
-            pushToast(`Sold ${formatItemName(item)} to NPC for ${goldStr}`, false);
+            const gold = sellItemToNpc(item.id, item) ?? 0;
+            setSingleResult({
+              open: true,
+              action: "sell",
+              count: 1,
+              totalGold: gold,
+              items: [{
+                name: formatItemName(item),
+                rarity: item.rarity,
+                slot: item.slot,
+                gold,
+              }],
+            });
             addLogEntry({
               id: `c-${Date.now()}`,
               timestamp: Date.now(),
@@ -2074,6 +2102,12 @@ export default function GameScreen() {
               500,
             );
           }}
+        />
+      )}
+      {singleResult && (
+        <BatchResultModal
+          result={singleResult}
+          onClose={() => setSingleResult(null)}
         />
       )}
       <AuthModal
