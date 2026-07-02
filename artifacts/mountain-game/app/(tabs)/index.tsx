@@ -2377,10 +2377,10 @@ const styles = StyleSheet.create({
   },
   exploreBtnBanner: {
     position: "absolute",
-    top: -18,
+    top: -6,
     left: -40,
     right: -40,
-    bottom: -18,
+    bottom: -6,
     zIndex: 1,
   },
   exploreBtnLabel: {
