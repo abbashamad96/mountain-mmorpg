@@ -111,6 +111,7 @@ export function OrnatePanel({
 const styles = StyleSheet.create({
   outer: {
     borderRadius: 18,
+    overflow: "hidden",
   },
   glow: {
     shadowColor: Colors.game.gold,
@@ -122,15 +123,18 @@ const styles = StyleSheet.create({
   frame: {
     borderRadius: 18,
     padding: 2.5,
+    flex: 1,
   },
   bevel: {
     borderRadius: 16,
     padding: 1.5,
+    flex: 1,
   },
   inner: {
     borderRadius: 14.5,
     overflow: "hidden",
     position: "relative",
+    flex: 1,
   },
   topSheen: {
     position: "absolute",
