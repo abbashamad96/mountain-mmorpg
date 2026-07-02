@@ -1077,6 +1077,18 @@ export default function GameScreen() {
   const [showCrafting, setShowCrafting] = useState(false);
   const [showRubyShop, setShowRubyShop] = useState(false);
   const [explorePressed, setExplorePressed] = useState(false);
+  const shineAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shineAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
+        Animated.delay(1200),
+        Animated.timing(shineAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
   const [singleResult, setSingleResult] = useState<{
     open: boolean;
     action: "salvage" | "sell";
@@ -1868,6 +1880,31 @@ export default function GameScreen() {
                 style={styles.exploreBtnBanner}
                 resizeMode="stretch"
               />
+              <View style={styles.shineClip} pointerEvents="none">
+                <Animated.View
+                  style={[
+                    styles.shineStrip,
+                    {
+                      transform: [
+                        {
+                          translateX: shineAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [-160, 420],
+                          }),
+                        },
+                        { rotate: "20deg" },
+                      ],
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.55)", "rgba(255,255,255,0)"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </Animated.View>
+              </View>
               <View style={styles.exploreBtnGrad}>
                 <Text style={styles.exploreBtnLabel}>
                   {isInteracting ? "EXPLORING..." : "EXPLORE"}
@@ -2362,7 +2399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
+    zIndex: 3,
   },
   exploreBtnBanner: {
     position: "absolute",
@@ -2371,6 +2408,22 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     zIndex: 1,
+  },
+  shineClip: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 16,
+    overflow: "hidden",
+    zIndex: 2,
+  },
+  shineStrip: {
+    position: "absolute",
+    top: -20,
+    bottom: -20,
+    width: 60,
   },
   exploreBtnLabel: {
     fontSize: 16,
