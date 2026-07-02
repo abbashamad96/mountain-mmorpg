@@ -13,6 +13,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Platform, View } from "react-native";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GameProvider } from "@/context/GameContext";
@@ -23,11 +24,23 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  return (
+  const content = (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
+
+  if (Platform.OS === "web") {
+    return (
+      <View style={{ flex: 1, alignItems: "center", backgroundColor: "#000" }}>
+        <View style={{ width: "70%", flex: 1 }}>
+          {content}
+        </View>
+      </View>
+    );
+  }
+
+  return content;
 }
 
 export default function RootLayout() {
