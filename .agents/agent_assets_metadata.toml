@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "tSZmKupDxBLE1kaqQkx69"
@@ -708,3 +707,51 @@ id = "X5AT9JZmLihz5xMUBluHT"
 uri = "file://artifacts/mountain-game/assets/ui/divider.png"
 type = "image"
 title = "gold divider flourish"
+
+[[generated]]
+id = "EjKYeB5bnFDxuscueNY5h"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Uncommon.png"
+type = "image"
+title = "Energy stone uncommon"
+
+[[generated]]
+id = "GsqM3ioU1m18IskfG3D0Y"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Rare.png"
+type = "image"
+title = "Energy stone rare"
+
+[[generated]]
+id = "BigCER9Z81oPImPeWJxeO"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Epic.png"
+type = "image"
+title = "Energy stone epic"
+
+[[generated]]
+id = "v3S0IW-I2baXEeHRJsKj1"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Elite.png"
+type = "image"
+title = "Energy stone elite"
+
+[[outputs]]
+id = "4CBJFvXwsNFJDl_BWSZBr"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Uncommon.png"
+type = "image"
+title = "Energy Stone — Uncommon"
+
+[[outputs]]
+id = "SdkDZFV6B96RsntoYir-r"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Rare.png"
+type = "image"
+title = "Energy Stone — Rare"
+
+[[outputs]]
+id = "uRNptK8wJDtSjH4a_EMXZ"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Epic.png"
+type = "image"
+title = "Energy Stone — Epic"
+
+[[outputs]]
+id = "ksqm9-Qco-QfHWIg9FS7y"
+uri = "file://artifacts/mountain-game/assets/splash/Potion_Energy_Elite.png"
+type = "image"
+title = "Energy Stone — Elite"

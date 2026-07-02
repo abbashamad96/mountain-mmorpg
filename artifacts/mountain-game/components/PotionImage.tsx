@@ -30,12 +30,12 @@ const POTION_SPLASH: Record<PotionType, Record<PotionRarity, any>> = {
     Legendary: require("../assets/splash/Potion_Exploration_Legendary.png"),
   },
   Energy: {
-    Common:    require("../assets/splash/Potion_Exploration_Common.png"),
-    Uncommon:  require("../assets/splash/Potion_Exploration_Uncommon.png"),
-    Rare:      require("../assets/splash/Potion_Exploration_Rare.png"),
-    Epic:      require("../assets/splash/Potion_Exploration_Epic.png"),
-    Elite:     require("../assets/splash/Potion_Exploration_Elite.png"),
-    Legendary: require("../assets/splash/Potion_Exploration_Legendary.png"),
+    Common:    require("../assets/splash/Potion_Energy_Uncommon.png"),
+    Uncommon:  require("../assets/splash/Potion_Energy_Uncommon.png"),
+    Rare:      require("../assets/splash/Potion_Energy_Rare.png"),
+    Epic:      require("../assets/splash/Potion_Energy_Epic.png"),
+    Elite:     require("../assets/splash/Potion_Energy_Elite.png"),
+    Legendary: require("../assets/splash/Potion_Energy_Elite.png"),
   },
 };
 
