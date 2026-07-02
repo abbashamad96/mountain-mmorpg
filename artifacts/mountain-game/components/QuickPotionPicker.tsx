@@ -184,9 +184,7 @@ const PANEL_WIDTH = 260;
 const ss = StyleSheet.create({
   // Anchor — absolutely positioned in parent
   anchor: {
-    position: "absolute",
-    bottom: 4,
-    left: 8,
+    position: "relative",
     alignItems: "flex-start",
     zIndex: 20,
   },
@@ -227,6 +225,9 @@ const ss = StyleSheet.create({
 
   // Picker panel
   panel: {
+    position: "absolute",
+    bottom: "100%",
+    left: 0,
     width: PANEL_WIDTH,
     height: 380,
     marginBottom: 10,
