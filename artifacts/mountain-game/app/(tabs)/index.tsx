@@ -1851,7 +1851,7 @@ export default function GameScreen() {
           <View style={{ position: "relative", width: 52, height: 52 }}>
             <QuickPotionPicker potionBag={char.potionBag} onUse={consumePotion} />
           </View>
-          <View style={[styles.exploreBtnWrap, { width: "65%" }]}>
+          <View style={[styles.exploreBtnWrap, { width: "80%" }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.exploreBtn,
@@ -2353,7 +2353,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 12 },
 
   // ── Explore button at bottom ─────────────────────────────────────────────
-  exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, alignSelf: "stretch" },
   exploreBtnWrap: {
     position: "relative",
     alignItems: "center",
