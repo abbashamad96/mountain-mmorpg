@@ -100,6 +100,9 @@ export function QuickPotionPicker({ potionBag, onUse }: QuickPotionPickerProps) 
       {/* ── Picker panel (rendered above button) ── */}
       {open && (
         <OrnatePanel style={ss.panel} padding={8} corners={false}>
+          <Pressable style={ss.closeBtn} onPress={() => setOpen(false)}>
+            <Text style={ss.closeText}>✕</Text>
+          </Pressable>
           <ScrollView
             style={ss.scroll}
             contentContainerStyle={ss.scrollContent}
