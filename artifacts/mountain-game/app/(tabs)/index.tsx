@@ -2343,11 +2343,11 @@ const styles = StyleSheet.create({
   logWrap: { paddingHorizontal: 16, paddingTop: 6 },
   bottomFixed: { flexShrink: 0, alignItems: "center" },
   sceneWrapFixed: { paddingHorizontal: 16, paddingTop: 0, height: 180, flexShrink: 0, alignSelf: "stretch", marginTop: 0 },
-  scrollBody: { flexGrow: 0, flexShrink: 1, maxHeight: 800 },
+  scrollBody: { flexGrow: 0, flexShrink: 1, minHeight: 380, maxHeight: 700 },
   scrollContent: { paddingBottom: 12 },
 
   // ── Explore button at bottom ─────────────────────────────────────────────
-  exploreRow: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, alignSelf: "stretch" },
+  exploreRow: { paddingHorizontal: 16, paddingTop: 32, paddingBottom: 8, alignSelf: "stretch" },
   exploreBtnWrap: {
     position: "relative",
     alignItems: "center",
@@ -2378,6 +2378,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: 3,
     textTransform: "uppercase",
+    marginTop: 4,
   },
 });
 
